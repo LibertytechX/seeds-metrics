@@ -1,0 +1,235 @@
+Nice — I’ve rebuilt the full, **non-technical** final guide with **clear formulas**, all the previously-defined metrics restored, the recalibrated **PAR30 → Overdue >15 days** change applied, thresholds, interpretation notes, and an explicit statement that **every metric + drilldown is exportable** (CSV / PDF / API).
+
+Here’s the complete, build-ready business guide.
+
+---
+
+# Loan Officer Risk & Productivity — Final Recalibrated Guide (Business-Facing, with Formulas)
+
+**Key change:** anywhere you previously saw **PAR30**, read **Overdue >15 days** (the portfolio value of loans overdue by more than 15 days). All formulas that used `par30` now use **overdue15d**.
+
+---
+
+## 1 — Canonical Metrics (Definitions + Formulas + Purpose + Bands)
+
+> Notes: use `clamp01(x)` = keep x between 0 and 1 (i.e., if denominator is zero treat ratio as 0). Percent thresholds are shown in percent.
+
+### 1. FIMR — First-Installment Miss Rate
+
+* **Formula:** `FIMR = firstMiss / disbursed`
+* **What it measures:** proportion of newly disbursed loans whose first installment was missed.
+* **Why it matters:** early indicator of onboarding / KYC / guarantor issues.
+* **Bands:** Green ≤ 3%, Watch 3–6%, Flag > 6%.
+
+---
+
+### 2. D0–6 Slippage (Early Slippage)
+
+* **Formula:** `D0–6 Slippage = dpd1to6Bal / amountDue7d`
+  (If `amountDue7d` = 0 → treat as 0)
+* **What it measures:** portion of the amount due in the next 7 days that is already 1–6 days past due (early leakage).
+* **Why:** early sign of repayment friction or channel loss.
+* **Bands:** Green ≤ 5%, Watch 5–8%, Flag > 8%.
+
+---
+
+### 3. Roll 0–6 → 7–30
+
+* **Formula:** `Roll = movedTo7to30 / prevDpd1to6Bal`
+  (If `prevDpd1to6Bal` = 0 → treat as 0)
+* **What it measures:** share of early delinquency that worsened into 7–30 days past due.
+* **Why:** shows containment failure from early lateness to material delinquency.
+* **Bands:** Green ≤ 25%, Watch 25–35%, Flag > 35%.
+
+---
+
+### 4. FRR — Fees Realization Rate
+
+* **Formula:** `FRR = feesCollected / feesDue`
+* **What it measures:** how much of expected fees are actually collected.
+* **Why:** shortfalls reduce net yield and can indicate officer / system collection issues.
+* **Bands:** interpret lower FRR as negative; used inside Risk Score.
+
+---
+
+### 5. AYR — Adjusted Yield Ratio (recalibrated to Overdue >15 days)
+
+* **Formula (business form):**
+  `AYR = (interestCollected + feesCollected) / overdue15d`
+  — where `overdue15d` = value of loans overdue by more than 15 days.
+  (If `overdue15d` = 0 → treat as a large ratio or handle as defined by business rule; typically mark as “no overdue exposure”.)
+* **Alternative normalized form (preferred for dashboards):**
+  `AYR_normalized = (interestCollected + feesCollected) ÷ (1 + overdue15dRatio)`
+  where `overdue15dRatio = overdue15d / totalPortfolio`
+* **What it measures:** return generated relative to material overdue exposure (>15 days).
+* **Why:** shows economic efficiency while accounting for the pool of problem loans.
+* **Bands:** Flag < 0.30, Watch 0.30–0.49, Green ≥ 0.50. (Pick the exact formula variant your analytics team will use and be consistent.)
+
+---
+
+### 6. DQI — Delinquency Quality Index (0–100)
+
+* **Formula:**
+  `DQI = round(100 * (0.4 * RQ + 0.35 * OTI + 0.25 * (1 - FIMR)) * CP_toggle)`
+  Where:
+
+  * `RQ` = riskScoreNorm (0..1) — normalized risk quality input.
+  * `OTI` = onTimeRate (0..1).
+  * `FIMR` as defined above (0..1).
+  * `CP_toggle` = either `channelPurity` (0..1) if the **DQI×CP toggle is ON**, else `1`.
+* **What it measures:** composite index capturing loan quality and repayment discipline.
+* **Bands:** Flag < 65, Watch 65–74, Green ≥ 75.
+
+---
+
+### 7. Composite Officer Risk Score (0–100)
+
+* **Formula (business readable):**
+
+```
+RiskScore = round(
+  100
+  - 20 * PORR
+  - 15 * FIMR
+  - 10 * Roll
+  - 10 * (waivers / amountDue7d)
+  - 10 * (backdated / entries)
+  - 10 * (reversals / entries)
+  - 10 * (1 - FRR)
+  - 5  * (1 - channelPurity)
+  - 10 * (hadFloatGap ? 1 : 0)
+)
+```
+
+Where:
+
+* `PORR` = portfolio open risk ratio (0..1) — the fraction of portfolio that is risky by your definition.
+
+* `hadFloatGap` is boolean (1 if present, else 0).
+
+* Ratios that divide by `amountDue7d` or `entries` should be defined to return 0 if denominator is zero.
+
+* **What it measures:** single number combining portfolio risk, behavior signals (waivers, backdates, reversals), fee recovery, channel purity, and float integrity.
+
+* **Bands:** Red < 40, Amber 40–59, Watch 60–79, Green ≥ 80.
+
+---
+
+## 2 — All Other Supporting Metrics (should be present & exportable)
+
+* **PORR** (Portfolio Open Risk Ratio): portion of portfolio meeting “open risk” criteria.
+* **channelPurity**: measure (0..1) of how clean the customer acquisition channel is (used optionally in DQI and Risk Score).
+* **waivers / amountDue7d**: waiver volume relative to near-term amounts due (captured in risk score).
+* **backdated / entries** and **reversals / entries**: measure manipulation or corrective actions intensity.
+* **hadFloatGap**: flag whether the officer had a float/settlement gap in the week.
+* **overdue15d**: absolute overdue >15 days value — critical for AYR and PAR reporting.
+* **Overdue15D Volume**: the aggregate monetary volume of loans overdue by more than 15 days (same as overdue15d but named for clarity).
+* **Officer Rank by Yield/Risk**: composite ranking using AYR vs Risk Score (higher AYR and higher Risk Score = better).
+
+> **All of the above must be available for export** (see export section).
+
+---
+
+## 3 — Band Thresholds (Configurable by Ops)
+
+* **FIMR:** Green ≤ 3% | Watch 3–6% | Flag > 6%
+* **D0–6 Slippage:** Green ≤ 5% | Watch 5–8% | Flag > 8%
+* **Roll:** Green ≤ 25% | Watch 25–35% | Flag > 35%
+* **DQI:** Flag < 65 | Watch 65–74 | Green ≥ 75
+* **AYR:** Flag < 0.30 | Watch 0.30–0.49 | Green ≥ 0.50
+* **Risk Score:** Red < 40 | Amber 40–59 | Watch 60–79 | Green ≥ 80
+
+*(All thresholds editable by administrators; changes should be recorded in an audit log.)*
+
+---
+
+## 4 — Dashboard & Reporting Requirements (Business Statements)
+
+1. **All metrics and drilldowns are exportable:**
+
+   * Every dashboard tile, table, and drilldown must support exporting the current view/filters to **CSV** (for analysis) and **PDF** (for management).
+   * Exports must include: timestamp, applied filters, metric definitions (short text), and the values.
+
+2. **Key Dashboards (business view):**
+
+   * **Credit Health Overview:** PAR30 trend (now Overdue >15 days), Overdue 15D Volume, top moves in FIMR/D0–6/Roll.
+   * **Officer Performance:** Officer Rank by Yield/Risk, leaderboard, filterable by time/branch/region.
+   * **Economic Efficiency vs Risk:** Visual that compares AYR vs Overdue15D exposure (bubbles or scatterplot); include tooltip text explaining:
+     *“This chart shows how effectively officers generate returns while managing loans overdue more than 15 days.”*
+   * **Alert Center:** Top N worst Risk Scores with quick actions (audit, request freeze).
+   * **Metric Tracker:** Tabbed view for FIMR / Slippage / Roll / DQI / AYR / Risk, default showing Flag items (optionally include Watch). Each tracker row must have status, notes, and export.
+
+3. **Drilldowns:**
+
+   * Every metric tile links to a **loan-level list** showing the loans that contributed to the metric. Loan lists are filterable (officer, branch, band, min/max amount) and exportable.
+
+4. **Trends & Snapshots:**
+
+   * Weekly time series for RiskScore, FIMR, Slippage, Roll, DQI, and AYR.
+   * Snapshot view for the latest week sorted by Risk Score, with band chips.
+
+5. **Officer Rank by Yield/Risk:**
+
+   * Rank algorithm should be a business-defined weighted composite (e.g., 60% Risk Score rank, 40% AYR rank) — pick weights in governance and document them. Export ranking with component values.
+
+---
+
+## 5 — Governance & Interpretation Guidance (Business Rules)
+
+* **Consistency:** Use the exact same formula definitions across analytics and dashboards to avoid metric drift. Document canonical formulas and example computations.
+* **Handling zero denominators:** Business rule: when denominators are zero (e.g., no overdue15d), document a consistent behavior (either show “No exposure” / N/A or treat ratio as 0 according to the stakeholder preference).
+* **DQI × CP toggle:** By default **ON** (i.e., multiply by channel purity). Admins can toggle off for scenario analysis. Toggling must be auditable.
+* **Tracker inclusion:** Default the Metric Tracker to show **Flag** items only. Make inclusion of **Watch** a configurable feature flag.
+* **Review cadence:**
+
+  * Weekly officer review for any flags.
+  * Monthly threshold calibration and quarterly policy review.
+* **Escalation rules:** Define who can perform audit and freeze actions (supervisors), who can request audits (ops), and who adjusts thresholds (admins).
+
+---
+
+## 6 — Exports & Auditability (Business Requirements)
+
+* **All metrics, tables, leaderboards, and drilldowns must be exportable** with current filters included. Exports must contain: column headers, metric definition snippet, filters, and generation timestamp.
+* **Audit trail:** Changes to thresholds, toggles (DQI×CP, include Watch), and tracker status updates must be recorded (user, time, old value → new value, reason).
+* **Export retention:** Keep an index in the app or logs to show when and by whom exports were made for compliance.
+
+---
+
+## 7 — Example Business Use Cases (How Ops will use it)
+
+* **Use case 1 — Weekly Risk Sweep:** Ops runs Alert Center, exports top 20 flagged officers, assigns audits in Metric Tracker, and opens freeze-cash requests for the worst offenders.
+* **Use case 2 — Reward vs Risk:** Product & Sales use Officer Rank By Yield/Risk to identify high-yield low-risk officers for incentives. Exports support commission calculations.
+* **Use case 3 — Trend Investigation:** Risk team inspects rising Roll rates; drills down to loans, exports CSVs for manual collection outreach or litigation referral.
+* **Use case 4 — Quarterly Calibration:** Risk leadership exports historical AYR vs Overdue15D trend, adjusts thresholds and toggles, and records rationale in governance notes.
+
+---
+
+## 8 — Acceptance Criteria (Business Checklist)
+
+* [ ] All formula definitions match those in this guide and are published in a canonical place.
+* [ ] Every metric (FIMR, D0–6 Slippage, Roll, FRR, AYR, DQI, Risk Score, PORR, Overdue15D Volume, Officer Rank by Yield/Risk) is present on dashboards.
+* [ ] Each metric and all drilldown lists are exportable (CSV/PDF) with filters & definitions included.
+* [ ] DQI×CP toggle and “Include Watch” toggle for tracker exist and are auditable.
+* [ ] Alert Center surfaces top-N worst Risk Scores; Metric Tracker supports full status lifecycle and optimistic updates.
+* [ ] Documentation includes example computations for each metric (edge cases included).
+* [ ] Governance rules for denominator=0 cases and threshold edits are recorded.
+
+---
+
+## 9 — Final Notes & Next Steps (Business Owner Actions)
+
+1. **Confirm the AYR variant** you want (direct division by overdue15d vs normalized by portfolio ratio). I recommended the normalized form for comparability across officer sizes — pick one and lock it into governance.
+2. **Decide DQI×CP default** (recommended ON).
+3. **Confirm export retention and audit retention windows** (e.g., keep export log 12–24 months).
+4. **Create canonical example fixtures**: for each metric include 3-5 worked examples (normal case, zero denominator case, extreme case). This reduces drift in build.
+5. **Set who can change thresholds** (admin role) and how changes are approved (e.g., change → 24-hour lock → live).
+
+---
+
+If you want, I’ll now:
+
+* produce **worked example calculations** (3 examples per metric) using sample numbers so engineers and testers can validate; **or**
+* draft the **small, printable one-page cheat sheet** for Ops that lists every metric, formula, band and the exact text to show on dashboards and exports.
+
+Which would you prefer next?
