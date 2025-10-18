@@ -2,9 +2,20 @@ import { useState } from 'react';
 import { Header } from './components/Header';
 import { KPIStrip } from './components/KPIStrip';
 import { DataTables } from './components/DataTables';
+import FIMRDrilldown from './components/FIMRDrilldown';
+import EarlyIndicatorsDrilldown from './components/EarlyIndicatorsDrilldown';
+import AgentPerformance from './components/AgentPerformance';
+import CreditHealthByBranch from './components/CreditHealthByBranch';
 import { TabHeader } from './components/Tooltip';
 import { formatTabTooltip } from './utils/metricInfo';
-import { mockOfficers, mockPortfolioMetrics } from './utils/mockData';
+import {
+  mockOfficers,
+  mockPortfolioMetrics,
+  mockFIMRLoans,
+  mockEarlyIndicatorLoans,
+  mockAgentPerformance,
+  mockBranchData
+} from './utils/mockData';
 import './App.css';
 
 function App() {
@@ -82,10 +93,64 @@ function App() {
               info={formatTabTooltip('earlyIndicators')}
             />
           </button>
+          <button
+            className={`tab ${activeTab === 'fimrDrilldown' ? 'active' : ''}`}
+            onClick={() => setActiveTab('fimrDrilldown')}
+            title={formatTabTooltip('fimrDrilldown')}
+          >
+            <TabHeader
+              label="FIMR Drilldown"
+              tabKey="fimrDrilldown"
+              info={formatTabTooltip('fimrDrilldown')}
+            />
+          </button>
+          <button
+            className={`tab ${activeTab === 'earlyIndicatorsDrilldown' ? 'active' : ''}`}
+            onClick={() => setActiveTab('earlyIndicatorsDrilldown')}
+            title={formatTabTooltip('earlyIndicatorsDrilldown')}
+          >
+            <TabHeader
+              label="Early Indicators Drilldown"
+              tabKey="earlyIndicatorsDrilldown"
+              info={formatTabTooltip('earlyIndicatorsDrilldown')}
+            />
+          </button>
+          <button
+            className={`tab ${activeTab === 'agentPerformance' ? 'active' : ''}`}
+            onClick={() => setActiveTab('agentPerformance')}
+            title={formatTabTooltip('agentPerformance')}
+          >
+            <TabHeader
+              label="Agent Performance"
+              tabKey="agentPerformance"
+              info={formatTabTooltip('agentPerformance')}
+            />
+          </button>
+          <button
+            className={`tab ${activeTab === 'creditHealthByBranch' ? 'active' : ''}`}
+            onClick={() => setActiveTab('creditHealthByBranch')}
+            title="Credit Health Overview aggregated by Branch"
+          >
+            <TabHeader
+              label="Credit Health by Branch"
+              tabKey="creditHealthByBranch"
+              info="Credit Health Overview aggregated by Branch"
+            />
+          </button>
         </div>
 
         <div className="tab-content">
-          <DataTables officers={filteredOfficers} activeTab={activeTab} />
+          {activeTab === 'fimrDrilldown' ? (
+            <FIMRDrilldown loans={mockFIMRLoans} />
+          ) : activeTab === 'earlyIndicatorsDrilldown' ? (
+            <EarlyIndicatorsDrilldown loans={mockEarlyIndicatorLoans} />
+          ) : activeTab === 'agentPerformance' ? (
+            <AgentPerformance agents={mockAgentPerformance} />
+          ) : activeTab === 'creditHealthByBranch' ? (
+            <CreditHealthByBranch branches={mockBranchData} />
+          ) : (
+            <DataTables officers={filteredOfficers} activeTab={activeTab} />
+          )}
         </div>
       </div>
     </div>

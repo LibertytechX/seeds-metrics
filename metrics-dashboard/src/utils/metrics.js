@@ -44,15 +44,15 @@ export const calculateFRR = (feesCollected, feesDue) => {
 };
 
 /**
- * AYR - Adjusted Yield Ratio (normalized form)
- * Formula: AYR_normalized = (interestCollected + feesCollected) / (1 + overdue15dRatio)
- * where overdue15dRatio = overdue15d / totalPortfolio
+ * AYR - Adjusted Yield Ratio
+ * Formula: AYR = (Interest + Fees realized-to-date on officer's book in month) ÷ (PAR15 exposure at half month)
+ * where:
+ * - Numerator: Interest + Fees collected in the current month for the officer's portfolio
+ * - Denominator: PAR15 (Portfolio at Risk >15 days) exposure measured at mid-month
  */
-export const calculateAYR = (interestCollected, feesCollected, overdue15d, totalPortfolio) => {
+export const calculateAYR = (interestCollected, feesCollected, par15MidMonth) => {
   const numerator = interestCollected + feesCollected;
-  if (totalPortfolio === 0) return 0;
-  const overdue15dRatio = overdue15d / totalPortfolio;
-  return numerator / (1 + overdue15dRatio);
+  return safeDivide(numerator, par15MidMonth, 0);
 };
 
 /**
@@ -64,7 +64,7 @@ export const calculateDQI = (riskScoreNorm, onTimeRate, fimr, channelPurity, cpT
   const oti = clamp01(onTimeRate);
   const fimrClamped = clamp01(fimr);
   const cp = cpToggle ? clamp01(channelPurity) : 1;
-  
+
   const dqi = 100 * (0.4 * rq + 0.35 * oti + 0.25 * (1 - fimrClamped)) * cp;
   return Math.round(dqi);
 };

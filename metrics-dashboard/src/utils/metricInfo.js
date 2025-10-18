@@ -65,16 +65,16 @@ export const metricInfo = {
   ayr: {
     name: 'AYR',
     fullName: 'Adjusted Yield Ratio',
-    description: 'Return generated relative to material overdue exposure (>15 days).',
-    formula: 'AYR = (interestCollected + feesCollected) / (1 + overdue15dRatio)',
-    whatItMeasures: 'Economic efficiency while accounting for problem loans.',
+    description: 'Return generated relative to PAR15 exposure at mid-month.',
+    formula: 'AYR = (Interest + Fees realized-to-date in month) ÷ (PAR15 exposure at half month)',
+    whatItMeasures: 'Economic efficiency of revenue generation relative to portfolio at risk.',
     bands: {
       flag: '< 0.30',
       watch: '0.30 - 0.49',
       green: '≥ 0.50',
     },
-    interpretation: 'Higher is better. Shows return generation relative to overdue exposure.',
-    example: 'If ₦2.55M collected and 2.4% of portfolio is overdue >15 days, AYR ≈ 0.58',
+    interpretation: 'Higher is better. Shows monthly revenue generation relative to mid-month PAR15 exposure.',
+    example: 'If ₦2.5M collected this month and PAR15 at mid-month is ₦5M, AYR = 0.50',
   },
 
   dqi: {
@@ -195,6 +195,27 @@ export const tabInfo = {
     metrics: ['FIMR', 'D0-6 Slippage', 'Roll', 'FRR', 'Channel Purity'],
     purpose: 'Detect early signs of problems before they become material.',
   },
+
+  fimrDrilldown: {
+    name: 'FIMR Drilldown',
+    description: 'Loan-level details of all loans that missed their first installment payment.',
+    metrics: ['Loan ID', 'Officer', 'Customer', 'Disbursement Date', 'Days Since Due', 'Outstanding Balance'],
+    purpose: 'Investigate individual FIMR cases for collection outreach and root cause analysis.',
+  },
+
+  earlyIndicatorsDrilldown: {
+    name: 'Early Indicators Drilldown',
+    description: 'Loan-level details of loans in early delinquency (D0-6) or that have rolled to D7-30.',
+    metrics: ['Loan ID', 'Current DPD', 'Previous DPD Status', 'Roll Direction', 'Amount Due', 'Outstanding Balance'],
+    purpose: 'Monitor early warning signals and identify loans at risk of further delinquency before they become material.',
+  },
+
+  agentPerformance: {
+    name: 'Agent Performance',
+    description: 'Comprehensive officer-level performance metrics showing all key indicators in one view.',
+    metrics: ['Risk Score', 'AYR', 'DQI', 'FIMR', 'D0-6 Slippage', 'Roll', 'FRR', 'Portfolio Total', 'Overdue >15D'],
+    purpose: 'Compare officer performance across all metrics and identify top performers and high-risk officers.',
+  },
 };
 
 /**
@@ -218,6 +239,12 @@ export const formatMetricTooltip = (metricKey) => {
   const info = getMetricInfo(metricKey);
   if (!info) return null;
 
+  const bandsText = info.bands
+    ? Object.entries(info.bands)
+        .map(([key, value]) => `${key.charAt(0).toUpperCase() + key.slice(1)}: ${value}`)
+        .join(' | ')
+    : '';
+
   return `
 ${info.fullName}
 
@@ -225,9 +252,7 @@ ${info.description}
 
 Formula: ${info.formula}
 
-Bands: ${Object.entries(info.bands)
-    .map(([key, value]) => `${key.charAt(0).toUpperCase() + key.slice(1)}: ${value}`)
-    .join(' | ')}
+${bandsText ? `Bands: ${bandsText}` : ''}
 
 ${info.interpretation}
   `.trim();

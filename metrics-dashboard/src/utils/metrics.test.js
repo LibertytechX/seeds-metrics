@@ -49,13 +49,18 @@ describe('Metrics Calculations', () => {
 
   describe('calculateAYR', () => {
     test('should calculate AYR correctly', () => {
-      const ayr = calculateAYR(2100000, 450000, 1200000, 50000000);
-      expect(ayr).toBeGreaterThan(0);
-      expect(ayr).toBeLessThan(1);
+      // AYR = (Interest + Fees) / PAR15 at mid-month
+      const ayr = calculateAYR(2100000, 450000, 4500000);
+      expect(ayr).toBeCloseTo(0.567, 2); // (2100000 + 450000) / 4500000 = 0.567
     });
 
-    test('should handle zero portfolio', () => {
-      expect(calculateAYR(2100000, 450000, 1200000, 0)).toBe(0);
+    test('should handle zero PAR15', () => {
+      expect(calculateAYR(2100000, 450000, 0)).toBe(0);
+    });
+
+    test('should calculate AYR with different values', () => {
+      const ayr = calculateAYR(1500000, 320000, 6200000);
+      expect(ayr).toBeCloseTo(0.294, 2); // (1500000 + 320000) / 6200000 = 0.294
     });
   });
 
