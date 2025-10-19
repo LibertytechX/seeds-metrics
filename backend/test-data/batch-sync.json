@@ -1,0 +1,103 @@
+{
+  "sync_timestamp": "2024-10-18T14:30:00Z",
+  "sync_type": "incremental",
+  "data": {
+    "loans": [
+      {
+        "loan_id": "LN2024001235",
+        "customer_id": "CUST20240568",
+        "customer_name": "Chioma Nwosu",
+        "customer_phone": "+234-805-123-4567",
+        "officer_id": "OFF2024012",
+        "officer_name": "Sarah Johnson",
+        "officer_phone": "+234-803-987-6543",
+        "region": "South East",
+        "branch": "Enugu Branch",
+        "state": "Enugu",
+        "loan_amount": 750000.00,
+        "disbursement_date": "2024-10-16",
+        "maturity_date": "2025-04-16",
+        "loan_term_days": 180,
+        "interest_rate": 0.1500,
+        "fee_amount": 37500.00,
+        "channel": "Agent",
+        "channel_partner": "Kuda Bank",
+        "status": "Active",
+        "closed_date": null
+      },
+      {
+        "loan_id": "LN2024001236",
+        "customer_id": "CUST20240569",
+        "customer_name": "Ibrahim Musa",
+        "customer_phone": "+234-806-234-5678",
+        "officer_id": "OFF2024013",
+        "officer_name": "Michael Chen",
+        "officer_phone": "+234-804-111-2222",
+        "region": "North Central",
+        "branch": "Abuja Branch",
+        "state": "FCT",
+        "loan_amount": 1000000.00,
+        "disbursement_date": "2024-10-17",
+        "maturity_date": "2025-04-17",
+        "loan_term_days": 180,
+        "interest_rate": 0.1500,
+        "fee_amount": 50000.00,
+        "channel": "Direct",
+        "channel_partner": null,
+        "status": "Active",
+        "closed_date": null
+      }
+    ],
+    "repayments": [
+      {
+        "repayment_id": "REP2024005679",
+        "loan_id": "LN2024001235",
+        "payment_date": "2024-11-02",
+        "payment_amount": 125000.00,
+        "principal_paid": 100000.00,
+        "interest_paid": 18750.00,
+        "fees_paid": 6250.00,
+        "penalty_paid": 0.00,
+        "payment_method": "Card Payment",
+        "payment_reference": "TXN20241102987654",
+        "payment_channel": "Web Portal",
+        "dpd_at_payment": 0,
+        "is_backdated": false,
+        "is_reversed": false,
+        "reversal_date": null,
+        "reversal_reason": null,
+        "waiver_amount": 0.00,
+        "waiver_type": null,
+        "waiver_approved_by": null
+      },
+      {
+        "repayment_id": "REP2024005680",
+        "loan_id": "LN2024001236",
+        "payment_date": "2024-11-03",
+        "payment_amount": 150000.00,
+        "principal_paid": 120000.00,
+        "interest_paid": 22500.00,
+        "fees_paid": 7500.00,
+        "penalty_paid": 0.00,
+        "payment_method": "Bank Transfer",
+        "payment_reference": "TXN20241103456789",
+        "payment_channel": "Mobile App",
+        "dpd_at_payment": 0,
+        "is_backdated": false,
+        "is_reversed": false,
+        "reversal_date": null,
+        "reversal_reason": null,
+        "waiver_amount": 0.00,
+        "waiver_type": null,
+        "waiver_approved_by": null
+      }
+    ]
+  },
+  "metadata": {
+    "total_loans": 2,
+    "total_repayments": 2,
+    "source_system": "main_backend",
+    "etl_version": "1.0.0"
+  }
+}
+

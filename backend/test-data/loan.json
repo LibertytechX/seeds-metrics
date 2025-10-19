@@ -1,0 +1,23 @@
+{
+  "loan_id": "LN2024001234",
+  "customer_id": "CUST20240567",
+  "customer_name": "Adebayo Oluwaseun",
+  "customer_phone": "+234-803-456-7890",
+  "officer_id": "OFF2024012",
+  "officer_name": "Sarah Johnson",
+  "officer_phone": "+234-803-987-6543",
+  "region": "South West",
+  "branch": "Lagos Main",
+  "state": "Lagos",
+  "loan_amount": 500000.00,
+  "disbursement_date": "2024-10-15",
+  "maturity_date": "2025-04-15",
+  "loan_term_days": 180,
+  "interest_rate": 0.1500,
+  "fee_amount": 25000.00,
+  "channel": "Direct",
+  "channel_partner": null,
+  "status": "Active",
+  "closed_date": null
+}
+

@@ -1,0 +1,22 @@
+{
+  "repayment_id": "REP2024005678",
+  "loan_id": "LN2024001234",
+  "payment_date": "2024-11-01",
+  "payment_amount": 100000.00,
+  "principal_paid": 80000.00,
+  "interest_paid": 15000.00,
+  "fees_paid": 5000.00,
+  "penalty_paid": 0.00,
+  "payment_method": "Bank Transfer",
+  "payment_reference": "TXN20241101123456",
+  "payment_channel": "Mobile App",
+  "dpd_at_payment": 0,
+  "is_backdated": false,
+  "is_reversed": false,
+  "reversal_date": null,
+  "reversal_reason": null,
+  "waiver_amount": 0.00,
+  "waiver_type": null,
+  "waiver_approved_by": null
+}
+

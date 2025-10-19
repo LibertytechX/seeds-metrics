@@ -1,0 +1,108 @@
+version: '3.8'
+
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:14-alpine
+    container_name: analytics-postgres
+    environment:
+      POSTGRES_USER: analytics_user
+      POSTGRES_PASSWORD: analytics_password
+      POSTGRES_DB: analytics_db
+    ports:
+      - "5433:5432"  # Changed to 5433 to avoid conflict with local PostgreSQL
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      # Temporarily commented out to speed up startup - will apply migration manually
+      # - ./migrations:/docker-entrypoint-initdb.d
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U analytics_user -d analytics_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - analytics-network
+
+  # Redis Cache
+  redis:
+    image: redis:7-alpine
+    container_name: analytics-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - analytics-network
+
+  # Analytics API Service
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: analytics-api
+    environment:
+      # Server
+      SERVER_PORT: 8080
+      SERVER_HOST: 0.0.0.0
+      GIN_MODE: release
+
+      # Database
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: analytics_user
+      DB_PASSWORD: analytics_password
+      DB_NAME: analytics_db
+      DB_SSLMODE: disable
+      DB_MAX_CONNECTIONS: 25
+      DB_MAX_IDLE_CONNECTIONS: 5
+      DB_CONNECTION_MAX_LIFETIME: 5m
+
+      # Redis
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ""
+      REDIS_DB: 0
+      REDIS_CACHE_TTL: 900
+
+      # CORS
+      CORS_ALLOWED_ORIGINS: "http://localhost:3000,http://localhost:5173"
+      CORS_ALLOWED_METHODS: "GET,POST,PUT,DELETE,OPTIONS"
+      CORS_ALLOWED_HEADERS: "Origin,Content-Type,Accept,Authorization"
+
+      # Logging
+      LOG_LEVEL: info
+      LOG_FORMAT: json
+
+      # ETL
+      ETL_BATCH_SIZE: 1000
+      ETL_WORKER_INTERVAL: 15m
+
+      # Metrics
+      METRICS_CALCULATION_INTERVAL: 30m
+      METRICS_CACHE_ENABLED: "true"
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - analytics-network
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+    driver: local
+  redis_data:
+    driver: local
+
+networks:
+  analytics-network:
+    driver: bridge
+
