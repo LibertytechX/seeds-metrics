@@ -34,7 +34,6 @@ export const Header = ({ filters, onFilterChange, onExport, lastRefresh }) => {
 
       <div className="header-controls">
         <div className="control-group">
-          <label>Date Range</label>
           <select value={filters.dateRange} onChange={handleDateChange}>
             <option value="week">This Week</option>
             <option value="month">This Month</option>
@@ -43,7 +42,6 @@ export const Header = ({ filters, onFilterChange, onExport, lastRefresh }) => {
         </div>
 
         <div className="control-group">
-          <label>Branch</label>
           <select value={filters.branch} onChange={handleBranchChange}>
             <option value="">All Branches</option>
             <option value="Lagos Main">Lagos Main</option>

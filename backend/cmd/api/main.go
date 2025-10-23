@@ -11,6 +11,7 @@ import (
 	"github.com/seeds-metrics/analytics-backend/internal/config"
 	"github.com/seeds-metrics/analytics-backend/internal/handlers"
 	"github.com/seeds-metrics/analytics-backend/internal/repository"
+	"github.com/seeds-metrics/analytics-backend/internal/services"
 	"github.com/seeds-metrics/analytics-backend/pkg/database"
 )
 
@@ -36,13 +37,18 @@ func main() {
 	// Initialize repositories
 	loanRepo := repository.NewLoanRepository(db)
 	repaymentRepo := repository.NewRepaymentRepository(db)
+	dashboardRepo := repository.NewDashboardRepository(db.DB)
+
+	// Initialize services
+	metricsService := services.NewMetricsService()
 
 	// Initialize handlers
 	etlHandler := handlers.NewETLHandler(loanRepo, repaymentRepo)
 	healthHandler := handlers.NewHealthHandler(db)
+	dashboardHandler := handlers.NewDashboardHandler(dashboardRepo, repaymentRepo, metricsService)
 
 	// Setup router
-	router := setupRouter(cfg, etlHandler, healthHandler)
+	router := setupRouter(cfg, etlHandler, healthHandler, dashboardHandler)
 
 	// Start server
 	addr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)
@@ -63,7 +69,7 @@ func main() {
 	log.Println("🛑 Shutting down server...")
 }
 
-func setupRouter(cfg *config.Config, etlHandler *handlers.ETLHandler, healthHandler *handlers.HealthHandler) *gin.Engine {
+func setupRouter(cfg *config.Config, etlHandler *handlers.ETLHandler, healthHandler *handlers.HealthHandler, dashboardHandler *handlers.DashboardHandler) *gin.Engine {
 	router := gin.Default()
 
 	// CORS middleware
@@ -82,6 +88,58 @@ func setupRouter(cfg *config.Config, etlHandler *handlers.ETLHandler, healthHand
 			etl.POST("/repayments", etlHandler.CreateRepayment)
 			etl.POST("/sync", etlHandler.BatchSync)
 		}
+
+		// Portfolio metrics
+		metrics := v1.Group("/metrics")
+		{
+			metrics.GET("/portfolio", dashboardHandler.GetPortfolioMetrics)
+		}
+
+		// Officer endpoints
+		officers := v1.Group("/officers")
+		{
+			officers.GET("", dashboardHandler.GetOfficers)
+			officers.GET("/:officer_id", dashboardHandler.GetOfficerByID)
+			officers.PUT("/:officer_id/audit", dashboardHandler.UpdateOfficerAudit)
+			officers.GET("/:officer_id/audit-history", dashboardHandler.GetOfficerAuditHistory)
+			officers.GET("/:officer_id/top-risk-loans", dashboardHandler.GetTopRiskLoans)
+		}
+
+		// FIMR endpoints
+		fimr := v1.Group("/fimr")
+		{
+			fimr.GET("/loans", dashboardHandler.GetFIMRLoans)
+			fimr.GET("/summary", dashboardHandler.GetFIMRSummary)
+		}
+
+		// Early indicators endpoints
+		earlyIndicators := v1.Group("/early-indicators")
+		{
+			earlyIndicators.GET("/loans", dashboardHandler.GetEarlyIndicatorLoans)
+			earlyIndicators.GET("/summary", dashboardHandler.GetEarlyIndicatorSummary)
+		}
+
+		// Branch endpoints
+		branches := v1.Group("/branches")
+		{
+			branches.GET("", dashboardHandler.GetBranches)
+		}
+
+		// Loans endpoints
+		loans := v1.Group("/loans")
+		{
+			loans.GET("", dashboardHandler.GetAllLoans)
+			loans.GET("/:loan_id/repayments", dashboardHandler.GetLoanRepayments)
+		}
+
+		// Filter endpoints
+		filters := v1.Group("/filters")
+		{
+			filters.GET("/:type", dashboardHandler.GetFilterOptions)
+		}
+
+		// Team management
+		v1.GET("/team-members", dashboardHandler.GetTeamMembers)
 	}
 
 	return router
@@ -102,4 +160,3 @@ func corsMiddleware(cfg *config.Config) gin.HandlerFunc {
 		c.Next()
 	}
 }
-

@@ -147,7 +147,6 @@ const CreditHealthByBranch = ({ branches }) => {
         <div className="filter-panel">
           <div className="filter-row">
             <div className="filter-group">
-              <label>Region</label>
               <select
                 value={filters.region}
                 onChange={(e) => handleFilterChange('region', e.target.value)}
@@ -189,7 +188,7 @@ const CreditHealthByBranch = ({ branches }) => {
                 <td className="amount">{formatCurrency(branch.portfolioTotal)}</td>
                 <td className="amount">{formatCurrency(branch.overdue15d)}</td>
                 <td className="metric">{formatPercent(branch.par15Ratio)}</td>
-                <td className="metric">{formatDecimal(branch.ayr, 2)}</td>
+                <td className="metric">{formatPercent(branch.ayr)}</td>
                 <td className="metric">{formatDecimal(branch.dqi, 0)}</td>
                 <td className="metric">{formatPercent(branch.fimr)}</td>
                 <td className="count">{branch.activeLoans}</td>

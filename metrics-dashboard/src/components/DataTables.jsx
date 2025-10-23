@@ -28,6 +28,15 @@ const OfficerPerformanceTable = ({ officers }) => {
   const sorted = [...officers].sort((a, b) => {
     const aVal = a[sortBy];
     const bVal = b[sortBy];
+
+    // Handle string sorting (for name, region, etc.)
+    if (typeof aVal === 'string' && typeof bVal === 'string') {
+      return sortDir === 'asc'
+        ? aVal.localeCompare(bVal)
+        : bVal.localeCompare(aVal);
+    }
+
+    // Handle numeric sorting
     return sortDir === 'asc' ? aVal - bVal : bVal - aVal;
   });
 
@@ -73,7 +82,7 @@ const OfficerPerformanceTable = ({ officers }) => {
               <tr key={officer.id}>
                 <td>{officer.name}</td>
                 <td>{officer.region}</td>
-                <td>{officer.ayr.toFixed(2)}</td>
+                <td>{(officer.ayr * 100).toFixed(2)}%</td>
                 <td>{officer.dqi}</td>
                 <td>{officer.riskScore}</td>
                 <td>₦{(officer.overdue15dVolume / 1000000).toFixed(1)}M</td>

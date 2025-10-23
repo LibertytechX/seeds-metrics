@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Header } from './components/Header';
 import { KPIStrip } from './components/KPIStrip';
 import { DataTables } from './components/DataTables';
@@ -6,6 +6,7 @@ import FIMRDrilldown from './components/FIMRDrilldown';
 import EarlyIndicatorsDrilldown from './components/EarlyIndicatorsDrilldown';
 import AgentPerformance from './components/AgentPerformance';
 import CreditHealthByBranch from './components/CreditHealthByBranch';
+import AllLoans from './components/AllLoans';
 import { TabHeader } from './components/Tooltip';
 import { formatTabTooltip } from './utils/metricInfo';
 import {
@@ -16,6 +17,7 @@ import {
   mockAgentPerformance,
   mockBranchData
 } from './utils/mockData';
+import apiService from './services/api';
 import './App.css';
 
 function App() {
@@ -28,10 +30,81 @@ function App() {
   });
 
   const [activeTab, setActiveTab] = useState('performance');
-  const [lastRefresh] = useState(new Date());
+  const [lastRefresh, setLastRefresh] = useState(new Date());
+
+  // State for real data from API
+  const [portfolioMetrics, setPortfolioMetrics] = useState(mockPortfolioMetrics);
+  const [officers, setOfficers] = useState(mockOfficers);
+  const [fimrLoans, setFimrLoans] = useState(mockFIMRLoans);
+  const [earlyIndicatorLoans, setEarlyIndicatorLoans] = useState(mockEarlyIndicatorLoans);
+  const [branches, setBranches] = useState(mockBranchData);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [useRealData, setUseRealData] = useState(true); // Toggle between real and mock data
+
+  // Fetch data from API
+  useEffect(() => {
+    const fetchData = async () => {
+      if (!useRealData) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        setError(null);
+
+        console.log('🔄 Fetching data from backend API...');
+
+        // Fetch all data in parallel
+        const [
+          portfolioData,
+          officersData,
+          fimrData,
+          earlyIndicatorData,
+          branchesData,
+        ] = await Promise.all([
+          apiService.fetchPortfolioMetrics(),
+          apiService.fetchOfficers(),
+          apiService.fetchFIMRLoans(),
+          apiService.fetchEarlyIndicatorLoans(),
+          apiService.fetchBranches(),
+        ]);
+
+        console.log('✅ Data fetched successfully:');
+        console.log('  - Portfolio Metrics:', portfolioData);
+        console.log('  - Officers:', officersData.length);
+        console.log('  - FIMR Loans:', fimrData.length);
+        console.log('  - Early Indicator Loans:', earlyIndicatorData.length);
+        console.log('  - Branches:', branchesData.length);
+
+        const transformedOfficers = officersData.map(o => apiService.transformOfficerData(o));
+        console.log('✅ Transformed Officers:', transformedOfficers);
+
+        setPortfolioMetrics(portfolioData);
+        setOfficers(transformedOfficers);
+        setFimrLoans(fimrData.map(l => apiService.transformFIMRLoan(l)));
+        setEarlyIndicatorLoans(earlyIndicatorData.map(l => apiService.transformEarlyIndicatorLoan(l)));
+        setBranches(branchesData.map(b => apiService.transformBranchData(b)));
+
+        console.log('✅ Transformed Early Indicator Loans:', earlyIndicatorData.map(l => apiService.transformEarlyIndicatorLoan(l)));
+
+        setLastRefresh(new Date());
+      } catch (err) {
+        console.error('❌ Error fetching data:', err);
+        setError(err.message);
+        // Fall back to mock data on error
+        setUseRealData(false);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
+  }, [useRealData]);
 
   // Filter officers based on current filters
-  const filteredOfficers = mockOfficers.filter((officer) => {
+  const filteredOfficers = officers.filter((officer) => {
     if (filters.branch && officer.branch !== filters.branch) return false;
     if (filters.showRedOnly && officer.riskScore >= 40) return false;
     return true;
@@ -47,8 +120,36 @@ function App() {
     alert(`Export as ${format} - Coming soon!`);
   };
 
+  const handleRefresh = () => {
+    setUseRealData(true);
+    setLastRefresh(new Date());
+  };
+
+  if (loading) {
+    return (
+      <div className="app">
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+          <div>Loading data from backend...</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="app">
+      {error && (
+        <div style={{
+          background: '#fff3cd',
+          border: '1px solid #ffc107',
+          padding: '10px',
+          margin: '10px',
+          borderRadius: '4px',
+          color: '#856404'
+        }}>
+          ⚠️ Error loading data: {error}. Using mock data instead.
+        </div>
+      )}
+
       <Header
         filters={filters}
         onFilterChange={handleFilterChange}
@@ -56,7 +157,7 @@ function App() {
         lastRefresh={lastRefresh}
       />
 
-      <KPIStrip portfolioMetrics={mockPortfolioMetrics} />
+      <KPIStrip portfolioMetrics={portfolioMetrics} />
 
       <div className="main-content">
         <div className="tabs">
@@ -137,17 +238,30 @@ function App() {
               info="Credit Health Overview aggregated by Branch"
             />
           </button>
+          <button
+            className={`tab ${activeTab === 'allLoans' ? 'active' : ''}`}
+            onClick={() => setActiveTab('allLoans')}
+            title="View all loans in the database"
+          >
+            <TabHeader
+              label="All Loans"
+              tabKey="allLoans"
+              info="View all loans in the database with filtering and export capabilities"
+            />
+          </button>
         </div>
 
         <div className="tab-content">
           {activeTab === 'fimrDrilldown' ? (
-            <FIMRDrilldown loans={mockFIMRLoans} />
+            <FIMRDrilldown loans={fimrLoans} />
           ) : activeTab === 'earlyIndicatorsDrilldown' ? (
-            <EarlyIndicatorsDrilldown loans={mockEarlyIndicatorLoans} />
+            <EarlyIndicatorsDrilldown loans={earlyIndicatorLoans} />
           ) : activeTab === 'agentPerformance' ? (
-            <AgentPerformance agents={mockAgentPerformance} />
+            <AgentPerformance agents={officers} />
           ) : activeTab === 'creditHealthByBranch' ? (
-            <CreditHealthByBranch branches={mockBranchData} />
+            <CreditHealthByBranch branches={branches} />
+          ) : activeTab === 'allLoans' ? (
+            <AllLoans />
           ) : (
             <DataTables officers={filteredOfficers} activeTab={activeTab} />
           )}

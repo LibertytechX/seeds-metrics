@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Download, Filter, ChevronDown } from 'lucide-react';
 import { mockTeamMembers } from '../utils/mockData';
+import TopRiskLoansModal from './TopRiskLoansModal';
 import './AgentPerformance.css';
 
 const AgentPerformance = ({ agents }) => {
@@ -15,6 +16,8 @@ const AgentPerformance = ({ agents }) => {
   const [showFilters, setShowFilters] = useState(false);
   const [activeActionMenu, setActiveActionMenu] = useState(null);
   const [agentData, setAgentData] = useState(agents);
+  const [topRiskModalOpen, setTopRiskModalOpen] = useState(false);
+  const [selectedOfficer, setSelectedOfficer] = useState(null);
 
   // Get unique values for filter dropdowns
   const filterOptions = useMemo(() => {
@@ -115,7 +118,12 @@ const AgentPerformance = ({ agents }) => {
   const handleAction = (agent, actionType) => {
     switch (actionType) {
       case 'audit20':
-        alert(`Audit 20 Top Risk Loans for ${agent.officerName}\n\nThis will open a modal with the top 20 highest-risk loans.`);
+        // Open the Top Risk Loans modal
+        setSelectedOfficer({
+          name: agent.officerName,
+          id: agent.officerId
+        });
+        setTopRiskModalOpen(true);
         break;
       case 'freeze':
         if (confirm(`Freeze disbursement for ${agent.officerName}?`)) {
@@ -261,7 +269,6 @@ const AgentPerformance = ({ agents }) => {
         <div className="filter-panel">
           <div className="filter-row">
             <div className="filter-group">
-              <label>Region</label>
               <select value={filters.region} onChange={(e) => handleFilterChange('region', e.target.value)}>
                 <option value="">All Regions</option>
                 {filterOptions.regions.map(region => (
@@ -270,7 +277,6 @@ const AgentPerformance = ({ agents }) => {
               </select>
             </div>
             <div className="filter-group">
-              <label>Branch</label>
               <select value={filters.branch} onChange={(e) => handleFilterChange('branch', e.target.value)}>
                 <option value="">All Branches</option>
                 {filterOptions.branches.map(branch => (
@@ -279,7 +285,6 @@ const AgentPerformance = ({ agents }) => {
               </select>
             </div>
             <div className="filter-group">
-              <label>Risk Band</label>
               <select value={filters.riskBand} onChange={(e) => handleFilterChange('riskBand', e.target.value)}>
                 <option value="">All Risk Bands</option>
                 {filterOptions.riskBands.map(band => (
@@ -288,7 +293,6 @@ const AgentPerformance = ({ agents }) => {
               </select>
             </div>
             <div className="filter-group date-range-group">
-              <label>Date Range (Last Audit Date)</label>
               <div className="date-inputs">
                 <input
                   type="date"
@@ -381,7 +385,7 @@ const AgentPerformance = ({ agents }) => {
                 <td className="audit-date">
                   {agent.lastAuditDate ? formatDate(agent.lastAuditDate) : <span className="never-audited">Never</span>}
                 </td>
-                <td className="metric">{formatDecimal(agent.ayr, 2)}</td>
+                <td className="metric">{formatPercent(agent.ayr)}</td>
                 <td className="metric">{formatDecimal(agent.dqi, 0)}</td>
                 <td className="metric">{formatPercent(agent.fimr)}</td>
                 <td className="metric all-time-fimr">{formatPercent(agent.allTimeFimr)}</td>
@@ -427,6 +431,14 @@ const AgentPerformance = ({ agents }) => {
           </tbody>
         </table>
       </div>
+
+      {/* Top Risk Loans Modal */}
+      <TopRiskLoansModal
+        isOpen={topRiskModalOpen}
+        onClose={() => setTopRiskModalOpen(false)}
+        officerName={selectedOfficer?.name || ''}
+        officerId={selectedOfficer?.id || ''}
+      />
     </div>
   );
 };

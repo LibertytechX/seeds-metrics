@@ -7,6 +7,10 @@ const formatCurrency = (value) => {
   return `₦${value}`;
 };
 
+const formatPercentage = (value) => {
+  return `${(value * 100).toFixed(2)}%`;
+};
+
 const KPICard = ({ title, value, unit = '', trend = null, icon = null }) => {
   return (
     <div className="kpi-card">
@@ -26,39 +30,43 @@ const KPICard = ({ title, value, unit = '', trend = null, icon = null }) => {
 };
 
 export const KPIStrip = ({ portfolioMetrics }) => {
+  // Handle null topOfficer gracefully
+  const topOfficerName = portfolioMetrics.topOfficer?.name || 'N/A';
+  const topOfficerAYR = portfolioMetrics.topOfficer?.ayr || 0;
+
   return (
     <div className="kpi-strip">
       <KPICard
         title="Portfolio Overdue >15 Days"
-        value={formatCurrency(portfolioMetrics.totalOverdue15d)}
+        value={formatCurrency(portfolioMetrics.totalOverdue15d || 0)}
         trend={{ direction: 'down', value: '3% WoW' }}
         icon="📊"
       />
       <KPICard
         title="Average DQI"
-        value={portfolioMetrics.avgDQI}
+        value={portfolioMetrics.avgDQI || 0}
         unit="✅"
         trend={{ direction: 'up', value: '2pts' }}
       />
       <KPICard
         title="Average AYR"
-        value={portfolioMetrics.avgAYR}
+        value={formatPercentage(portfolioMetrics.avgAYR || 0)}
         unit="⚖️ Efficient"
       />
       <KPICard
         title="Risk Score (Avg)"
-        value={portfolioMetrics.avgRiskScore}
+        value={portfolioMetrics.avgRiskScore || 0}
         unit="🟩"
       />
       <KPICard
         title="Top Performing Officer"
-        value={portfolioMetrics.topOfficer.name}
-        unit={`AYR ${portfolioMetrics.topOfficer.ayr.toFixed(2)}`}
+        value={topOfficerName}
+        unit={topOfficerName !== 'N/A' ? `AYR ${formatPercentage(topOfficerAYR)}` : 'No data'}
       />
       <KPICard
         title="Watchlist Count"
-        value={portfolioMetrics.watchlistCount}
-        unit={`Officers / ${formatCurrency(portfolioMetrics.totalOverdue15d / 10)}`}
+        value={portfolioMetrics.watchlistCount || 0}
+        unit={`Officers / ${formatCurrency((portfolioMetrics.totalOverdue15d || 0) / 10)}`}
       />
     </div>
   );
