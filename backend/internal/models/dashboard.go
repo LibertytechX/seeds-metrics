@@ -42,39 +42,49 @@ type DashboardOfficerMetrics struct {
 }
 
 type RawMetrics struct {
-	FirstMiss         int     `json:"firstMiss"`
-	Disbursed         int     `json:"disbursed"`
-	Dpd1to6Bal        float64 `json:"dpd1to6Bal"`
-	AmountDue7d       float64 `json:"amountDue7d"`
-	MovedTo7to30      float64 `json:"movedTo7to30"`
-	PrevDpd1to6Bal    float64 `json:"prevDpd1to6Bal"`
-	FeesCollected     float64 `json:"feesCollected"`
-	FeesDue           float64 `json:"feesDue"`
-	InterestCollected float64 `json:"interestCollected"`
-	Overdue15d        float64 `json:"overdue15d"`
-	TotalPortfolio    float64 `json:"totalPortfolio"`
-	Par15MidMonth     float64 `json:"par15MidMonth"`
-	Waivers           float64 `json:"waivers"`
-	Backdated         int     `json:"backdated"`
-	Entries           int     `json:"entries"`
-	Reversals         int     `json:"reversals"`
-	HadFloatGap       bool    `json:"hadFloatGap"`
+	FirstMiss                 int     `json:"firstMiss"`
+	Disbursed                 int     `json:"disbursed"`
+	Dpd1to6Bal                float64 `json:"dpd1to6Bal"`
+	AmountDue7d               float64 `json:"amountDue7d"`
+	MovedTo7to30              float64 `json:"movedTo7to30"`
+	PrevDpd1to6Bal            float64 `json:"prevDpd1to6Bal"`
+	FeesCollected             float64 `json:"feesCollected"`
+	FeesDue                   float64 `json:"feesDue"`
+	InterestCollected         float64 `json:"interestCollected"`
+	Overdue15d                float64 `json:"overdue15d"`
+	TotalPortfolio            float64 `json:"totalPortfolio"`
+	Par15MidMonth             float64 `json:"par15MidMonth"`
+	Waivers                   float64 `json:"waivers"`
+	Backdated                 int     `json:"backdated"`
+	Entries                   int     `json:"entries"`
+	Reversals                 int     `json:"reversals"`
+	HadFloatGap               bool    `json:"hadFloatGap"`
+	AvgTimelinessScore        float64 `json:"avgTimelinessScore"`
+	AvgRepaymentHealth        float64 `json:"avgRepaymentHealth"`
+	AvgDaysSinceLastRepayment float64 `json:"avgDaysSinceLastRepayment"`
+	AvgLoanAge                float64 `json:"avgLoanAge"`
+	ActiveLoansCount          int     `json:"activeLoansCount"`
 }
 
 type CalculatedMetrics struct {
-	FIMR             float64 `json:"fimr"`
-	Slippage         float64 `json:"slippage"`
-	Roll             float64 `json:"roll"`
-	FRR              float64 `json:"frr"`
-	AYR              float64 `json:"ayr"`
-	DQI              int     `json:"dqi"`
-	RiskScore        int     `json:"riskScore"`
-	Yield            float64 `json:"yield"`
-	Overdue15dVolume float64 `json:"overdue15dVolume"`
-	RiskScoreNorm    float64 `json:"riskScoreNorm"`
-	OnTimeRate       float64 `json:"onTimeRate"`
-	ChannelPurity    float64 `json:"channelPurity"`
-	PORR             float64 `json:"porr"`
+	FIMR                      float64 `json:"fimr"`
+	Slippage                  float64 `json:"slippage"`
+	Roll                      float64 `json:"roll"`
+	FRR                       float64 `json:"frr"`
+	AYR                       float64 `json:"ayr"`
+	DQI                       int     `json:"dqi"`
+	RiskScore                 int     `json:"riskScore"`
+	Yield                     float64 `json:"yield"`
+	Overdue15dVolume          float64 `json:"overdue15dVolume"`
+	RiskScoreNorm             float64 `json:"riskScoreNorm"`
+	OnTimeRate                float64 `json:"onTimeRate"`
+	ChannelPurity             float64 `json:"channelPurity"`
+	PORR                      float64 `json:"porr"`
+	AvgTimelinessScore        float64 `json:"avgTimelinessScore"`
+	AvgRepaymentHealth        float64 `json:"avgRepaymentHealth"`
+	AvgDaysSinceLastRepayment float64 `json:"avgDaysSinceLastRepayment"`
+	AvgLoanAge                float64 `json:"avgLoanAge"`
+	RepaymentDelayRate        float64 `json:"repaymentDelayRate"`
 }
 
 // FIMRLoan represents a loan that missed first installment

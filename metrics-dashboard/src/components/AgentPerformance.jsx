@@ -158,7 +158,8 @@ const AgentPerformance = ({ agents }) => {
       'Officer Name', 'Region', 'Branch', 'Risk Score', 'Risk Band', 'Assignee',
       'Audit Status', 'Last Audit Date', 'AYR', 'DQI', 'FIMR', 'All-Time FIMR', 'D0-6 Slippage',
       'Roll', 'FRR', 'Portfolio Total', 'Overdue >15D', 'Active Loans', 'Channel',
-      'Yield', 'PORR', 'Channel Purity', 'Rank'
+      'Yield', 'PORR', 'Channel Purity', 'Rank',
+      'Avg Timeliness Score', 'Avg Repayment Health', 'Avg Days Since Last Repayment', 'Avg Loan Age', 'Repayment Delay Rate'
     ];
 
     const rows = sortedAgents.map(agent => [
@@ -185,6 +186,11 @@ const AgentPerformance = ({ agents }) => {
       agent.porr,
       agent.channelPurity,
       agent.rank,
+      agent.avgTimelinessScore != null ? agent.avgTimelinessScore.toFixed(2) : 'N/A',
+      agent.avgRepaymentHealth != null ? agent.avgRepaymentHealth.toFixed(2) : 'N/A',
+      agent.avgDaysSinceLastRepayment != null ? agent.avgDaysSinceLastRepayment.toFixed(1) : 'N/A',
+      agent.avgLoanAge != null ? agent.avgLoanAge.toFixed(1) : 'N/A',
+      agent.repaymentDelayRate != null ? agent.repaymentDelayRate.toFixed(2) + '%' : 'N/A',
     ]);
 
     const csvContent = [
@@ -218,6 +224,24 @@ const AgentPerformance = ({ agents }) => {
 
   const formatDecimal = (value, decimals = 2) => {
     return value.toFixed(decimals);
+  };
+
+  // Get performance band for Repayment Delay Rate (9-tier system)
+  const getRepaymentDelayBand = (rate) => {
+    if (rate == null) return { band: 'N/A', color: 'gray' };
+
+    // 9-tier system: Healthy 1-3, Watch 1-3, Risky 1-3
+    // Assuming 100% is divided into 9 equal sections (~11.11% each)
+    // Higher rate = better performance
+    if (rate >= 88.89) return { band: 'Healthy 1', color: 'green-dark' };
+    if (rate >= 77.78) return { band: 'Healthy 2', color: 'green' };
+    if (rate >= 66.67) return { band: 'Healthy 3', color: 'green-light' };
+    if (rate >= 55.56) return { band: 'Watch 1', color: 'yellow-dark' };
+    if (rate >= 44.44) return { band: 'Watch 2', color: 'yellow' };
+    if (rate >= 33.33) return { band: 'Watch 3', color: 'yellow-light' };
+    if (rate >= 22.22) return { band: 'Risky 1', color: 'red-light' };
+    if (rate >= 11.11) return { band: 'Risky 2', color: 'red' };
+    return { band: 'Risky 3', color: 'red-dark' };
   };
 
   const formatDate = (dateString) => {
@@ -343,6 +367,11 @@ const AgentPerformance = ({ agents }) => {
               <th onClick={() => handleSort('porr')}>PORR</th>
               <th onClick={() => handleSort('channelPurity')}>Channel Purity</th>
               <th onClick={() => handleSort('rank')}>Rank</th>
+              <th onClick={() => handleSort('avgTimelinessScore')}>Avg Timeliness Score</th>
+              <th onClick={() => handleSort('avgRepaymentHealth')}>Avg Repayment Health</th>
+              <th onClick={() => handleSort('avgDaysSinceLastRepayment')}>Avg Days Since Last Repayment</th>
+              <th onClick={() => handleSort('avgLoanAge')}>Avg Loan Age</th>
+              <th onClick={() => handleSort('repaymentDelayRate')}>Repayment Delay Rate</th>
               <th>Action</th>
             </tr>
           </thead>
@@ -400,6 +429,18 @@ const AgentPerformance = ({ agents }) => {
                 <td className="metric">{formatPercent(agent.porr)}</td>
                 <td className="metric">{formatPercent(agent.channelPurity)}</td>
                 <td className="rank">#{agent.rank}</td>
+                <td className="metric">{agent.avgTimelinessScore != null ? formatDecimal(agent.avgTimelinessScore, 2) : 'N/A'}</td>
+                <td className="metric">{agent.avgRepaymentHealth != null ? formatDecimal(agent.avgRepaymentHealth, 2) : 'N/A'}</td>
+                <td className="metric">{agent.avgDaysSinceLastRepayment != null ? formatDecimal(agent.avgDaysSinceLastRepayment, 1) : 'N/A'}</td>
+                <td className="metric">{agent.avgLoanAge != null ? formatDecimal(agent.avgLoanAge, 1) : 'N/A'}</td>
+                <td className="metric">
+                  {agent.repaymentDelayRate != null ? (
+                    <span className={`delay-rate-badge ${getRepaymentDelayBand(agent.repaymentDelayRate).color}`}>
+                      {formatDecimal(agent.repaymentDelayRate, 2)}%
+                      <span className="band-label">{getRepaymentDelayBand(agent.repaymentDelayRate).band}</span>
+                    </span>
+                  ) : 'N/A'}
+                </td>
                 <td>
                   <div className="action-dropdown">
                     <button

@@ -240,6 +240,18 @@
   color: #555;
 }
 
+.score {
+  text-align: center;
+  font-weight: 600;
+  color: #2c3e50;
+}
+
+.days-since {
+  text-align: center;
+  font-weight: 500;
+  color: #7f8c8d;
+}
+
 .dpd {
   text-align: center;
   font-weight: 600;

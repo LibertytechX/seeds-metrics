@@ -169,6 +169,89 @@ export const metricInfo = {
     whatItMeasures: 'Overall officer performance.',
     interpretation: 'Higher rank is better. Identifies top performers.',
   },
+
+  timelinessScore: {
+    name: 'Timeliness Score',
+    fullName: 'Loan Timeliness Score',
+    description: 'Score indicating how timely the borrower makes payments (0-100).',
+    formula: 'Provided by main platform ETL',
+    whatItMeasures: 'Payment punctuality and consistency.',
+    interpretation: 'Higher is better. Score of 100 indicates perfect payment timeliness.',
+  },
+
+  repaymentHealth: {
+    name: 'Repayment Health',
+    fullName: 'Loan Repayment Health Score',
+    description: 'Overall health score of loan repayment behavior (0-100).',
+    formula: 'Provided by main platform ETL',
+    whatItMeasures: 'Overall repayment quality and borrower reliability.',
+    interpretation: 'Higher is better. Score of 100 indicates excellent repayment health.',
+  },
+
+  daysSinceLastRepayment: {
+    name: 'Days Since Last Repayment',
+    fullName: 'Days Since Last Repayment',
+    description: 'Number of days since the borrower made their last payment.',
+    formula: 'CURRENT_DATE - last_payment_date',
+    whatItMeasures: 'Recency of payment activity.',
+    interpretation: 'Lower is better. High values may indicate payment issues or loan inactivity.',
+  },
+
+  avgTimelinessScore: {
+    name: 'Avg Timeliness Score',
+    fullName: 'Average Timeliness Score',
+    description: 'Average timeliness score across all active loans with outstanding balance > ₦2,000.',
+    formula: 'AVG(timeliness_score) for loans with total_outstanding > 2000',
+    whatItMeasures: 'Officer portfolio payment punctuality.',
+    interpretation: 'Higher is better. Shows how timely the officer\'s borrowers are with payments.',
+  },
+
+  avgRepaymentHealth: {
+    name: 'Avg Repayment Health',
+    fullName: 'Average Repayment Health',
+    description: 'Average repayment health score across all active loans with outstanding balance > ₦2,000.',
+    formula: 'AVG(repayment_health) for loans with total_outstanding > 2000',
+    whatItMeasures: 'Officer portfolio repayment quality.',
+    interpretation: 'Higher is better. Indicates overall health of officer\'s loan portfolio.',
+  },
+
+  avgDaysSinceLastRepayment: {
+    name: 'Avg Days Since Last Repayment',
+    fullName: 'Average Days Since Last Repayment',
+    description: 'Average number of days since last payment across all active loans with outstanding balance > ₦2,000.',
+    formula: 'AVG(days_since_last_repayment) for loans with total_outstanding > 2000',
+    whatItMeasures: 'Payment recency across officer portfolio.',
+    interpretation: 'Lower is better. High values indicate stale payments or collection issues.',
+  },
+
+  avgLoanAge: {
+    name: 'Avg Loan Age',
+    fullName: 'Average Loan Age',
+    description: 'Average age in days of all active loans with outstanding balance > ₦2,000.',
+    formula: 'AVG(CURRENT_DATE - disbursement_date) for loans with total_outstanding > 2000',
+    whatItMeasures: 'Portfolio maturity and loan lifecycle stage.',
+    interpretation: 'Context metric. Helps interpret days since last repayment.',
+  },
+
+  repaymentDelayRate: {
+    name: 'Repayment Delay Rate',
+    fullName: 'Repayment Delay Rate',
+    description: 'Composite metric measuring payment frequency relative to loan age.',
+    formula: 'RepaymentDelayRate = (1 - ((avg_days_since_last_repayment / avg_loan_age) / 0.25)) × 100',
+    whatItMeasures: 'Payment frequency and consistency.',
+    bands: {
+      healthy1: '≥ 88.89% (Healthy 1)',
+      healthy2: '77.78% - 88.88% (Healthy 2)',
+      healthy3: '66.67% - 77.77% (Healthy 3)',
+      watch1: '55.56% - 66.66% (Watch 1)',
+      watch2: '44.44% - 55.55% (Watch 2)',
+      watch3: '33.33% - 44.43% (Watch 3)',
+      risky1: '22.22% - 33.32% (Risky 1)',
+      risky2: '11.11% - 22.21% (Risky 2)',
+      risky3: '< 11.11% (Risky 3)',
+    },
+    interpretation: 'Higher is better. Negative values indicate very infrequent payments. 100% means payments every 25% of loan age.',
+  },
 };
 
 /**

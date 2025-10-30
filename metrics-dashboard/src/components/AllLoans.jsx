@@ -105,7 +105,8 @@ const AllLoans = ({ initialLoans = [] }) => {
   const handleExportCSV = () => {
     const headers = [
       'Loan ID', 'Customer Name', 'Customer Phone', 'Officer Name', 'Region', 'Branch',
-      'Channel', 'Loan Amount', 'Disbursement Date', 'Loan Tenure', 'Maturity Date', 'Current DPD',
+      'Channel', 'Loan Amount', 'Disbursement Date', 'Loan Tenure', 'Maturity Date',
+      'Timeliness Score', 'Repayment Health', 'Days Since Last Repayment', 'Current DPD',
       'Principal Outstanding', 'Interest Outstanding', 'Fees Outstanding', 'Total Outstanding',
       'Status', 'FIMR Tagged'
     ];
@@ -122,6 +123,9 @@ const AllLoans = ({ initialLoans = [] }) => {
       loan.disbursement_date,
       formatTenure(loan.loan_term_days),
       loan.maturity_date,
+      loan.timeliness_score != null ? loan.timeliness_score.toFixed(2) : 'N/A',
+      loan.repayment_health != null ? loan.repayment_health.toFixed(2) : 'N/A',
+      loan.days_since_last_repayment != null ? loan.days_since_last_repayment : 'N/A',
       loan.current_dpd,
       loan.principal_outstanding,
       loan.interest_outstanding,
@@ -164,6 +168,9 @@ const AllLoans = ({ initialLoans = [] }) => {
       `₦${(loan.loan_amount / 1000000).toFixed(2)}M`,
       loan.disbursement_date,
       formatTenure(loan.loan_term_days),
+      loan.timeliness_score != null ? loan.timeliness_score.toFixed(1) : 'N/A',
+      loan.repayment_health != null ? loan.repayment_health.toFixed(1) : 'N/A',
+      loan.days_since_last_repayment != null ? loan.days_since_last_repayment : 'N/A',
       loan.current_dpd,
       `₦${(loan.total_outstanding / 1000000).toFixed(2)}M`,
       loan.status,
@@ -172,9 +179,9 @@ const AllLoans = ({ initialLoans = [] }) => {
 
     doc.autoTable({
       startY: 32,
-      head: [['Loan ID', 'Customer', 'Officer', 'Branch', 'Amount', 'Disbursed', 'Tenure', 'DPD', 'Outstanding', 'Status', 'FIMR']],
+      head: [['Loan ID', 'Customer', 'Officer', 'Branch', 'Amount', 'Disbursed', 'Tenure', 'T.Score', 'R.Health', 'Days Since', 'DPD', 'Outstanding', 'Status', 'FIMR']],
       body: tableData,
-      styles: { fontSize: 7 },
+      styles: { fontSize: 6 },
       headStyles: { fillColor: [41, 128, 185] },
     });
 
@@ -352,6 +359,9 @@ const AllLoans = ({ initialLoans = [] }) => {
                 <th onClick={() => handleSort('loan_amount')}>Loan Amount</th>
                 <th onClick={() => handleSort('disbursement_date')}>Disbursement Date</th>
                 <th onClick={() => handleSort('loan_term_days')}>Loan Tenure</th>
+                <th onClick={() => handleSort('timeliness_score')}>Timeliness Score</th>
+                <th onClick={() => handleSort('repayment_health')}>Repayment Health</th>
+                <th onClick={() => handleSort('days_since_last_repayment')}>Days Since Last Repayment</th>
                 <th onClick={() => handleSort('current_dpd')}>Current DPD</th>
                 <th onClick={() => handleSort('total_outstanding')}>Total Outstanding</th>
                 <th onClick={() => handleSort('status')}>Status</th>
@@ -371,6 +381,9 @@ const AllLoans = ({ initialLoans = [] }) => {
                   <td className="amount">{formatCurrency(loan.loan_amount)}</td>
                   <td>{formatDate(loan.disbursement_date)}</td>
                   <td className="tenure">{formatTenure(loan.loan_term_days)}</td>
+                  <td className="score">{loan.timeliness_score != null ? loan.timeliness_score.toFixed(2) : 'N/A'}</td>
+                  <td className="score">{loan.repayment_health != null ? loan.repayment_health.toFixed(2) : 'N/A'}</td>
+                  <td className="days-since">{loan.days_since_last_repayment != null ? loan.days_since_last_repayment : 'N/A'}</td>
                   <td className="dpd">{loan.current_dpd}</td>
                   <td className="amount">{formatCurrency(loan.total_outstanding)}</td>
                   <td>

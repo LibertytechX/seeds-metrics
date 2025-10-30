@@ -44,7 +44,13 @@ func (r *DashboardRepository) GetOfficers(filters map[string]interface{}) ([]*mo
 			0 as backdated,
 			0 as entries,
 			0 as reversals,
-			false as had_float_gap
+			false as had_float_gap,
+			-- NEW: Repayment behavior metrics (only for loans with total_outstanding > 2000)
+			COALESCE(AVG(CASE WHEN (l.principal_outstanding + l.interest_outstanding + l.fees_outstanding) > 2000 THEN l.timeliness_score ELSE NULL END), 0) as avg_timeliness_score,
+			COALESCE(AVG(CASE WHEN (l.principal_outstanding + l.interest_outstanding + l.fees_outstanding) > 2000 THEN l.repayment_health ELSE NULL END), 0) as avg_repayment_health,
+			COALESCE(AVG(CASE WHEN (l.principal_outstanding + l.interest_outstanding + l.fees_outstanding) > 2000 THEN l.days_since_last_repayment ELSE NULL END), 0) as avg_days_since_last_repayment,
+			COALESCE(AVG(CASE WHEN (l.principal_outstanding + l.interest_outstanding + l.fees_outstanding) > 2000 THEN (CURRENT_DATE - l.disbursement_date::date) ELSE NULL END), 0) as avg_loan_age,
+			COALESCE(COUNT(CASE WHEN (l.principal_outstanding + l.interest_outstanding + l.fees_outstanding) > 2000 THEN 1 ELSE NULL END), 0) as active_loans_count
 		FROM officers o
 		LEFT JOIN loans l ON o.officer_id = l.officer_id
 		WHERE 1=1
@@ -131,6 +137,11 @@ func (r *DashboardRepository) GetOfficers(filters map[string]interface{}) ([]*mo
 			&officer.RawMetrics.Entries,
 			&officer.RawMetrics.Reversals,
 			&officer.RawMetrics.HadFloatGap,
+			&officer.RawMetrics.AvgTimelinessScore,
+			&officer.RawMetrics.AvgRepaymentHealth,
+			&officer.RawMetrics.AvgDaysSinceLastRepayment,
+			&officer.RawMetrics.AvgLoanAge,
+			&officer.RawMetrics.ActiveLoansCount,
 		)
 		if err != nil {
 			return nil, err
@@ -476,7 +487,10 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 			l.fees_outstanding,
 			l.principal_outstanding + l.interest_outstanding + l.fees_outstanding as total_outstanding,
 			l.status,
-			l.fimr_tagged
+			l.fimr_tagged,
+			l.timeliness_score,
+			l.repayment_health,
+			l.days_since_last_repayment
 		FROM loans l
 		JOIN officers o ON l.officer_id = o.officer_id
 		WHERE 1=1
@@ -571,6 +585,8 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 	for rows.Next() {
 		loan := &models.AllLoan{}
 		var customerPhone, officerID sql.NullString
+		var timelinessScore, repaymentHealth sql.NullFloat64
+		var daysSinceLastRepayment sql.NullInt64
 
 		err := rows.Scan(
 			&loan.LoanID,
@@ -592,6 +608,9 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 			&loan.TotalOutstanding,
 			&loan.Status,
 			&loan.FIMRTagged,
+			&timelinessScore,
+			&repaymentHealth,
+			&daysSinceLastRepayment,
 		)
 		if err != nil {
 			return nil, 0, err
@@ -602,6 +621,18 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 		}
 		if officerID.Valid {
 			loan.OfficerID = officerID.String
+		}
+		if timelinessScore.Valid {
+			val := timelinessScore.Float64
+			loan.TimelinessScore = &val
+		}
+		if repaymentHealth.Valid {
+			val := repaymentHealth.Float64
+			loan.RepaymentHealth = &val
+		}
+		if daysSinceLastRepayment.Valid {
+			val := int(daysSinceLastRepayment.Int64)
+			loan.DaysSinceLastRepayment = &val
 		}
 
 		loans = append(loans, loan)

@@ -33,6 +33,8 @@ type Loan struct {
 	ChannelPartner   *string          `json:"channel_partner,omitempty" db:"channel_partner"`
 	Status           string           `json:"status" db:"status"`
 	ClosedDate       *time.Time       `json:"closed_date,omitempty" db:"closed_date"`
+	TimelinessScore  *decimal.Decimal `json:"timeliness_score,omitempty" db:"timeliness_score"`
+	RepaymentHealth  *decimal.Decimal `json:"repayment_health,omitempty" db:"repayment_health"`
 
 	// ========================================
 	// [COMPUTED] FROM REPAYMENTS
@@ -51,6 +53,7 @@ type Loan struct {
 	TotalFeesPaid            decimal.Decimal `json:"total_fees_paid" db:"total_fees_paid"`
 	FIMRTagged               bool            `json:"fimr_tagged" db:"fimr_tagged"`
 	EarlyIndicatorTagged     bool            `json:"early_indicator_tagged" db:"early_indicator_tagged"`
+	DaysSinceLastRepayment   *int            `json:"days_since_last_repayment,omitempty" db:"days_since_last_repayment"`
 
 	// Timestamps
 	CreatedAt time.Time `json:"created_at" db:"created_at"`
@@ -115,25 +118,28 @@ type LoanDrilldown struct {
 
 // AllLoan represents a comprehensive loan record for the All Loans view
 type AllLoan struct {
-	LoanID               string  `json:"loan_id"`
-	CustomerName         string  `json:"customer_name"`
-	CustomerPhone        string  `json:"customer_phone"`
-	OfficerID            string  `json:"officer_id"`
-	OfficerName          string  `json:"officer_name"`
-	Region               string  `json:"region"`
-	Branch               string  `json:"branch"`
-	Channel              string  `json:"channel"`
-	LoanAmount           float64 `json:"loan_amount"`
-	DisbursementDate     string  `json:"disbursement_date"`
-	MaturityDate         string  `json:"maturity_date"`
-	LoanTermDays         int     `json:"loan_term_days"`
-	CurrentDPD           int     `json:"current_dpd"`
-	PrincipalOutstanding float64 `json:"principal_outstanding"`
-	InterestOutstanding  float64 `json:"interest_outstanding"`
-	FeesOutstanding      float64 `json:"fees_outstanding"`
-	TotalOutstanding     float64 `json:"total_outstanding"`
-	Status               string  `json:"status"`
-	FIMRTagged           bool    `json:"fimr_tagged"`
+	LoanID                 string   `json:"loan_id"`
+	CustomerName           string   `json:"customer_name"`
+	CustomerPhone          string   `json:"customer_phone"`
+	OfficerID              string   `json:"officer_id"`
+	OfficerName            string   `json:"officer_name"`
+	Region                 string   `json:"region"`
+	Branch                 string   `json:"branch"`
+	Channel                string   `json:"channel"`
+	LoanAmount             float64  `json:"loan_amount"`
+	DisbursementDate       string   `json:"disbursement_date"`
+	MaturityDate           string   `json:"maturity_date"`
+	LoanTermDays           int      `json:"loan_term_days"`
+	CurrentDPD             int      `json:"current_dpd"`
+	PrincipalOutstanding   float64  `json:"principal_outstanding"`
+	InterestOutstanding    float64  `json:"interest_outstanding"`
+	FeesOutstanding        float64  `json:"fees_outstanding"`
+	TotalOutstanding       float64  `json:"total_outstanding"`
+	Status                 string   `json:"status"`
+	FIMRTagged             bool     `json:"fimr_tagged"`
+	TimelinessScore        *float64 `json:"timeliness_score"`
+	RepaymentHealth        *float64 `json:"repayment_health"`
+	DaysSinceLastRepayment *int     `json:"days_since_last_repayment"`
 }
 
 // TopRiskLoan represents a high-risk loan for audit purposes

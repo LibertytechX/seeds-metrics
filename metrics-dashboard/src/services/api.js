@@ -131,6 +131,12 @@ class ApiService {
       frr: officer.calculatedMetrics?.frr || 0,
       ayr: officer.calculatedMetrics?.ayr || 0,
       dqi: officer.calculatedMetrics?.dqi || 0,
+      // NEW: Repayment behavior metrics
+      avgTimelinessScore: officer.calculatedMetrics?.avgTimelinessScore || null,
+      avgRepaymentHealth: officer.calculatedMetrics?.avgRepaymentHealth || null,
+      avgDaysSinceLastRepayment: officer.calculatedMetrics?.avgDaysSinceLastRepayment || null,
+      avgLoanAge: officer.calculatedMetrics?.avgLoanAge || null,
+      repaymentDelayRate: officer.calculatedMetrics?.repaymentDelayRate || null,
       yield: officer.calculatedMetrics?.yield || 0,
       overdue15dVolume: officer.calculatedMetrics?.overdue15dVolume || 0,
       onTimeRate: officer.calculatedMetrics?.onTimeRate || 0,

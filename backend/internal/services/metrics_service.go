@@ -72,6 +72,25 @@ func (s *MetricsService) CalculateOfficerMetrics(raw *models.RawMetrics) *models
 	// DQI (Data Quality Index)
 	calculated.DQI = s.CalculateDQI(raw, calculated)
 
+	// NEW: Repayment behavior metrics
+	calculated.AvgTimelinessScore = raw.AvgTimelinessScore
+	calculated.AvgRepaymentHealth = raw.AvgRepaymentHealth
+	calculated.AvgDaysSinceLastRepayment = raw.AvgDaysSinceLastRepayment
+	calculated.AvgLoanAge = raw.AvgLoanAge
+
+	// NEW: Repayment Delay Rate
+	// Formula: (1 - ((avg_days_since_last_repayment / avg_loan_age) / 0.25)) × 100
+	// Edge cases:
+	// - If avg_loan_age = 0, return 0 (NULL would be better but we'll use 0 for simplicity)
+	// - Allow negative values (as per user requirement)
+	if raw.AvgLoanAge > 0 {
+		ratio := raw.AvgDaysSinceLastRepayment / raw.AvgLoanAge
+		normalizedRatio := ratio / 0.25
+		calculated.RepaymentDelayRate = (1.0 - normalizedRatio) * 100
+	} else {
+		calculated.RepaymentDelayRate = 0
+	}
+
 	return calculated
 }
 
