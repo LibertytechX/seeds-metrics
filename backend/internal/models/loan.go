@@ -41,7 +41,7 @@ type Loan struct {
 	// ========================================
 	CurrentDPD               int             `json:"current_dpd" db:"current_dpd"`
 	MaxDPDEver               int             `json:"max_dpd_ever" db:"max_dpd_ever"`
-	FirstPaymentMissed       bool            `json:"first_payment_missed" db:"first_payment_missed"`
+	FirstPaymentMissed       *bool           `json:"first_payment_missed,omitempty" db:"first_payment_missed"`
 	FirstPaymentDueDate      *time.Time      `json:"first_payment_due_date,omitempty" db:"first_payment_due_date"`
 	FirstPaymentReceivedDate *time.Time      `json:"first_payment_received_date,omitempty" db:"first_payment_received_date"`
 	PrincipalOutstanding     decimal.Decimal `json:"principal_outstanding" db:"principal_outstanding"`
@@ -51,8 +51,8 @@ type Loan struct {
 	TotalPrincipalPaid       decimal.Decimal `json:"total_principal_paid" db:"total_principal_paid"`
 	TotalInterestPaid        decimal.Decimal `json:"total_interest_paid" db:"total_interest_paid"`
 	TotalFeesPaid            decimal.Decimal `json:"total_fees_paid" db:"total_fees_paid"`
-	FIMRTagged               bool            `json:"fimr_tagged" db:"fimr_tagged"`
-	EarlyIndicatorTagged     bool            `json:"early_indicator_tagged" db:"early_indicator_tagged"`
+	FIMRTagged               *bool           `json:"fimr_tagged,omitempty" db:"fimr_tagged"`
+	EarlyIndicatorTagged     *bool           `json:"early_indicator_tagged,omitempty" db:"early_indicator_tagged"`
 	DaysSinceLastRepayment   *int            `json:"days_since_last_repayment,omitempty" db:"days_since_last_repayment"`
 
 	// Timestamps
@@ -112,7 +112,7 @@ type LoanDrilldown struct {
 	DisbursementDate time.Time       `json:"disbursement_date" db:"disbursement_date"`
 	CurrentDPD       int             `json:"current_dpd" db:"current_dpd"`
 	TotalOutstanding decimal.Decimal `json:"total_outstanding" db:"total_outstanding"`
-	FIMRTagged       bool            `json:"fimr_tagged" db:"fimr_tagged"`
+	FIMRTagged       *bool           `json:"fimr_tagged,omitempty" db:"fimr_tagged"`
 	Status           string          `json:"status" db:"status"`
 }
 
@@ -136,7 +136,7 @@ type AllLoan struct {
 	FeesOutstanding        float64  `json:"fees_outstanding"`
 	TotalOutstanding       float64  `json:"total_outstanding"`
 	Status                 string   `json:"status"`
-	FIMRTagged             bool     `json:"fimr_tagged"`
+	FIMRTagged             *bool    `json:"fimr_tagged,omitempty"`
 	TimelinessScore        *float64 `json:"timeliness_score"`
 	RepaymentHealth        *float64 `json:"repayment_health"`
 	DaysSinceLastRepayment *int     `json:"days_since_last_repayment"`
@@ -156,7 +156,7 @@ type TopRiskLoan struct {
 	InterestOutstanding   float64 `json:"interest_outstanding"`
 	FeesOutstanding       float64 `json:"fees_outstanding"`
 	Status                string  `json:"status"`
-	FIMRTagged            bool    `json:"fimr_tagged"`
+	FIMRTagged            *bool   `json:"fimr_tagged,omitempty"`
 	RiskScore             float64 `json:"risk_score"`
 	RiskCategory          string  `json:"risk_category"`
 	Channel               string  `json:"channel"`
