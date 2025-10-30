@@ -361,7 +361,8 @@ paths:
     post:
       consumes:
       - application/json
-      description: Create a new loan record in the system (ETL endpoint)
+      description: Create a new loan record in the system (ETL endpoint). Returns
+        error if loan_id already exists.
       parameters:
       - description: Loan data
         in: body
@@ -378,6 +379,10 @@ paths:
             $ref: '#/definitions/models.APIResponse'
         "400":
           description: Bad Request
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+        "409":
+          description: Loan ID already exists
           schema:
             $ref: '#/definitions/models.APIResponse'
         "500":

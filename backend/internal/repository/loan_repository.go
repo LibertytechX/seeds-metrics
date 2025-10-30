@@ -19,6 +19,7 @@ func NewLoanRepository(db *database.DB) *LoanRepository {
 }
 
 // Create inserts a new loan (ETL fields only)
+// Returns error if loan_id already exists (no UPSERT behavior)
 func (r *LoanRepository) Create(ctx context.Context, input *models.LoanInput) error {
 	query := `
 		INSERT INTO loans (
@@ -35,27 +36,6 @@ func (r *LoanRepository) Create(ctx context.Context, input *models.LoanInput) er
 			$11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
 			NOW(), NOW()
 		)
-		ON CONFLICT (loan_id) DO UPDATE SET
-			customer_id = EXCLUDED.customer_id,
-			customer_name = EXCLUDED.customer_name,
-			customer_phone = EXCLUDED.customer_phone,
-			officer_id = EXCLUDED.officer_id,
-			officer_name = EXCLUDED.officer_name,
-			officer_phone = EXCLUDED.officer_phone,
-			region = EXCLUDED.region,
-			branch = EXCLUDED.branch,
-			state = EXCLUDED.state,
-			loan_amount = EXCLUDED.loan_amount,
-			disbursement_date = EXCLUDED.disbursement_date,
-			maturity_date = EXCLUDED.maturity_date,
-			loan_term_days = EXCLUDED.loan_term_days,
-			interest_rate = EXCLUDED.interest_rate,
-			fee_amount = EXCLUDED.fee_amount,
-			channel = EXCLUDED.channel,
-			channel_partner = EXCLUDED.channel_partner,
-			status = EXCLUDED.status,
-			closed_date = EXCLUDED.closed_date,
-			updated_at = NOW()
 	`
 
 	disbursementDate, err := time.Parse("2006-01-02", input.DisbursementDate)
@@ -93,7 +73,7 @@ func (r *LoanRepository) Create(ctx context.Context, input *models.LoanInput) er
 // GetByID retrieves a loan by ID
 func (r *LoanRepository) GetByID(ctx context.Context, loanID string) (*models.Loan, error) {
 	query := `
-		SELECT 
+		SELECT
 			loan_id, customer_id, customer_name, customer_phone,
 			officer_id, officer_name, officer_phone,
 			region, branch, state,
@@ -142,7 +122,7 @@ func (r *LoanRepository) GetByID(ctx context.Context, loanID string) (*models.Lo
 func (r *LoanRepository) List(ctx context.Context, filter *models.LoanFilter) ([]*models.LoanDrilldown, int, error) {
 	// Build query with filters
 	query := `
-		SELECT 
+		SELECT
 			loan_id, customer_name, customer_phone, officer_name, branch,
 			loan_amount, disbursement_date, current_dpd, total_outstanding,
 			fimr_tagged, status
@@ -252,4 +232,3 @@ func (r *LoanRepository) List(ctx context.Context, filter *models.LoanFilter) ([
 
 	return loans, total, nil
 }
-

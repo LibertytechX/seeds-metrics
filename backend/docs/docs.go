@@ -146,7 +146,7 @@ const docTemplate = `{
         },
         "/etl/loans": {
             "post": {
-                "description": "Create a new loan record in the system (ETL endpoint)",
+                "description": "Create a new loan record in the system (ETL endpoint). Returns error if loan_id already exists.",
                 "consumes": [
                     "application/json"
                 ],
@@ -177,6 +177,12 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.APIResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Loan ID already exists",
                         "schema": {
                             "$ref": "#/definitions/models.APIResponse"
                         }

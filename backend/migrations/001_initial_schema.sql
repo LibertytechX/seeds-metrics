@@ -398,6 +398,8 @@ DECLARE
     v_max_dpd INTEGER;
     v_repayment_count INTEGER;
     v_days_since_last_repayment INTEGER;
+    v_total_outstanding DECIMAL(15, 2);
+    v_schedule_count INTEGER;
 BEGIN
     v_loan_id := NEW.loan_id;
 
@@ -426,12 +428,10 @@ BEGIN
     WHERE loan_id = v_loan_id
       AND is_reversed = FALSE;
 
-    -- Calculate days since last repayment
-    IF v_last_payment_date IS NOT NULL THEN
-        v_days_since_last_repayment := CURRENT_DATE - v_last_payment_date;
-    ELSE
-        v_days_since_last_repayment := NULL;
-    END IF;
+    -- Calculate total outstanding
+    v_total_outstanding := (v_loan_amount - v_total_principal_paid) +
+                          ((v_loan_amount * v_interest_rate * v_loan_term_days / 365) - v_total_interest_paid) +
+                          (v_fee_amount - v_total_fees_paid);
 
     -- Get first due date from loan_schedule
     SELECT MIN(due_date) INTO v_first_due_date
@@ -443,14 +443,46 @@ BEGIN
         v_first_due_date := v_disbursement_date + INTERVAL '30 days';
     END IF;
 
-    -- Calculate current DPD (days past due for oldest unpaid installment)
-    SELECT
-        COALESCE(MAX(CURRENT_DATE - due_date), 0)
-    INTO v_current_dpd
+    -- Calculate days since last repayment
+    IF v_last_payment_date IS NOT NULL THEN
+        v_days_since_last_repayment := CURRENT_DATE - v_last_payment_date;
+    ELSE
+        v_days_since_last_repayment := NULL;
+    END IF;
+
+    -- Check if loan_schedule has any records
+    SELECT COUNT(*) INTO v_schedule_count
     FROM loan_schedule
-    WHERE loan_id = v_loan_id
-      AND payment_status IN ('Pending', 'Partial')
-      AND due_date < CURRENT_DATE;
+    WHERE loan_id = v_loan_id;
+
+    -- Calculate current DPD
+    IF v_schedule_count > 0 THEN
+        -- If loan_schedule exists, use it to calculate DPD (existing logic)
+        SELECT
+            COALESCE(MAX(CURRENT_DATE - due_date), 0)
+        INTO v_current_dpd
+        FROM loan_schedule
+        WHERE loan_id = v_loan_id
+          AND payment_status IN ('Pending', 'Partial')
+          AND due_date < CURRENT_DATE;
+    ELSE
+        -- If no loan_schedule, calculate DPD based on payment history and outstanding balance
+        -- Logic: If there's outstanding balance and it's been > 30 days since last payment (or disbursement), loan is overdue
+        IF v_total_outstanding > 0 THEN
+            IF v_last_payment_date IS NOT NULL THEN
+                -- Calculate DPD based on days since last payment
+                -- Assume monthly payments (30 days), so if > 30 days since last payment, it's overdue
+                v_current_dpd := GREATEST(0, CURRENT_DATE - v_last_payment_date - 30);
+            ELSE
+                -- No payments yet - calculate DPD based on days since disbursement
+                -- Assume first payment due 30 days after disbursement
+                v_current_dpd := GREATEST(0, CURRENT_DATE - v_disbursement_date - 30);
+            END IF;
+        ELSE
+            -- No outstanding balance - loan is fully paid, DPD = 0
+            v_current_dpd := 0;
+        END IF;
+    END IF;
 
     -- Update loans table with computed values
     UPDATE loans
@@ -464,9 +496,7 @@ BEGIN
         principal_outstanding = v_loan_amount - v_total_principal_paid,
         interest_outstanding = (v_loan_amount * v_interest_rate * v_loan_term_days / 365) - v_total_interest_paid,
         fees_outstanding = v_fee_amount - v_total_fees_paid,
-        total_outstanding = (v_loan_amount - v_total_principal_paid) +
-                           ((v_loan_amount * v_interest_rate * v_loan_term_days / 365) - v_total_interest_paid) +
-                           (v_fee_amount - v_total_fees_paid),
+        total_outstanding = v_total_outstanding,
 
         -- First payment tracking
         first_payment_received_date = v_first_payment_date,

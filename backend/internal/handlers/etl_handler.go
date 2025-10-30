@@ -28,13 +28,14 @@ func NewETLHandler(loanRepo *repository.LoanRepository, repaymentRepo *repositor
 
 // CreateLoan handles POST /api/v1/etl/loans
 // @Summary Create a new loan
-// @Description Create a new loan record in the system (ETL endpoint)
+// @Description Create a new loan record in the system (ETL endpoint). Returns error if loan_id already exists.
 // @Tags ETL
 // @Accept json
 // @Produce json
 // @Param loan body models.LoanInput true "Loan data"
 // @Success 201 {object} models.APIResponse
 // @Failure 400 {object} models.APIResponse
+// @Failure 409 {object} models.APIResponse "Loan ID already exists"
 // @Failure 500 {object} models.APIResponse
 // @Router /etl/loans [post]
 func (h *ETLHandler) CreateLoan(c *gin.Context) {
@@ -46,6 +47,23 @@ func (h *ETLHandler) CreateLoan(c *gin.Context) {
 				Code:    "VALIDATION_ERROR",
 				Message: "Invalid request payload",
 				Details: map[string]interface{}{"error": err.Error()},
+			},
+		})
+		return
+	}
+
+	// Check if loan already exists
+	existingLoan, err := h.loanRepo.GetByID(c.Request.Context(), input.LoanID)
+	if err == nil && existingLoan != nil {
+		c.JSON(http.StatusConflict, models.APIResponse{
+			Status: "error",
+			Error: &models.APIError{
+				Code:    "DUPLICATE_LOAN_ID",
+				Message: "Loan ID already exists",
+				Details: map[string]interface{}{
+					"loan_id":       input.LoanID,
+					"customer_name": existingLoan.CustomerName,
+				},
 			},
 		})
 		return
