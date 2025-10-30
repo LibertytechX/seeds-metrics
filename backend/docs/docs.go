@@ -72,6 +72,78 @@ const docTemplate = `{
                 }
             }
         },
+        "/customers": {
+            "get": {
+                "description": "Retrieve a list of all customers",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Customers"
+                ],
+                "summary": "Get all customers",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/etl/customers": {
+            "post": {
+                "description": "Create a new customer record in the system (ETL endpoint)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "ETL"
+                ],
+                "summary": "Create a new customer",
+                "parameters": [
+                    {
+                        "description": "Customer data",
+                        "name": "customer",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.CustomerInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/models.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
         "/etl/loans": {
             "post": {
                 "description": "Create a new loan record in the system (ETL endpoint)",
@@ -93,6 +165,52 @@ const docTemplate = `{
                         "required": true,
                         "schema": {
                             "$ref": "#/definitions/models.LoanInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/models.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/etl/officers": {
+            "post": {
+                "description": "Create a new loan officer record in the system (ETL endpoint)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "ETL"
+                ],
+                "summary": "Create a new officer",
+                "parameters": [
+                    {
+                        "description": "Officer data",
+                        "name": "officer",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.OfficerInput"
                         }
                     }
                 ],
@@ -484,6 +602,50 @@ const docTemplate = `{
                 }
             }
         },
+        "models.CustomerInput": {
+            "type": "object",
+            "required": [
+                "customer_id",
+                "customer_name"
+            ],
+            "properties": {
+                "address": {
+                    "type": "string"
+                },
+                "customer_email": {
+                    "type": "string"
+                },
+                "customer_id": {
+                    "type": "string"
+                },
+                "customer_name": {
+                    "type": "string"
+                },
+                "customer_phone": {
+                    "type": "string"
+                },
+                "date_of_birth": {
+                    "description": "YYYY-MM-DD format",
+                    "type": "string"
+                },
+                "gender": {
+                    "type": "string"
+                },
+                "kyc_status": {
+                    "type": "string"
+                },
+                "kyc_verified_date": {
+                    "description": "YYYY-MM-DD format",
+                    "type": "string"
+                },
+                "lga": {
+                    "type": "string"
+                },
+                "state": {
+                    "type": "string"
+                }
+            }
+        },
         "models.HealthCheckResponse": {
             "type": "object",
             "properties": {
@@ -593,6 +755,9 @@ const docTemplate = `{
                 "created_at": {
                     "type": "string"
                 },
+                "employment_status": {
+                    "type": "string"
+                },
                 "hire_date": {
                     "type": "string"
                 },
@@ -608,10 +773,40 @@ const docTemplate = `{
                 "region": {
                     "type": "string"
                 },
-                "status": {
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.OfficerInput": {
+            "type": "object",
+            "required": [
+                "branch",
+                "officer_id",
+                "officer_name",
+                "region"
+            ],
+            "properties": {
+                "branch": {
                     "type": "string"
                 },
-                "updated_at": {
+                "employment_status": {
+                    "type": "string"
+                },
+                "hire_date": {
+                    "description": "YYYY-MM-DD format",
+                    "type": "string"
+                },
+                "officer_id": {
+                    "type": "string"
+                },
+                "officer_name": {
+                    "type": "string"
+                },
+                "officer_phone": {
+                    "type": "string"
+                },
+                "region": {
                     "type": "string"
                 }
             }
@@ -777,9 +972,9 @@ const docTemplate = `{
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
-	Host:             "metrics.seedsandpennies.com",
+	Host:             "localhost:8081",
 	BasePath:         "/api/v1",
-	Schemes:          []string{"https", "http"},
+	Schemes:          []string{"http", "https"},
 	Title:            "Seeds Metrics API",
 	Description:      "API for Seeds & Pennies loan portfolio metrics and analytics dashboard",
 	InfoInstanceName: "swagger",

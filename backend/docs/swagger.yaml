@@ -20,6 +20,36 @@ definitions:
       status:
         type: string
     type: object
+  models.CustomerInput:
+    properties:
+      address:
+        type: string
+      customer_email:
+        type: string
+      customer_id:
+        type: string
+      customer_name:
+        type: string
+      customer_phone:
+        type: string
+      date_of_birth:
+        description: YYYY-MM-DD format
+        type: string
+      gender:
+        type: string
+      kyc_status:
+        type: string
+      kyc_verified_date:
+        description: YYYY-MM-DD format
+        type: string
+      lga:
+        type: string
+      state:
+        type: string
+    required:
+    - customer_id
+    - customer_name
+    type: object
   models.HealthCheckResponse:
     properties:
       services:
@@ -97,6 +127,8 @@ definitions:
         type: string
       created_at:
         type: string
+      employment_status:
+        type: string
       hire_date:
         type: string
       officer_id:
@@ -107,10 +139,31 @@ definitions:
         type: string
       region:
         type: string
-      status:
-        type: string
       updated_at:
         type: string
+    type: object
+  models.OfficerInput:
+    properties:
+      branch:
+        type: string
+      employment_status:
+        type: string
+      hire_date:
+        description: YYYY-MM-DD format
+        type: string
+      officer_id:
+        type: string
+      officer_name:
+        type: string
+      officer_phone:
+        type: string
+      region:
+        type: string
+    required:
+    - branch
+    - officer_id
+    - officer_name
+    - region
     type: object
   models.PortfolioMetrics:
     properties:
@@ -212,7 +265,7 @@ definitions:
       overdue15d_wow:
         type: number
     type: object
-host: metrics.seedsandpennies.com
+host: localhost:8081
 info:
   contact:
     email: support@seedsandpennies.com
@@ -257,6 +310,53 @@ paths:
       summary: Get all branches
       tags:
       - Branches
+  /customers:
+    get:
+      description: Retrieve a list of all customers
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+      summary: Get all customers
+      tags:
+      - Customers
+  /etl/customers:
+    post:
+      consumes:
+      - application/json
+      description: Create a new customer record in the system (ETL endpoint)
+      parameters:
+      - description: Customer data
+        in: body
+        name: customer
+        required: true
+        schema:
+          $ref: '#/definitions/models.CustomerInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+      summary: Create a new customer
+      tags:
+      - ETL
   /etl/loans:
     post:
       consumes:
@@ -285,6 +385,36 @@ paths:
           schema:
             $ref: '#/definitions/models.APIResponse'
       summary: Create a new loan
+      tags:
+      - ETL
+  /etl/officers:
+    post:
+      consumes:
+      - application/json
+      description: Create a new loan officer record in the system (ETL endpoint)
+      parameters:
+      - description: Officer data
+        in: body
+        name: officer
+        required: true
+        schema:
+          $ref: '#/definitions/models.OfficerInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+      summary: Create a new officer
       tags:
       - ETL
   /etl/repayments:
@@ -506,8 +636,8 @@ paths:
       tags:
       - Officers
 schemes:
-- https
 - http
+- https
 securityDefinitions:
   ApiKeyAuth:
     in: header

@@ -30,9 +30,9 @@ import (
 // @license.name MIT
 // @license.url https://opensource.org/licenses/MIT
 
-// @host metrics.seedsandpennies.com
+// @host localhost:8081
 // @BasePath /api/v1
-// @schemes https http
+// @schemes http https
 
 // @securityDefinitions.apikey ApiKeyAuth
 // @in header
@@ -60,18 +60,21 @@ func main() {
 	// Initialize repositories
 	loanRepo := repository.NewLoanRepository(db)
 	repaymentRepo := repository.NewRepaymentRepository(db)
+	officerRepo := repository.NewOfficerRepository(db)
+	customerRepo := repository.NewCustomerRepository(db)
 	dashboardRepo := repository.NewDashboardRepository(db.DB)
 
 	// Initialize services
 	metricsService := services.NewMetricsService()
 
 	// Initialize handlers
-	etlHandler := handlers.NewETLHandler(loanRepo, repaymentRepo)
+	etlHandler := handlers.NewETLHandler(loanRepo, repaymentRepo, officerRepo)
+	customerHandler := handlers.NewCustomerHandler(customerRepo)
 	healthHandler := handlers.NewHealthHandler(db)
 	dashboardHandler := handlers.NewDashboardHandler(dashboardRepo, repaymentRepo, metricsService)
 
 	// Setup router
-	router := setupRouter(cfg, etlHandler, healthHandler, dashboardHandler)
+	router := setupRouter(cfg, etlHandler, customerHandler, healthHandler, dashboardHandler)
 
 	// Start server
 	addr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)
@@ -92,7 +95,7 @@ func main() {
 	log.Println("🛑 Shutting down server...")
 }
 
-func setupRouter(cfg *config.Config, etlHandler *handlers.ETLHandler, healthHandler *handlers.HealthHandler, dashboardHandler *handlers.DashboardHandler) *gin.Engine {
+func setupRouter(cfg *config.Config, etlHandler *handlers.ETLHandler, customerHandler *handlers.CustomerHandler, healthHandler *handlers.HealthHandler, dashboardHandler *handlers.DashboardHandler) *gin.Engine {
 	router := gin.Default()
 
 	// CORS middleware
@@ -110,10 +113,15 @@ func setupRouter(cfg *config.Config, etlHandler *handlers.ETLHandler, healthHand
 		// ETL endpoints
 		etl := v1.Group("/etl")
 		{
+			etl.POST("/customers", customerHandler.CreateCustomer)
+			etl.POST("/officers", etlHandler.CreateOfficer)
 			etl.POST("/loans", etlHandler.CreateLoan)
 			etl.POST("/repayments", etlHandler.CreateRepayment)
 			etl.POST("/sync", etlHandler.BatchSync)
 		}
+
+		// Customer endpoints
+		v1.GET("/customers", customerHandler.GetCustomers)
 
 		// Portfolio metrics
 		metrics := v1.Group("/metrics")

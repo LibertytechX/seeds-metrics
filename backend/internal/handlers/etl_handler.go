@@ -9,17 +9,20 @@ import (
 	"github.com/google/uuid"
 	"github.com/seeds-metrics/analytics-backend/internal/models"
 	"github.com/seeds-metrics/analytics-backend/internal/repository"
+	"github.com/shopspring/decimal"
 )
 
 type ETLHandler struct {
 	loanRepo      *repository.LoanRepository
 	repaymentRepo *repository.RepaymentRepository
+	officerRepo   *repository.OfficerRepository
 }
 
-func NewETLHandler(loanRepo *repository.LoanRepository, repaymentRepo *repository.RepaymentRepository) *ETLHandler {
+func NewETLHandler(loanRepo *repository.LoanRepository, repaymentRepo *repository.RepaymentRepository, officerRepo *repository.OfficerRepository) *ETLHandler {
 	return &ETLHandler{
 		loanRepo:      loanRepo,
 		repaymentRepo: repaymentRepo,
+		officerRepo:   officerRepo,
 	}
 }
 
@@ -46,6 +49,13 @@ func (h *ETLHandler) CreateLoan(c *gin.Context) {
 			},
 		})
 		return
+	}
+
+	// Convert interest rate from percentage to decimal (e.g., 15 -> 0.15)
+	if input.InterestRate != nil {
+		percentageRate := *input.InterestRate
+		decimalRate := percentageRate.Div(decimal.NewFromInt(100))
+		input.InterestRate = &decimalRate
 	}
 
 	// Create loan
@@ -235,4 +245,51 @@ func (h *ETLHandler) BatchSync(c *gin.Context) {
 	}
 
 	c.JSON(statusCode, response)
+}
+
+// CreateOfficer handles POST /api/v1/etl/officers
+// @Summary Create a new officer
+// @Description Create a new loan officer record in the system (ETL endpoint)
+// @Tags ETL
+// @Accept json
+// @Produce json
+// @Param officer body models.OfficerInput true "Officer data"
+// @Success 201 {object} models.APIResponse
+// @Failure 400 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
+// @Router /etl/officers [post]
+func (h *ETLHandler) CreateOfficer(c *gin.Context) {
+	var input models.OfficerInput
+	if err := c.ShouldBindJSON(&input); err != nil {
+		c.JSON(http.StatusBadRequest, models.APIResponse{
+			Status: "error",
+			Error: &models.APIError{
+				Code:    "VALIDATION_ERROR",
+				Message: "Invalid request payload",
+				Details: map[string]interface{}{"error": err.Error()},
+			},
+		})
+		return
+	}
+
+	// Create officer
+	if err := h.officerRepo.Create(c.Request.Context(), &input); err != nil {
+		c.JSON(http.StatusInternalServerError, models.APIResponse{
+			Status: "error",
+			Error: &models.APIError{
+				Code:    "DATABASE_ERROR",
+				Message: "Failed to create officer",
+				Details: map[string]interface{}{"error": err.Error()},
+			},
+		})
+		return
+	}
+
+	c.JSON(http.StatusCreated, models.APIResponse{
+		Status:  "success",
+		Message: "Officer created successfully",
+		Data: map[string]interface{}{
+			"officer_id": input.OfficerID,
+		},
+	})
 }
