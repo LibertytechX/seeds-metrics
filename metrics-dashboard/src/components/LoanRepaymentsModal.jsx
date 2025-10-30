@@ -20,7 +20,8 @@ const LoanRepaymentsModal = ({ isOpen, onClose, loanId, customerName }) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`http://localhost:8080/api/v1/loans/${loanId}/repayments`);
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8081/api/v1';
+      const response = await fetch(`${API_BASE_URL}/loans/${loanId}/repayments`);
       const data = await response.json();
 
       if (data.status === 'success') {

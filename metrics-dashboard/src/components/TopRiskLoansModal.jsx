@@ -20,9 +20,10 @@ const TopRiskLoansModal = ({ isOpen, onClose, officerName, officerId }) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`http://localhost:8080/api/v1/officers/${officerId}/top-risk-loans?limit=20`);
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8081/api/v1';
+      const response = await fetch(`${API_BASE_URL}/officers/${officerId}/top-risk-loans?limit=20`);
       const data = await response.json();
-      
+
       if (data.status === 'success') {
         setLoans(data.data.loans || []);
       } else {
@@ -45,7 +46,7 @@ const TopRiskLoansModal = ({ isOpen, onClose, officerName, officerId }) => {
 
   const sortedLoans = useMemo(() => {
     if (!loans || loans.length === 0) return [];
-    
+
     const sorted = [...loans].sort((a, b) => {
       let aVal = a[sortConfig.key];
       let bVal = b[sortConfig.key];
@@ -143,7 +144,7 @@ const TopRiskLoansModal = ({ isOpen, onClose, officerName, officerId }) => {
 
   const handleExportPDF = () => {
     const doc = new jsPDF('landscape');
-    
+
     // Title
     doc.setFontSize(16);
     doc.text(`Top 20 Risk Loans - ${officerName}`, 14, 15);

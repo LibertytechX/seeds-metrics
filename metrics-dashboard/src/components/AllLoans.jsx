@@ -38,7 +38,8 @@ const AllLoans = ({ initialLoans = [] }) => {
         ...Object.fromEntries(Object.entries(filters).filter(([_, v]) => v !== '')),
       });
 
-      const response = await fetch(`http://localhost:8080/api/v1/loans?${params}`);
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8081/api/v1';
+      const response = await fetch(`${API_BASE_URL}/loans?${params}`);
       const data = await response.json();
 
       if (data.status === 'success') {
