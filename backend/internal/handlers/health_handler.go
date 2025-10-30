@@ -18,6 +18,14 @@ func NewHealthHandler(db *database.DB) *HealthHandler {
 }
 
 // HealthCheck handles GET /health
+// @Summary Health check
+// @Description Check the health status of the API and its dependencies (database)
+// @Tags Health
+// @Accept json
+// @Produce json
+// @Success 200 {object} models.HealthCheckResponse
+// @Failure 503 {object} models.HealthCheckResponse
+// @Router /health [get]
 func (h *HealthHandler) HealthCheck(c *gin.Context) {
 	services := make(map[string]models.ServiceHealth)
 
@@ -52,4 +60,3 @@ func (h *HealthHandler) HealthCheck(c *gin.Context) {
 
 	c.JSON(statusCode, response)
 }
-

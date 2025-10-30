@@ -9,22 +9,779 @@ const docTemplate = `{
     "info": {
         "description": "{{escape .Description}}",
         "title": "{{.Title}}",
-        "contact": {},
+        "termsOfService": "http://swagger.io/terms/",
+        "contact": {
+            "name": "API Support",
+            "email": "support@seedsandpennies.com"
+        },
+        "license": {
+            "name": "MIT",
+            "url": "https://opensource.org/licenses/MIT"
+        },
         "version": "{{.Version}}"
     },
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
-    "paths": {}
+    "paths": {
+        "/branches": {
+            "get": {
+                "description": "Get list of branches with their portfolio metrics and PAR15 ratios",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Branches"
+                ],
+                "summary": "Get all branches",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by region",
+                        "name": "region",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort field",
+                        "name": "sort_by",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort direction (asc/desc)",
+                        "name": "sort_dir",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/etl/loans": {
+            "post": {
+                "description": "Create a new loan record in the system (ETL endpoint)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "ETL"
+                ],
+                "summary": "Create a new loan",
+                "parameters": [
+                    {
+                        "description": "Loan data",
+                        "name": "loan",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.LoanInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/models.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/etl/repayments": {
+            "post": {
+                "description": "Create a new repayment record for a loan (ETL endpoint)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "ETL"
+                ],
+                "summary": "Create a new repayment",
+                "parameters": [
+                    {
+                        "description": "Repayment data",
+                        "name": "repayment",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/models.RepaymentInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/models.APIResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/models.APIResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/models.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/health": {
+            "get": {
+                "description": "Check the health status of the API and its dependencies (database)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Health"
+                ],
+                "summary": "Health check",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.HealthCheckResponse"
+                        }
+                    },
+                    "503": {
+                        "description": "Service Unavailable",
+                        "schema": {
+                            "$ref": "#/definitions/models.HealthCheckResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/loans": {
+            "get": {
+                "description": "Get list of all loans with filtering, sorting, and pagination",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Loans"
+                ],
+                "summary": "Get all loans",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by officer ID",
+                        "name": "officer_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by branch",
+                        "name": "branch",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by region",
+                        "name": "region",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by channel",
+                        "name": "channel",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by status",
+                        "name": "status",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort field",
+                        "name": "sort_by",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort direction (asc/desc)",
+                        "name": "sort_dir",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 50,
+                        "description": "Items per page",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/metrics/portfolio": {
+            "get": {
+                "description": "Get aggregated portfolio-level metrics including total overdue, DQI, AYR, and risk scores",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Metrics"
+                ],
+                "summary": "Get portfolio metrics",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/models.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.PortfolioMetrics"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/officers": {
+            "get": {
+                "description": "Get list of loan officers with their performance metrics and calculated scores",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Officers"
+                ],
+                "summary": "Get all officers",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filter by branch",
+                        "name": "branch",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by region",
+                        "name": "region",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by channel",
+                        "name": "channel",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort field (e.g., risk_score, total_portfolio)",
+                        "name": "sort_by",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Sort direction (asc/desc)",
+                        "name": "sort_dir",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 1,
+                        "description": "Page number",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "default": 50,
+                        "description": "Items per page",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.APIResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "$ref": "#/definitions/models.APIResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/officers/{officer_id}": {
+            "get": {
+                "description": "Get detailed information about a specific loan officer including metrics and risk band",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Officers"
+                ],
+                "summary": "Get officer by ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Officer ID",
+                        "name": "officer_id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "allOf": [
+                                {
+                                    "$ref": "#/definitions/models.APIResponse"
+                                },
+                                {
+                                    "type": "object",
+                                    "properties": {
+                                        "data": {
+                                            "$ref": "#/definitions/models.Officer"
+                                        }
+                                    }
+                                }
+                            ]
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "$ref": "#/definitions/models.APIResponse"
+                        }
+                    }
+                }
+            }
+        }
+    },
+    "definitions": {
+        "models.APIError": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string"
+                },
+                "details": {
+                    "type": "object",
+                    "additionalProperties": true
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.APIResponse": {
+            "type": "object",
+            "properties": {
+                "data": {},
+                "error": {
+                    "$ref": "#/definitions/models.APIError"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.HealthCheckResponse": {
+            "type": "object",
+            "properties": {
+                "services": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "$ref": "#/definitions/models.ServiceHealth"
+                    }
+                },
+                "status": {
+                    "type": "string"
+                },
+                "timestamp": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.LoanInput": {
+            "type": "object",
+            "required": [
+                "branch",
+                "channel",
+                "customer_id",
+                "customer_name",
+                "disbursement_date",
+                "loan_amount",
+                "loan_id",
+                "loan_term_days",
+                "maturity_date",
+                "officer_id",
+                "officer_name",
+                "region",
+                "status"
+            ],
+            "properties": {
+                "branch": {
+                    "type": "string"
+                },
+                "channel": {
+                    "type": "string"
+                },
+                "channel_partner": {
+                    "type": "string"
+                },
+                "closed_date": {
+                    "description": "YYYY-MM-DD",
+                    "type": "string"
+                },
+                "customer_id": {
+                    "type": "string"
+                },
+                "customer_name": {
+                    "type": "string"
+                },
+                "customer_phone": {
+                    "type": "string"
+                },
+                "disbursement_date": {
+                    "description": "YYYY-MM-DD",
+                    "type": "string"
+                },
+                "fee_amount": {
+                    "type": "number"
+                },
+                "interest_rate": {
+                    "type": "number"
+                },
+                "loan_amount": {
+                    "type": "number"
+                },
+                "loan_id": {
+                    "type": "string"
+                },
+                "loan_term_days": {
+                    "type": "integer"
+                },
+                "maturity_date": {
+                    "description": "YYYY-MM-DD",
+                    "type": "string"
+                },
+                "officer_id": {
+                    "type": "string"
+                },
+                "officer_name": {
+                    "type": "string"
+                },
+                "officer_phone": {
+                    "type": "string"
+                },
+                "region": {
+                    "type": "string"
+                },
+                "state": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.Officer": {
+            "type": "object",
+            "properties": {
+                "branch": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "hire_date": {
+                    "type": "string"
+                },
+                "officer_id": {
+                    "type": "string"
+                },
+                "officer_name": {
+                    "type": "string"
+                },
+                "officer_phone": {
+                    "type": "string"
+                },
+                "region": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.PortfolioMetrics": {
+            "type": "object",
+            "properties": {
+                "avgAYR": {
+                    "type": "number"
+                },
+                "avgDQI": {
+                    "type": "integer"
+                },
+                "avgRiskScore": {
+                    "type": "integer"
+                },
+                "topOfficer": {
+                    "$ref": "#/definitions/models.TopOfficer"
+                },
+                "totalLoans": {
+                    "type": "integer"
+                },
+                "totalOfficers": {
+                    "type": "integer"
+                },
+                "totalOverdue15d": {
+                    "type": "number"
+                },
+                "totalPortfolio": {
+                    "type": "number"
+                },
+                "trends": {
+                    "$ref": "#/definitions/models.Trends"
+                },
+                "watchlistCount": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.RepaymentInput": {
+            "type": "object",
+            "required": [
+                "fees_paid",
+                "interest_paid",
+                "loan_id",
+                "payment_amount",
+                "payment_date",
+                "payment_method",
+                "principal_paid",
+                "repayment_id"
+            ],
+            "properties": {
+                "dpd_at_payment": {
+                    "type": "integer"
+                },
+                "fees_paid": {
+                    "type": "number"
+                },
+                "interest_paid": {
+                    "type": "number"
+                },
+                "is_backdated": {
+                    "type": "boolean"
+                },
+                "is_reversed": {
+                    "type": "boolean"
+                },
+                "loan_id": {
+                    "type": "string"
+                },
+                "payment_amount": {
+                    "type": "number"
+                },
+                "payment_channel": {
+                    "type": "string"
+                },
+                "payment_date": {
+                    "description": "YYYY-MM-DD",
+                    "type": "string"
+                },
+                "payment_method": {
+                    "type": "string"
+                },
+                "payment_reference": {
+                    "type": "string"
+                },
+                "penalty_paid": {
+                    "type": "number"
+                },
+                "principal_paid": {
+                    "type": "number"
+                },
+                "repayment_id": {
+                    "type": "string"
+                },
+                "reversal_date": {
+                    "description": "YYYY-MM-DD",
+                    "type": "string"
+                },
+                "reversal_reason": {
+                    "type": "string"
+                },
+                "waiver_amount": {
+                    "type": "number"
+                },
+                "waiver_approved_by": {
+                    "type": "string"
+                },
+                "waiver_type": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.ServiceHealth": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string"
+                },
+                "status": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.TopOfficer": {
+            "type": "object",
+            "properties": {
+                "ayr": {
+                    "type": "number"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "officer_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.Trends": {
+            "type": "object",
+            "properties": {
+                "ayr_change": {
+                    "type": "number"
+                },
+                "dqi_change": {
+                    "type": "integer"
+                },
+                "overdue15d_wow": {
+                    "type": "number"
+                }
+            }
+        }
+    },
+    "securityDefinitions": {
+        "ApiKeyAuth": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header"
+        }
+    }
 }`
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "",
-	Host:             "",
-	BasePath:         "",
-	Schemes:          []string{},
-	Title:            "",
-	Description:      "",
+	Version:          "1.0",
+	Host:             "metrics.seedsandpennies.com",
+	BasePath:         "/api/v1",
+	Schemes:          []string{"https", "http"},
+	Title:            "Seeds Metrics API",
+	Description:      "API for Seeds & Pennies loan portfolio metrics and analytics dashboard",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

@@ -35,6 +35,14 @@ func newAPIError(code, message string) *models.APIError {
 }
 
 // GetPortfolioMetrics handles GET /api/v1/metrics/portfolio
+// @Summary Get portfolio metrics
+// @Description Get aggregated portfolio-level metrics including total overdue, DQI, AYR, and risk scores
+// @Tags Metrics
+// @Accept json
+// @Produce json
+// @Success 200 {object} models.APIResponse{data=models.PortfolioMetrics}
+// @Failure 500 {object} models.APIResponse
+// @Router /metrics/portfolio [get]
 func (h *DashboardHandler) GetPortfolioMetrics(c *gin.Context) {
 	// Get all officers with metrics
 	officers, err := h.dashboardRepo.GetOfficers(map[string]interface{}{})
@@ -63,6 +71,21 @@ func (h *DashboardHandler) GetPortfolioMetrics(c *gin.Context) {
 }
 
 // GetOfficers handles GET /api/v1/officers
+// @Summary Get all officers
+// @Description Get list of loan officers with their performance metrics and calculated scores
+// @Tags Officers
+// @Accept json
+// @Produce json
+// @Param branch query string false "Filter by branch"
+// @Param region query string false "Filter by region"
+// @Param channel query string false "Filter by channel"
+// @Param sort_by query string false "Sort field (e.g., risk_score, total_portfolio)"
+// @Param sort_dir query string false "Sort direction (asc/desc)"
+// @Param page query int false "Page number" default(1)
+// @Param limit query int false "Items per page" default(50)
+// @Success 200 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
+// @Router /officers [get]
 func (h *DashboardHandler) GetOfficers(c *gin.Context) {
 	// Parse filters from query parameters
 	filters := make(map[string]interface{})
@@ -120,6 +143,15 @@ func (h *DashboardHandler) GetOfficers(c *gin.Context) {
 }
 
 // GetOfficerByID handles GET /api/v1/officers/:officer_id
+// @Summary Get officer by ID
+// @Description Get detailed information about a specific loan officer including metrics and risk band
+// @Tags Officers
+// @Accept json
+// @Produce json
+// @Param officer_id path string true "Officer ID"
+// @Success 200 {object} models.APIResponse{data=models.Officer}
+// @Failure 404 {object} models.APIResponse
+// @Router /officers/{officer_id} [get]
 func (h *DashboardHandler) GetOfficerByID(c *gin.Context) {
 	officerID := c.Param("officer_id")
 
@@ -349,6 +381,23 @@ func (h *DashboardHandler) GetEarlyIndicatorSummary(c *gin.Context) {
 }
 
 // GetAllLoans handles GET /api/v1/loans
+// @Summary Get all loans
+// @Description Get list of all loans with filtering, sorting, and pagination
+// @Tags Loans
+// @Accept json
+// @Produce json
+// @Param officer_id query string false "Filter by officer ID"
+// @Param branch query string false "Filter by branch"
+// @Param region query string false "Filter by region"
+// @Param channel query string false "Filter by channel"
+// @Param status query string false "Filter by status"
+// @Param sort_by query string false "Sort field"
+// @Param sort_dir query string false "Sort direction (asc/desc)"
+// @Param page query int false "Page number" default(1)
+// @Param limit query int false "Items per page" default(50)
+// @Success 200 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
+// @Router /loans [get]
 func (h *DashboardHandler) GetAllLoans(c *gin.Context) {
 	// Parse filters
 	filters := make(map[string]interface{})
@@ -414,6 +463,17 @@ func (h *DashboardHandler) GetAllLoans(c *gin.Context) {
 }
 
 // GetBranches handles GET /api/v1/branches
+// @Summary Get all branches
+// @Description Get list of branches with their portfolio metrics and PAR15 ratios
+// @Tags Branches
+// @Accept json
+// @Produce json
+// @Param region query string false "Filter by region"
+// @Param sort_by query string false "Sort field"
+// @Param sort_dir query string false "Sort direction (asc/desc)"
+// @Success 200 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
+// @Router /branches [get]
 func (h *DashboardHandler) GetBranches(c *gin.Context) {
 	// Parse filters
 	filters := make(map[string]interface{})

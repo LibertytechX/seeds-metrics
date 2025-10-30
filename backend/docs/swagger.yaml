@@ -1,4 +1,516 @@
+basePath: /api/v1
+definitions:
+  models.APIError:
+    properties:
+      code:
+        type: string
+      details:
+        additionalProperties: true
+        type: object
+      message:
+        type: string
+    type: object
+  models.APIResponse:
+    properties:
+      data: {}
+      error:
+        $ref: '#/definitions/models.APIError'
+      message:
+        type: string
+      status:
+        type: string
+    type: object
+  models.HealthCheckResponse:
+    properties:
+      services:
+        additionalProperties:
+          $ref: '#/definitions/models.ServiceHealth'
+        type: object
+      status:
+        type: string
+      timestamp:
+        type: string
+    type: object
+  models.LoanInput:
+    properties:
+      branch:
+        type: string
+      channel:
+        type: string
+      channel_partner:
+        type: string
+      closed_date:
+        description: YYYY-MM-DD
+        type: string
+      customer_id:
+        type: string
+      customer_name:
+        type: string
+      customer_phone:
+        type: string
+      disbursement_date:
+        description: YYYY-MM-DD
+        type: string
+      fee_amount:
+        type: number
+      interest_rate:
+        type: number
+      loan_amount:
+        type: number
+      loan_id:
+        type: string
+      loan_term_days:
+        type: integer
+      maturity_date:
+        description: YYYY-MM-DD
+        type: string
+      officer_id:
+        type: string
+      officer_name:
+        type: string
+      officer_phone:
+        type: string
+      region:
+        type: string
+      state:
+        type: string
+      status:
+        type: string
+    required:
+    - branch
+    - channel
+    - customer_id
+    - customer_name
+    - disbursement_date
+    - loan_amount
+    - loan_id
+    - loan_term_days
+    - maturity_date
+    - officer_id
+    - officer_name
+    - region
+    - status
+    type: object
+  models.Officer:
+    properties:
+      branch:
+        type: string
+      created_at:
+        type: string
+      hire_date:
+        type: string
+      officer_id:
+        type: string
+      officer_name:
+        type: string
+      officer_phone:
+        type: string
+      region:
+        type: string
+      status:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  models.PortfolioMetrics:
+    properties:
+      avgAYR:
+        type: number
+      avgDQI:
+        type: integer
+      avgRiskScore:
+        type: integer
+      topOfficer:
+        $ref: '#/definitions/models.TopOfficer'
+      totalLoans:
+        type: integer
+      totalOfficers:
+        type: integer
+      totalOverdue15d:
+        type: number
+      totalPortfolio:
+        type: number
+      trends:
+        $ref: '#/definitions/models.Trends'
+      watchlistCount:
+        type: integer
+    type: object
+  models.RepaymentInput:
+    properties:
+      dpd_at_payment:
+        type: integer
+      fees_paid:
+        type: number
+      interest_paid:
+        type: number
+      is_backdated:
+        type: boolean
+      is_reversed:
+        type: boolean
+      loan_id:
+        type: string
+      payment_amount:
+        type: number
+      payment_channel:
+        type: string
+      payment_date:
+        description: YYYY-MM-DD
+        type: string
+      payment_method:
+        type: string
+      payment_reference:
+        type: string
+      penalty_paid:
+        type: number
+      principal_paid:
+        type: number
+      repayment_id:
+        type: string
+      reversal_date:
+        description: YYYY-MM-DD
+        type: string
+      reversal_reason:
+        type: string
+      waiver_amount:
+        type: number
+      waiver_approved_by:
+        type: string
+      waiver_type:
+        type: string
+    required:
+    - fees_paid
+    - interest_paid
+    - loan_id
+    - payment_amount
+    - payment_date
+    - payment_method
+    - principal_paid
+    - repayment_id
+    type: object
+  models.ServiceHealth:
+    properties:
+      message:
+        type: string
+      status:
+        type: string
+    type: object
+  models.TopOfficer:
+    properties:
+      ayr:
+        type: number
+      name:
+        type: string
+      officer_id:
+        type: string
+    type: object
+  models.Trends:
+    properties:
+      ayr_change:
+        type: number
+      dqi_change:
+        type: integer
+      overdue15d_wow:
+        type: number
+    type: object
+host: metrics.seedsandpennies.com
 info:
-  contact: {}
-paths: {}
+  contact:
+    email: support@seedsandpennies.com
+    name: API Support
+  description: API for Seeds & Pennies loan portfolio metrics and analytics dashboard
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: http://swagger.io/terms/
+  title: Seeds Metrics API
+  version: "1.0"
+paths:
+  /branches:
+    get:
+      consumes:
+      - application/json
+      description: Get list of branches with their portfolio metrics and PAR15 ratios
+      parameters:
+      - description: Filter by region
+        in: query
+        name: region
+        type: string
+      - description: Sort field
+        in: query
+        name: sort_by
+        type: string
+      - description: Sort direction (asc/desc)
+        in: query
+        name: sort_dir
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+      summary: Get all branches
+      tags:
+      - Branches
+  /etl/loans:
+    post:
+      consumes:
+      - application/json
+      description: Create a new loan record in the system (ETL endpoint)
+      parameters:
+      - description: Loan data
+        in: body
+        name: loan
+        required: true
+        schema:
+          $ref: '#/definitions/models.LoanInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+      summary: Create a new loan
+      tags:
+      - ETL
+  /etl/repayments:
+    post:
+      consumes:
+      - application/json
+      description: Create a new repayment record for a loan (ETL endpoint)
+      parameters:
+      - description: Repayment data
+        in: body
+        name: repayment
+        required: true
+        schema:
+          $ref: '#/definitions/models.RepaymentInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+      summary: Create a new repayment
+      tags:
+      - ETL
+  /health:
+    get:
+      consumes:
+      - application/json
+      description: Check the health status of the API and its dependencies (database)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.HealthCheckResponse'
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/models.HealthCheckResponse'
+      summary: Health check
+      tags:
+      - Health
+  /loans:
+    get:
+      consumes:
+      - application/json
+      description: Get list of all loans with filtering, sorting, and pagination
+      parameters:
+      - description: Filter by officer ID
+        in: query
+        name: officer_id
+        type: string
+      - description: Filter by branch
+        in: query
+        name: branch
+        type: string
+      - description: Filter by region
+        in: query
+        name: region
+        type: string
+      - description: Filter by channel
+        in: query
+        name: channel
+        type: string
+      - description: Filter by status
+        in: query
+        name: status
+        type: string
+      - description: Sort field
+        in: query
+        name: sort_by
+        type: string
+      - description: Sort direction (asc/desc)
+        in: query
+        name: sort_dir
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 50
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+      summary: Get all loans
+      tags:
+      - Loans
+  /metrics/portfolio:
+    get:
+      consumes:
+      - application/json
+      description: Get aggregated portfolio-level metrics including total overdue,
+        DQI, AYR, and risk scores
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/models.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.PortfolioMetrics'
+              type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+      summary: Get portfolio metrics
+      tags:
+      - Metrics
+  /officers:
+    get:
+      consumes:
+      - application/json
+      description: Get list of loan officers with their performance metrics and calculated
+        scores
+      parameters:
+      - description: Filter by branch
+        in: query
+        name: branch
+        type: string
+      - description: Filter by region
+        in: query
+        name: region
+        type: string
+      - description: Filter by channel
+        in: query
+        name: channel
+        type: string
+      - description: Sort field (e.g., risk_score, total_portfolio)
+        in: query
+        name: sort_by
+        type: string
+      - description: Sort direction (asc/desc)
+        in: query
+        name: sort_dir
+        type: string
+      - default: 1
+        description: Page number
+        in: query
+        name: page
+        type: integer
+      - default: 50
+        description: Items per page
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+      summary: Get all officers
+      tags:
+      - Officers
+  /officers/{officer_id}:
+    get:
+      consumes:
+      - application/json
+      description: Get detailed information about a specific loan officer including
+        metrics and risk band
+      parameters:
+      - description: Officer ID
+        in: path
+        name: officer_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/models.APIResponse'
+            - properties:
+                data:
+                  $ref: '#/definitions/models.Officer'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+      summary: Get officer by ID
+      tags:
+      - Officers
+schemes:
+- https
+- http
+securityDefinitions:
+  ApiKeyAuth:
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"

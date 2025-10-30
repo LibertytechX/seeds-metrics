@@ -13,7 +13,30 @@ import (
 	"github.com/seeds-metrics/analytics-backend/internal/repository"
 	"github.com/seeds-metrics/analytics-backend/internal/services"
 	"github.com/seeds-metrics/analytics-backend/pkg/database"
+
+	_ "github.com/seeds-metrics/analytics-backend/docs" // Import generated docs
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
+
+// @title Seeds Metrics API
+// @version 1.0
+// @description API for Seeds & Pennies loan portfolio metrics and analytics dashboard
+// @termsOfService http://swagger.io/terms/
+
+// @contact.name API Support
+// @contact.email support@seedsandpennies.com
+
+// @license.name MIT
+// @license.url https://opensource.org/licenses/MIT
+
+// @host metrics.seedsandpennies.com
+// @BasePath /api/v1
+// @schemes https http
+
+// @securityDefinitions.apikey ApiKeyAuth
+// @in header
+// @name Authorization
 
 func main() {
 	// Load configuration
@@ -74,6 +97,9 @@ func setupRouter(cfg *config.Config, etlHandler *handlers.ETLHandler, healthHand
 
 	// CORS middleware
 	router.Use(corsMiddleware(cfg))
+
+	// Swagger documentation
+	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
 	// Health check
 	router.GET("/health", healthHandler.HealthCheck)

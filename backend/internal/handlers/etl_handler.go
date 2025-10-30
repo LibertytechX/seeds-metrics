@@ -24,6 +24,16 @@ func NewETLHandler(loanRepo *repository.LoanRepository, repaymentRepo *repositor
 }
 
 // CreateLoan handles POST /api/v1/etl/loans
+// @Summary Create a new loan
+// @Description Create a new loan record in the system (ETL endpoint)
+// @Tags ETL
+// @Accept json
+// @Produce json
+// @Param loan body models.LoanInput true "Loan data"
+// @Success 201 {object} models.APIResponse
+// @Failure 400 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
+// @Router /etl/loans [post]
 func (h *ETLHandler) CreateLoan(c *gin.Context) {
 	var input models.LoanInput
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -61,6 +71,17 @@ func (h *ETLHandler) CreateLoan(c *gin.Context) {
 }
 
 // CreateRepayment handles POST /api/v1/etl/repayments
+// @Summary Create a new repayment
+// @Description Create a new repayment record for a loan (ETL endpoint)
+// @Tags ETL
+// @Accept json
+// @Produce json
+// @Param repayment body models.RepaymentInput true "Repayment data"
+// @Success 201 {object} models.APIResponse
+// @Failure 400 {object} models.APIResponse
+// @Failure 404 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
+// @Router /etl/repayments [post]
 func (h *ETLHandler) CreateRepayment(c *gin.Context) {
 	var input models.RepaymentInput
 	if err := c.ShouldBindJSON(&input); err != nil {
@@ -215,4 +236,3 @@ func (h *ETLHandler) BatchSync(c *gin.Context) {
 
 	c.JSON(statusCode, response)
 }
-
