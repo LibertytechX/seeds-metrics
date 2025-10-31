@@ -57,7 +57,7 @@ export const KPIStrip = ({ portfolioMetrics, onViewOverdueLoans, onViewActiveLoa
       <KPICard
         title="Active vs Inactive Loans"
         value={
-          <div style={{ fontSize: '0.9em', lineHeight: '1.4' }}>
+          <div style={{ fontSize: '0.75em', lineHeight: '1.3' }}>
             <div><strong>Active:</strong> {portfolioMetrics.activeLoansCount || 0} loans ({formatCurrency(portfolioMetrics.activeLoansVolume || 0)})</div>
             <div><strong>Inactive:</strong> {portfolioMetrics.inactiveLoansCount || 0} loans ({formatCurrency(portfolioMetrics.inactiveLoansVolume || 0)})</div>
           </div>
@@ -75,7 +75,7 @@ export const KPIStrip = ({ portfolioMetrics, onViewOverdueLoans, onViewActiveLoa
       <KPICard
         title="ROT (Risk of Termination)"
         value={
-          <div style={{ fontSize: '0.9em', lineHeight: '1.4' }}>
+          <div style={{ fontSize: '0.75em', lineHeight: '1.3' }}>
             <div><strong>Early ROT:</strong> {portfolioMetrics.earlyROTCount || 0} loans ({formatCurrency(portfolioMetrics.earlyROTVolume || 0)})</div>
             <div><strong>Late ROT:</strong> {portfolioMetrics.lateROTCount || 0} loans ({formatCurrency(portfolioMetrics.lateROTVolume || 0)})</div>
           </div>
@@ -104,7 +104,7 @@ export const KPIStrip = ({ portfolioMetrics, onViewOverdueLoans, onViewActiveLoa
       <KPICard
         title="Portfolio Repayment Behavior"
         value={
-          <div style={{ fontSize: '0.9em', lineHeight: '1.4' }}>
+          <div style={{ fontSize: '0.75em', lineHeight: '1.3' }}>
             <div><strong>Avg DPD:</strong> {(portfolioMetrics.avgDaysPastDue || 0).toFixed(1)} days</div>
             <div><strong>Avg Timeliness:</strong> {(portfolioMetrics.avgTimelinessScore || 0).toFixed(2)}</div>
             <div><strong>Avg Delay Rate:</strong> {(portfolioMetrics.avgRepaymentDelayRate || 0).toFixed(2)}%</div>
