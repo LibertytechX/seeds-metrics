@@ -26,14 +26,14 @@ func (r *LoanRepository) Create(ctx context.Context, input *models.LoanInput) er
 			loan_id, customer_id, customer_name, customer_phone,
 			officer_id, officer_name, officer_phone,
 			region, branch, state,
-			loan_amount, disbursement_date, maturity_date, loan_term_days,
+			loan_amount, repayment_amount, disbursement_date, maturity_date, loan_term_days,
 			interest_rate, fee_amount,
 			channel, channel_partner,
 			status, closed_date,
 			created_at, updated_at
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-			$11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
+			$11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21,
 			NOW(), NOW()
 		)
 	`
@@ -61,7 +61,7 @@ func (r *LoanRepository) Create(ctx context.Context, input *models.LoanInput) er
 		input.LoanID, input.CustomerID, input.CustomerName, input.CustomerPhone,
 		input.OfficerID, input.OfficerName, input.OfficerPhone,
 		input.Region, input.Branch, input.State,
-		input.LoanAmount, disbursementDate, maturityDate, input.LoanTermDays,
+		input.LoanAmount, input.RepaymentAmount, disbursementDate, maturityDate, input.LoanTermDays,
 		input.InterestRate, input.FeeAmount,
 		input.Channel, input.ChannelPartner,
 		input.Status, closedDate,
@@ -77,7 +77,7 @@ func (r *LoanRepository) GetByID(ctx context.Context, loanID string) (*models.Lo
 			loan_id, customer_id, customer_name, customer_phone,
 			officer_id, officer_name, officer_phone,
 			region, branch, state,
-			loan_amount, disbursement_date, maturity_date, loan_term_days,
+			loan_amount, repayment_amount, disbursement_date, maturity_date, loan_term_days,
 			interest_rate, fee_amount,
 			channel, channel_partner,
 			status, closed_date,
@@ -96,7 +96,7 @@ func (r *LoanRepository) GetByID(ctx context.Context, loanID string) (*models.Lo
 		&loan.LoanID, &loan.CustomerID, &loan.CustomerName, &loan.CustomerPhone,
 		&loan.OfficerID, &loan.OfficerName, &loan.OfficerPhone,
 		&loan.Region, &loan.Branch, &loan.State,
-		&loan.LoanAmount, &loan.DisbursementDate, &loan.MaturityDate, &loan.LoanTermDays,
+		&loan.LoanAmount, &loan.RepaymentAmount, &loan.DisbursementDate, &loan.MaturityDate, &loan.LoanTermDays,
 		&loan.InterestRate, &loan.FeeAmount,
 		&loan.Channel, &loan.ChannelPartner,
 		&loan.Status, &loan.ClosedDate,

@@ -600,6 +600,7 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 			l.branch,
 			l.channel,
 			l.loan_amount,
+			l.repayment_amount,
 			l.disbursement_date,
 			l.maturity_date,
 			l.loan_term_days,
@@ -709,7 +710,7 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 	for rows.Next() {
 		loan := &models.AllLoan{}
 		var customerPhone, officerID sql.NullString
-		var timelinessScore, repaymentHealth sql.NullFloat64
+		var repaymentAmount, timelinessScore, repaymentHealth sql.NullFloat64
 		var daysSinceLastRepayment sql.NullInt64
 
 		err := rows.Scan(
@@ -722,6 +723,7 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 			&loan.Branch,
 			&loan.Channel,
 			&loan.LoanAmount,
+			&repaymentAmount,
 			&loan.DisbursementDate,
 			&loan.MaturityDate,
 			&loan.LoanTermDays,
@@ -747,6 +749,10 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 		}
 		if officerID.Valid {
 			loan.OfficerID = officerID.String
+		}
+		if repaymentAmount.Valid {
+			val := repaymentAmount.Float64
+			loan.RepaymentAmount = &val
 		}
 		if timelinessScore.Valid {
 			val := timelinessScore.Float64

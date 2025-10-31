@@ -184,7 +184,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
   const handleExportCSV = () => {
     const headers = [
       'Loan ID', 'Customer Name', 'Customer Phone', 'Officer Name', 'Region', 'Branch',
-      'Channel', 'Loan Amount', 'Disbursement Date', 'Loan Tenure', 'Maturity Date',
+      'Channel', 'Loan Amount', 'Repayment Amount', 'Disbursement Date', 'Loan Tenure', 'Maturity Date',
       'Timeliness Score', 'Repayment Health', 'Days Since Last Repayment', 'Current DPD',
       'Principal Outstanding', 'Interest Outstanding', 'Fees Outstanding', 'Total Outstanding',
       'Actual Outstanding', 'Total Repayments', 'Status', 'FIMR Tagged'
@@ -199,6 +199,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       loan.branch,
       loan.channel,
       loan.loan_amount,
+      loan.repayment_amount || 'N/A',
       loan.disbursement_date,
       formatTenure(loan.loan_term_days),
       loan.maturity_date,
@@ -247,6 +248,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       loan.officer_name,
       loan.branch,
       `₦${(loan.loan_amount / 1000000).toFixed(2)}M`,
+      loan.repayment_amount ? `₦${(loan.repayment_amount / 1000000).toFixed(2)}M` : 'N/A',
       loan.disbursement_date,
       formatTenure(loan.loan_term_days),
       loan.timeliness_score != null ? loan.timeliness_score.toFixed(1) : 'N/A',
@@ -261,7 +263,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
 
     doc.autoTable({
       startY: 32,
-      head: [['Loan ID', 'Customer', 'Officer', 'Branch', 'Amount', 'Disbursed', 'Tenure', 'T.Score', 'R.Health', 'Days Since', 'DPD', 'Total Out.', 'Actual Out.', 'Status', 'FIMR']],
+      head: [['Loan ID', 'Customer', 'Officer', 'Branch', 'Amount', 'Repay. Amt', 'Disbursed', 'Tenure', 'T.Score', 'R.Health', 'Days Since', 'DPD', 'Total Out.', 'Actual Out.', 'Status', 'FIMR']],
       body: tableData,
       styles: { fontSize: 6 },
       headStyles: { fillColor: [41, 128, 185] },
@@ -510,6 +512,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                 <th onClick={() => handleSort('branch')}>Branch</th>
                 <th onClick={() => handleSort('channel')}>Channel</th>
                 <th onClick={() => handleSort('loan_amount')}>Loan Amount</th>
+                <th onClick={() => handleSort('repayment_amount')}>Repayment Amount</th>
                 <th onClick={() => handleSort('disbursement_date')}>Disbursement Date</th>
                 <th onClick={() => handleSort('loan_term_days')}>Loan Tenure</th>
                 <th onClick={() => handleSort('timeliness_score')}>Timeliness Score</th>
@@ -534,6 +537,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                   <td>{loan.branch}</td>
                   <td>{loan.channel}</td>
                   <td className="amount">{formatCurrency(loan.loan_amount)}</td>
+                  <td className="amount">{loan.repayment_amount ? formatCurrency(loan.repayment_amount) : 'N/A'}</td>
                   <td>{formatDate(loan.disbursement_date)}</td>
                   <td className="tenure">{formatTenure(loan.loan_term_days)}</td>
                   <td className="score">{loan.timeliness_score != null ? loan.timeliness_score.toFixed(2) : 'N/A'}</td>

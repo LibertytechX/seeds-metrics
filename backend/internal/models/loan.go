@@ -24,6 +24,7 @@ type Loan struct {
 	Branch           string           `json:"branch" db:"branch"`
 	State            *string          `json:"state,omitempty" db:"state"`
 	LoanAmount       decimal.Decimal  `json:"loan_amount" db:"loan_amount"`
+	RepaymentAmount  *decimal.Decimal `json:"repayment_amount,omitempty" db:"repayment_amount"`
 	DisbursementDate time.Time        `json:"disbursement_date" db:"disbursement_date"`
 	MaturityDate     time.Time        `json:"maturity_date" db:"maturity_date"`
 	LoanTermDays     int              `json:"loan_term_days" db:"loan_term_days"`
@@ -75,6 +76,7 @@ type LoanInput struct {
 	Branch           string           `json:"branch" binding:"required"`
 	State            *string          `json:"state"`
 	LoanAmount       decimal.Decimal  `json:"loan_amount" binding:"required"`
+	RepaymentAmount  *decimal.Decimal `json:"repayment_amount"`
 	DisbursementDate string           `json:"disbursement_date" binding:"required"` // YYYY-MM-DD
 	MaturityDate     string           `json:"maturity_date" binding:"required"`     // YYYY-MM-DD
 	LoanTermDays     int              `json:"loan_term_days" binding:"required"`
@@ -129,6 +131,7 @@ type AllLoan struct {
 	Branch                 string   `json:"branch"`
 	Channel                string   `json:"channel"`
 	LoanAmount             float64  `json:"loan_amount"`
+	RepaymentAmount        *float64 `json:"repayment_amount,omitempty"`
 	DisbursementDate       string   `json:"disbursement_date"`
 	MaturityDate           string   `json:"maturity_date"`
 	LoanTermDays           int      `json:"loan_term_days"`
