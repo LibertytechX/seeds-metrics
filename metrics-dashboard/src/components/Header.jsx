@@ -1,8 +1,8 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Download, RefreshCw } from 'lucide-react';
 import './Header.css';
 
-export const Header = ({ filters, onFilterChange, onExport, lastRefresh }) => {
+export const Header = ({ filters, onFilterChange, onExport, lastRefresh, branches = [] }) => {
   const handleDateChange = (e) => {
     onFilterChange({ ...filters, dateRange: e.target.value });
   };
@@ -21,6 +21,16 @@ export const Header = ({ filters, onFilterChange, onExport, lastRefresh }) => {
   const formatTime = (date) => {
     return new Date(date).toLocaleTimeString();
   };
+
+  // Extract unique branch names from branches data
+  const branchOptions = useMemo(() => {
+    if (!branches || branches.length === 0) {
+      return [];
+    }
+    // Extract unique branch names and sort them
+    const uniqueBranches = [...new Set(branches.map(b => b.branch))].filter(Boolean).sort();
+    return uniqueBranches;
+  }, [branches]);
 
   return (
     <header className="header">
@@ -44,9 +54,9 @@ export const Header = ({ filters, onFilterChange, onExport, lastRefresh }) => {
         <div className="control-group">
           <select value={filters.branch} onChange={handleBranchChange}>
             <option value="">All Branches</option>
-            <option value="Lagos Main">Lagos Main</option>
-            <option value="Abuja Central">Abuja Central</option>
-            <option value="Kano North">Kano North</option>
+            {branchOptions.map(branch => (
+              <option key={branch} value={branch}>{branch}</option>
+            ))}
           </select>
         </div>
 

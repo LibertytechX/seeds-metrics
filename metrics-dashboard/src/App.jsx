@@ -200,6 +200,7 @@ function App() {
         onFilterChange={handleFilterChange}
         onExport={handleExport}
         lastRefresh={lastRefresh}
+        branches={branches}
       />
 
       <KPIStrip
