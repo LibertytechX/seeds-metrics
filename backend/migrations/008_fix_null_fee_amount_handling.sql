@@ -1,25 +1,7 @@
--- Migration: Add actual_outstanding column to loans table
--- This migration adds a new computed field that calculates the actual outstanding amount
--- based on time elapsed and expected repayment schedule
---
--- Business Logic:
--- actual_outstanding = ((total_expected_repayment / tenure_in_days) * days_elapsed) - total_repayments
--- Where:
--- - total_expected_repayment = loan_amount + interest + fees
--- - days_elapsed = MIN(CURRENT_DATE - disbursement_date, loan_term_days)
--- - total_repayments = sum of all non-reversed repayments
---
--- Interpretation:
--- - 0 or negative: borrower is up to date or ahead on repayments
--- - Positive value: borrower is behind schedule (overdue amount)
+-- Migration: Fix NULL fee_amount handling in update_loan_computed_fields trigger
+-- This migration updates the trigger function to properly handle NULL fee_amount values
+-- using COALESCE to treat NULL as 0 in calculations
 
--- Step 1: Add the column to the loans table
-ALTER TABLE loans ADD COLUMN IF NOT EXISTS actual_outstanding DECIMAL(15, 2) DEFAULT 0;
-
--- Step 2: Create index for the new column
-CREATE INDEX IF NOT EXISTS idx_loans_actual_outstanding ON loans(actual_outstanding);
-
--- Step 3: Update the trigger function to calculate actual_outstanding
 CREATE OR REPLACE FUNCTION update_loan_computed_fields()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -76,14 +58,14 @@ BEGIN
     WHERE loan_id = v_loan_id
       AND is_reversed = FALSE;
 
-    -- Calculate total outstanding (use COALESCE to handle NULL fee_amount)
+    -- Calculate total outstanding (FIX: Use COALESCE for NULL fee_amount)
     v_total_outstanding := (v_loan_amount - v_total_principal_paid) +
                           ((v_loan_amount * v_interest_rate * v_loan_term_days / 365) - v_total_interest_paid) +
                           (COALESCE(v_fee_amount, 0) - v_total_fees_paid);
 
     -- Calculate actual_outstanding
     -- Step 1: Calculate total expected repayment amount (principal + interest + fees)
-    -- Use COALESCE to handle NULL fee_amount
+    -- FIX: Use COALESCE for NULL fee_amount
     v_total_expected_repayment := v_loan_amount +
                                   (v_loan_amount * v_interest_rate * v_loan_term_days / 365) +
                                   COALESCE(v_fee_amount, 0);
@@ -158,7 +140,7 @@ BEGIN
         END IF;
     END IF;
 
-    -- Update loans table with computed values
+    -- Update loans table with computed values (FIX: Use COALESCE for NULL fee_amount)
     UPDATE loans
     SET
         -- Collections totals
@@ -203,33 +185,49 @@ BEGIN
         -- Days since last repayment
         days_since_last_repayment = v_days_since_last_repayment,
 
+        -- Update timestamp
         updated_at = CURRENT_TIMESTAMP
+
     WHERE loan_id = v_loan_id;
 
     RETURN NEW;
 END;
 $$ LANGUAGE plpgsql;
 
--- Step 4: Populate the actual_outstanding field for existing loans
--- Use COALESCE to handle NULL fee_amount
+-- Step 2: Don't add a trigger on loans table (would cause infinite recursion)
+-- Instead, we'll rely on:
+-- 1. The repayments trigger to update fields when payments are made
+-- 2. The manual recalculation endpoint for time-based updates
+-- 3. The direct UPDATE below to backfill existing loans
+
+-- Step 3: Manually recalculate all existing loans using direct UPDATE
+-- This is more reliable than relying on the trigger for backfilling
 UPDATE loans l
-SET actual_outstanding = GREATEST(
-    (
-        -- Calculate projected due amount
-        CASE
-            WHEN l.loan_term_days > 0 THEN
-                (
-                    -- Total expected repayment (use COALESCE for NULL fee_amount)
-                    (l.loan_amount +
-                     (l.loan_amount * l.interest_rate * l.loan_term_days / 365) +
-                     COALESCE(l.fee_amount, 0))
-                    / l.loan_term_days
-                ) *
-                -- Days elapsed (capped at loan tenure)
-                LEAST(GREATEST(CURRENT_DATE - l.disbursement_date, 0), l.loan_term_days)
-            ELSE 0
-        END
-    ) - COALESCE(l.total_repayments, 0),
-    0  -- If negative (ahead of schedule), set to 0
-);
+SET
+    principal_outstanding = l.loan_amount - COALESCE(l.total_principal_paid, 0),
+    interest_outstanding = (l.loan_amount * l.interest_rate * l.loan_term_days / 365) - COALESCE(l.total_interest_paid, 0),
+    fees_outstanding = COALESCE(l.fee_amount, 0) - COALESCE(l.total_fees_paid, 0),
+    total_outstanding = (l.loan_amount - COALESCE(l.total_principal_paid, 0)) +
+                       ((l.loan_amount * l.interest_rate * l.loan_term_days / 365) - COALESCE(l.total_interest_paid, 0)) +
+                       (COALESCE(l.fee_amount, 0) - COALESCE(l.total_fees_paid, 0)),
+    actual_outstanding = GREATEST(
+        (
+            -- Calculate projected due amount
+            CASE
+                WHEN l.loan_term_days > 0 THEN
+                    (
+                        -- Total expected repayment (FIX: Use COALESCE for NULL fee_amount)
+                        (l.loan_amount +
+                         (l.loan_amount * l.interest_rate * l.loan_term_days / 365) +
+                         COALESCE(l.fee_amount, 0))
+                        / l.loan_term_days
+                    ) *
+                    -- Days elapsed (capped at loan tenure)
+                    LEAST(GREATEST(CURRENT_DATE - l.disbursement_date, 0), l.loan_term_days)
+                ELSE 0
+            END
+        ) - COALESCE(l.total_repayments, 0),
+        0  -- If negative (ahead of schedule), set to 0
+    )
+WHERE l.loan_id IS NOT NULL;
 
