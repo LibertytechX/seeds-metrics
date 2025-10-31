@@ -34,7 +34,7 @@ const KPICard = ({ title, value, unit = '', trend = null, icon = null, buttons =
   );
 };
 
-export const KPIStrip = ({ portfolioMetrics, onViewActiveLoans, onViewInactiveLoans, onViewEarlyROT, onViewLateROT, onViewAtRiskOfficers }) => {
+export const KPIStrip = ({ portfolioMetrics, onViewOverdueLoans, onViewActiveLoans, onViewInactiveLoans, onViewEarlyROT, onViewLateROT, onViewAtRiskOfficers }) => {
   // Handle null topOfficer gracefully
   const topOfficerName = portfolioMetrics.topOfficer?.name || 'N/A';
   const topOfficerAYR = portfolioMetrics.topOfficer?.ayr || 0;
@@ -46,6 +46,9 @@ export const KPIStrip = ({ portfolioMetrics, onViewActiveLoans, onViewInactiveLo
         value={formatCurrency(portfolioMetrics.totalOverdue15d || 0)}
         trend={{ direction: 'down', value: '3% WoW' }}
         icon="📊"
+        buttons={
+          <button className="kpi-btn" onClick={onViewOverdueLoans}>View Overdue Loans</button>
+        }
       />
 
       {/* REMOVED: Average DQI Card */}

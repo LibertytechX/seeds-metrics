@@ -164,6 +164,12 @@ function App() {
     // TODO: Add filter for at-risk officers in AgentPerformance component
   };
 
+  const handleViewOverdueLoans = () => {
+    console.log('🔵 handleViewOverdueLoans called');
+    setAllLoansFilter({ loan_type: 'overdue_15d', label: 'Overdue >15 Days Loans' });
+    setActiveTab('allLoans');
+  };
+
   if (loading) {
     return (
       <div className="app">
@@ -198,6 +204,7 @@ function App() {
 
       <KPIStrip
         portfolioMetrics={portfolioMetrics}
+        onViewOverdueLoans={handleViewOverdueLoans}
         onViewActiveLoans={handleViewActiveLoans}
         onViewInactiveLoans={handleViewInactiveLoans}
         onViewEarlyROT={handleViewEarlyROT}

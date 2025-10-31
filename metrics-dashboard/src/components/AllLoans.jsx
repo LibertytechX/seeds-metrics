@@ -72,6 +72,12 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
             loan.total_outstanding <= 2000 || loan.days_since_last_repayment > 5
           );
           console.log(`✅ Inactive loans filtered: ${fetchedLoans.length} loans`);
+        } else if (filters.loan_type === 'overdue_15d') {
+          console.log('🔵 Filtering for OVERDUE >15 Days loans');
+          fetchedLoans = fetchedLoans.filter(loan =>
+            loan.current_dpd > 15
+          );
+          console.log(`✅ Overdue >15 Days loans filtered: ${fetchedLoans.length} loans`);
         }
 
         if (filters.rot_type === 'early') {
