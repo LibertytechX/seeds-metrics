@@ -43,8 +43,12 @@ export const KPIStrip = ({ portfolioMetrics, onViewOverdueLoans, onViewActiveLoa
     <div className="kpi-strip">
       <KPICard
         title="Portfolio Overdue >15 Days"
-        value={formatCurrency(portfolioMetrics.totalOverdue15d || 0)}
-        trend={{ direction: 'down', value: '3% WoW' }}
+        value={
+          <div style={{ fontSize: '0.75em', lineHeight: '1.3' }}>
+            <div><strong>Total Outstanding:</strong> {formatCurrency(portfolioMetrics.totalOverdue15d || 0)}</div>
+            <div><strong>Actual Outstanding (Due to Date):</strong> {formatCurrency(portfolioMetrics.actualOverdue15d || 0)}</div>
+          </div>
+        }
         icon="📊"
         buttons={
           <button className="kpi-btn" onClick={onViewOverdueLoans}>View Overdue Loans</button>

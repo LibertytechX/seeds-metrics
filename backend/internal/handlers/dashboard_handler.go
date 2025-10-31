@@ -87,6 +87,18 @@ func (h *DashboardHandler) GetPortfolioMetrics(c *gin.Context) {
 	portfolio.AvgDaysPastDue = loanMetrics.AvgDaysPastDue
 	portfolio.AvgTimelinessScore = loanMetrics.AvgTimelinessScore
 
+	// Get actual overdue amount (only installments due to date)
+	actualOverdue15d, err := h.dashboardRepo.GetActualOverdue15d()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.APIResponse{
+			Status:  "error",
+			Message: "Failed to retrieve actual overdue amount",
+			Error:   newAPIError("ACTUAL_OVERDUE_ERROR", err.Error()),
+		})
+		return
+	}
+	portfolio.ActualOverdue15d = actualOverdue15d
+
 	c.JSON(http.StatusOK, models.APIResponse{
 		Status: "success",
 		Data:   portfolio,

@@ -72,6 +72,56 @@ func (r *DashboardRepository) GetPortfolioLoanMetrics() (*models.PortfolioLoanMe
 	return metrics, nil
 }
 
+// GetActualOverdue15d calculates the actual overdue amount (only installments due to date)
+// for loans with current_dpd >= 15
+func (r *DashboardRepository) GetActualOverdue15d() (float64, error) {
+	// First, try to get from loan_schedule table (most accurate)
+	scheduleQuery := `
+		SELECT
+			COALESCE(SUM(ls.total_due - ls.amount_paid), 0) as actual_overdue_15d
+		FROM loan_schedule ls
+		INNER JOIN loans l ON ls.loan_id = l.loan_id
+		WHERE l.current_dpd >= 15
+			AND UPPER(l.status) = 'ACTIVE'
+			AND ls.due_date <= CURRENT_DATE
+			AND ls.payment_status IN ('Pending', 'Partial', 'Overdue')
+	`
+
+	var actualOverdue15d float64
+	err := r.db.QueryRow(scheduleQuery).Scan(&actualOverdue15d)
+	if err != nil {
+		return 0, err
+	}
+
+	// If loan_schedule has no data, calculate from loans table
+	// Estimate based on loan age and total outstanding
+	if actualOverdue15d == 0 {
+		fallbackQuery := `
+			SELECT
+				COALESCE(SUM(
+					CASE
+						-- Calculate proportion of loan term that has elapsed
+						WHEN loan_term_days > 0 THEN
+							(principal_outstanding + interest_outstanding + fees_outstanding) *
+							LEAST(1.0, GREATEST(0.0, (CURRENT_DATE - disbursement_date::date)::float / loan_term_days::float))
+						ELSE
+							(principal_outstanding + interest_outstanding + fees_outstanding)
+					END
+				), 0) as estimated_actual_overdue
+			FROM loans
+			WHERE current_dpd >= 15
+				AND UPPER(status) = 'ACTIVE'
+		`
+
+		err = r.db.QueryRow(fallbackQuery).Scan(&actualOverdue15d)
+		if err != nil {
+			return 0, err
+		}
+	}
+
+	return actualOverdue15d, nil
+}
+
 // GetOfficers retrieves all officers with their raw metrics
 func (r *DashboardRepository) GetOfficers(filters map[string]interface{}) ([]*models.DashboardOfficerMetrics, error) {
 	query := `
