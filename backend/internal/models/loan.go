@@ -48,6 +48,7 @@ type Loan struct {
 	InterestOutstanding      decimal.Decimal `json:"interest_outstanding" db:"interest_outstanding"`
 	FeesOutstanding          decimal.Decimal `json:"fees_outstanding" db:"fees_outstanding"`
 	TotalOutstanding         decimal.Decimal `json:"total_outstanding" db:"total_outstanding"`
+	ActualOutstanding        decimal.Decimal `json:"actual_outstanding" db:"actual_outstanding"`
 	TotalPrincipalPaid       decimal.Decimal `json:"total_principal_paid" db:"total_principal_paid"`
 	TotalInterestPaid        decimal.Decimal `json:"total_interest_paid" db:"total_interest_paid"`
 	TotalFeesPaid            decimal.Decimal `json:"total_fees_paid" db:"total_fees_paid"`
@@ -136,6 +137,7 @@ type AllLoan struct {
 	InterestOutstanding    float64  `json:"interest_outstanding"`
 	FeesOutstanding        float64  `json:"fees_outstanding"`
 	TotalOutstanding       float64  `json:"total_outstanding"`
+	ActualOutstanding      float64  `json:"actual_outstanding"`
 	TotalRepayments        float64  `json:"total_repayments"`
 	Status                 string   `json:"status"`
 	FIMRTagged             *bool    `json:"fimr_tagged,omitempty"`

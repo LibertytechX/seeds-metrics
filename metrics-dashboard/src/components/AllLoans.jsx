@@ -185,7 +185,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       'Channel', 'Loan Amount', 'Disbursement Date', 'Loan Tenure', 'Maturity Date',
       'Timeliness Score', 'Repayment Health', 'Days Since Last Repayment', 'Current DPD',
       'Principal Outstanding', 'Interest Outstanding', 'Fees Outstanding', 'Total Outstanding',
-      'Status', 'FIMR Tagged'
+      'Actual Outstanding', 'Total Repayments', 'Status', 'FIMR Tagged'
     ];
 
     const rows = loans.map(loan => [
@@ -208,6 +208,8 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       loan.interest_outstanding,
       loan.fees_outstanding,
       loan.total_outstanding,
+      loan.actual_outstanding || 0,
+      loan.total_repayments || 0,
       loan.status,
       loan.fimr_tagged ? 'Yes' : 'No',
     ]);
@@ -250,13 +252,14 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       loan.days_since_last_repayment != null ? loan.days_since_last_repayment : 'N/A',
       loan.current_dpd,
       `₦${(loan.total_outstanding / 1000000).toFixed(2)}M`,
+      `₦${((loan.actual_outstanding || 0) / 1000000).toFixed(2)}M`,
       loan.status,
       loan.fimr_tagged ? 'Yes' : 'No',
     ]);
 
     doc.autoTable({
       startY: 32,
-      head: [['Loan ID', 'Customer', 'Officer', 'Branch', 'Amount', 'Disbursed', 'Tenure', 'T.Score', 'R.Health', 'Days Since', 'DPD', 'Outstanding', 'Status', 'FIMR']],
+      head: [['Loan ID', 'Customer', 'Officer', 'Branch', 'Amount', 'Disbursed', 'Tenure', 'T.Score', 'R.Health', 'Days Since', 'DPD', 'Total Out.', 'Actual Out.', 'Status', 'FIMR']],
       body: tableData,
       styles: { fontSize: 6 },
       headStyles: { fillColor: [41, 128, 185] },
@@ -453,6 +456,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                 <th onClick={() => handleSort('days_since_last_repayment')}>Days Since Last Repayment</th>
                 <th onClick={() => handleSort('current_dpd')}>Current DPD</th>
                 <th onClick={() => handleSort('total_outstanding')}>Total Outstanding</th>
+                <th onClick={() => handleSort('actual_outstanding')}>Actual Outstanding</th>
               <th onClick={() => handleSort('total_repayments')}>Total Repayments</th>
                 <th onClick={() => handleSort('status')}>Status</th>
                 <th>FIMR Tagged</th>
@@ -476,6 +480,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                   <td className="days-since">{loan.days_since_last_repayment != null ? loan.days_since_last_repayment : 'N/A'}</td>
                   <td className="dpd">{loan.current_dpd}</td>
                   <td className="amount">{formatCurrency(loan.total_outstanding)}</td>
+                  <td className="amount">{formatCurrency(loan.actual_outstanding || 0)}</td>
                   <td className="amount">{formatCurrency(loan.total_repayments || 0)}</td>
                   <td>
                     <span className={`status-badge status-${loan.status.toLowerCase()}`}>
