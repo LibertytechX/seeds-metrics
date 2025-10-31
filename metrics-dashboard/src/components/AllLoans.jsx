@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Download, Filter, FileText, Eye } from 'lucide-react';
+import { Download, Filter, FileText, Eye, RefreshCw } from 'lucide-react';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import LoanRepaymentsModal from './LoanRepaymentsModal';
@@ -31,6 +31,8 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
   });
   const [repaymentsModalOpen, setRepaymentsModalOpen] = useState(false);
   const [selectedLoan, setSelectedLoan] = useState(null);
+  const [recalculating, setRecalculating] = useState(false);
+  const [recalculateMessage, setRecalculateMessage] = useState('');
 
   // Fetch loans from API
   const fetchLoans = async () => {
@@ -299,6 +301,50 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     setRepaymentsModalOpen(true);
   };
 
+  const handleRecalculateFields = async () => {
+    setRecalculating(true);
+    setRecalculateMessage('');
+
+    try {
+      const response = await fetch('http://localhost:8081/api/v1/loans/recalculate-fields', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.status === 'success') {
+        setRecalculateMessage(`✓ Successfully recalculated fields for ${result.data.loans_updated} loans`);
+        // Refresh the loans table after successful recalculation
+        await fetchLoans();
+
+        // Clear success message after 5 seconds
+        setTimeout(() => {
+          setRecalculateMessage('');
+        }, 5000);
+      } else {
+        setRecalculateMessage(`✗ Error: ${result.error?.message || 'Failed to recalculate fields'}`);
+
+        // Clear error message after 5 seconds
+        setTimeout(() => {
+          setRecalculateMessage('');
+        }, 5000);
+      }
+    } catch (error) {
+      console.error('Error recalculating loan fields:', error);
+      setRecalculateMessage(`✗ Error: ${error.message}`);
+
+      // Clear error message after 5 seconds
+      setTimeout(() => {
+        setRecalculateMessage('');
+      }, 5000);
+    } finally {
+      setRecalculating(false);
+    }
+  };
+
   return (
     <div className="all-loans">
       <div className="all-loans-header">
@@ -329,6 +375,15 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
               <span className="filter-badge">{activeFilterCount}</span>
             )}
           </button>
+          <button
+            className={`recalculate-button ${recalculating ? 'loading' : ''}`}
+            onClick={handleRecalculateFields}
+            disabled={recalculating}
+            title="Recalculate all computed fields (actual_outstanding, total_outstanding, current_dpd, etc.)"
+          >
+            <RefreshCw size={16} className={recalculating ? 'spinning' : ''} />
+            {recalculating ? 'Recalculating...' : 'Refresh Fields'}
+          </button>
           <button className="export-button" onClick={handleExportCSV}>
             <Download size={16} />
             Export CSV
@@ -339,6 +394,12 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
           </button>
         </div>
       </div>
+
+      {recalculateMessage && (
+        <div className={`recalculate-message ${recalculateMessage.startsWith('✓') ? 'success' : 'error'}`}>
+          {recalculateMessage}
+        </div>
+      )}
 
       {showFilters && (
         <div className="filter-panel">

@@ -18,6 +18,24 @@ func NewDashboardRepository(db *sql.DB) *DashboardRepository {
 	return &DashboardRepository{db: db}
 }
 
+// RecalculateAllLoanFields triggers recalculation of all computed fields for all loans
+// This is done by updating the updated_at timestamp, which triggers the update_loan_computed_fields() function
+func (r *DashboardRepository) RecalculateAllLoanFields() (int64, error) {
+	query := `UPDATE loans SET updated_at = CURRENT_TIMESTAMP WHERE 1=1`
+
+	result, err := r.db.Exec(query)
+	if err != nil {
+		return 0, fmt.Errorf("failed to recalculate loan fields: %w", err)
+	}
+
+	rowsAffected, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("failed to get rows affected: %w", err)
+	}
+
+	return rowsAffected, nil
+}
+
 // GetPortfolioLoanMetrics retrieves loan-level aggregated metrics for portfolio calculations
 func (r *DashboardRepository) GetPortfolioLoanMetrics() (*models.PortfolioLoanMetrics, error) {
 	query := `

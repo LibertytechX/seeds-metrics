@@ -164,6 +164,7 @@ func setupRouter(cfg *config.Config, etlHandler *handlers.ETLHandler, customerHa
 		{
 			loans.GET("", dashboardHandler.GetAllLoans)
 			loans.GET("/:loan_id/repayments", dashboardHandler.GetLoanRepayments)
+			loans.POST("/recalculate-fields", dashboardHandler.RecalculateAllLoanFields)
 		}
 
 		// Filter endpoints
