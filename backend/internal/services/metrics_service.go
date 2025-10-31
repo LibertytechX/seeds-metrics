@@ -198,6 +198,11 @@ func (s *MetricsService) CalculatePortfolioMetrics(officers []*models.DashboardO
 	var topAYR float64
 	var topOfficer *models.TopOfficer
 
+	// New metrics aggregation variables
+	var totalRepaymentDelayRate float64
+	var officersWithDelayRate int
+	var atRiskOfficersCount int
+
 	for _, officer := range officers {
 		if officer.CalculatedMetrics != nil {
 			totalOverdue15d += officer.CalculatedMetrics.Overdue15dVolume
@@ -219,6 +224,20 @@ func (s *MetricsService) CalculatePortfolioMetrics(officers []*models.DashboardO
 			if officer.CalculatedMetrics.RiskScore < 60 {
 				watchlistCount++
 			}
+
+			// Aggregate repayment delay rate
+			if officer.CalculatedMetrics.RepaymentDelayRate != 0 {
+				totalRepaymentDelayRate += officer.CalculatedMetrics.RepaymentDelayRate
+				officersWithDelayRate++
+			}
+
+			// Check if officer is at risk (avg DPD > 10 AND avg loan age > 14)
+			// Note: We use AvgDaysSinceLastRepayment as a proxy for DPD and AvgLoanAge from calculated metrics
+			avgLoanAge := officer.CalculatedMetrics.AvgLoanAge
+			avgDaysSinceLastRepayment := officer.CalculatedMetrics.AvgDaysSinceLastRepayment
+			if avgDaysSinceLastRepayment > 10 && avgLoanAge > 14 {
+				atRiskOfficersCount++
+			}
 		}
 
 		if officer.RawMetrics != nil {
@@ -235,6 +254,17 @@ func (s *MetricsService) CalculatePortfolioMetrics(officers []*models.DashboardO
 	portfolio.WatchlistCount = watchlistCount
 	portfolio.TotalLoans = totalLoans
 	portfolio.TotalPortfolio = totalPortfolio
+
+	// Calculate average repayment delay rate
+	if officersWithDelayRate > 0 {
+		portfolio.AvgRepaymentDelayRate = totalRepaymentDelayRate / float64(officersWithDelayRate)
+	}
+
+	// Calculate at-risk officers percentage
+	if len(officers) > 0 {
+		portfolio.AtRiskOfficersCount = atRiskOfficersCount
+		portfolio.AtRiskOfficersPercentage = (float64(atRiskOfficersCount) / float64(len(officers))) * 100
+	}
 
 	return portfolio
 }

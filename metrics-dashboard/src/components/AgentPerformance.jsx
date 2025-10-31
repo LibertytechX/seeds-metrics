@@ -4,7 +4,7 @@ import { mockTeamMembers } from '../utils/mockData';
 import TopRiskLoansModal from './TopRiskLoansModal';
 import './AgentPerformance.css';
 
-const AgentPerformance = ({ agents }) => {
+const AgentPerformance = ({ agents, onViewPortfolio }) => {
   const [sortConfig, setSortConfig] = useState({ key: 'riskScore', direction: 'asc' });
   const [filters, setFilters] = useState({
     region: '',
@@ -131,7 +131,12 @@ const AgentPerformance = ({ agents }) => {
         }
         break;
       case 'viewPortfolio':
-        alert(`View Entire Portfolio for ${agent.officerName}\n\nThis will open a detailed view.`);
+        // Navigate to All Loans view with officer filter
+        if (onViewPortfolio) {
+          onViewPortfolio(agent.officerId, agent.officerName);
+        } else {
+          alert(`View Entire Portfolio for ${agent.officerName}\n\nThis will open a detailed view.`);
+        }
         break;
       case 'exportPortfolio':
         // Export officer's portfolio as CSV

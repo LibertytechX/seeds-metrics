@@ -5,17 +5,23 @@ import 'jspdf-autotable';
 import LoanRepaymentsModal from './LoanRepaymentsModal';
 import './AllLoans.css';
 
-const AllLoans = ({ initialLoans = [] }) => {
+const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
   const [loans, setLoans] = useState(initialLoans);
   const [loading, setLoading] = useState(false);
   const [sortConfig, setSortConfig] = useState({ key: 'disbursement_date', direction: 'desc' });
   const [filters, setFilters] = useState({
-    officer_id: '',
+    officer_id: initialFilter?.officer_id || '',
     branch: '',
     region: '',
     channel: '',
     status: '',
+    loan_type: initialFilter?.loan_type || '', // 'active' or 'inactive'
+    rot_type: initialFilter?.rot_type || '', // 'early' or 'late'
   });
+  const [filterLabel, setFilterLabel] = useState(
+    initialFilter?.officer_name ? `Officer: ${initialFilter.officer_name}` :
+    initialFilter?.label ? initialFilter.label : ''
+  );
   const [showFilters, setShowFilters] = useState(false);
   const [pagination, setPagination] = useState({
     page: 1,
@@ -30,12 +36,19 @@ const AllLoans = ({ initialLoans = [] }) => {
   const fetchLoans = async () => {
     setLoading(true);
     try {
+      console.log('🔍 AllLoans: fetchLoans called with filters:', filters);
+
+      // Exclude loan_type and rot_type from API params (client-side filtering)
+      const apiFilters = Object.fromEntries(
+        Object.entries(filters).filter(([k, v]) => v !== '' && k !== 'loan_type' && k !== 'rot_type')
+      );
+
       const params = new URLSearchParams({
         page: pagination.page,
         limit: pagination.limit,
         sort_by: sortConfig.key,
         sort_dir: sortConfig.direction.toUpperCase(),
-        ...Object.fromEntries(Object.entries(filters).filter(([_, v]) => v !== '')),
+        ...apiFilters,
       });
 
       const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8081/api/v1';
@@ -43,12 +56,46 @@ const AllLoans = ({ initialLoans = [] }) => {
       const data = await response.json();
 
       if (data.status === 'success') {
-        setLoans(data.data.loans || []);
+        let fetchedLoans = data.data.loans || [];
+        console.log(`📦 AllLoans: Fetched ${fetchedLoans.length} loans from API`);
+
+        // Apply client-side filtering for loan_type and rot_type
+        if (filters.loan_type === 'active') {
+          console.log('🔵 Filtering for ACTIVE loans');
+          fetchedLoans = fetchedLoans.filter(loan =>
+            loan.total_outstanding > 2000 && loan.days_since_last_repayment < 6
+          );
+          console.log(`✅ Active loans filtered: ${fetchedLoans.length} loans`);
+        } else if (filters.loan_type === 'inactive') {
+          console.log('🔵 Filtering for INACTIVE loans');
+          fetchedLoans = fetchedLoans.filter(loan =>
+            loan.total_outstanding <= 2000 || loan.days_since_last_repayment > 5
+          );
+          console.log(`✅ Inactive loans filtered: ${fetchedLoans.length} loans`);
+        }
+
+        if (filters.rot_type === 'early') {
+          console.log('🔵 Filtering for EARLY ROT loans');
+          fetchedLoans = fetchedLoans.filter(loan => {
+            const loanAge = Math.floor((new Date() - new Date(loan.disbursement_date)) / (1000 * 60 * 60 * 24));
+            return loanAge < 7 && loan.current_dpd > 4;
+          });
+          console.log(`✅ Early ROT loans filtered: ${fetchedLoans.length} loans`);
+        } else if (filters.rot_type === 'late') {
+          console.log('🔵 Filtering for LATE ROT loans');
+          fetchedLoans = fetchedLoans.filter(loan => {
+            const loanAge = Math.floor((new Date() - new Date(loan.disbursement_date)) / (1000 * 60 * 60 * 24));
+            return loanAge >= 7 && loan.current_dpd > 4;
+          });
+          console.log(`✅ Late ROT loans filtered: ${fetchedLoans.length} loans`);
+        }
+
+        setLoans(fetchedLoans);
         setPagination({
           page: data.data.page,
           limit: data.data.limit,
-          total: data.data.total,
-          pages: data.data.pages,
+          total: fetchedLoans.length, // Update total to reflect filtered count
+          pages: Math.ceil(fetchedLoans.length / data.data.limit),
         });
       }
     } catch (error) {
@@ -57,6 +104,26 @@ const AllLoans = ({ initialLoans = [] }) => {
       setLoading(false);
     }
   };
+
+  // Update filters when initialFilter prop changes
+  useEffect(() => {
+    if (initialFilter) {
+      console.log('🔄 AllLoans: initialFilter changed:', initialFilter);
+      setFilters({
+        officer_id: initialFilter.officer_id || '',
+        branch: '',
+        region: '',
+        channel: '',
+        status: '',
+        loan_type: initialFilter.loan_type || '',
+        rot_type: initialFilter.rot_type || '',
+      });
+      setFilterLabel(
+        initialFilter.officer_name ? `Officer: ${initialFilter.officer_name}` :
+        initialFilter.label ? initialFilter.label : ''
+      );
+    }
+  }, [initialFilter]);
 
   useEffect(() => {
     fetchLoans();
@@ -92,7 +159,10 @@ const AllLoans = ({ initialLoans = [] }) => {
       region: '',
       channel: '',
       status: '',
+      loan_type: '',
+      rot_type: '',
     });
+    setFilterLabel('');
   };
 
   const handleLimitChange = (newLimit) => {
@@ -226,6 +296,18 @@ const AllLoans = ({ initialLoans = [] }) => {
         <div className="all-loans-title">
           <h2>All Loans</h2>
           <span className="loan-count">{pagination.total} Total Loans</span>
+          {filterLabel && (
+            <span className="filter-label" style={{
+              background: '#e3f2fd',
+              color: '#1976d2',
+              padding: '4px 12px',
+              borderRadius: '12px',
+              fontSize: '14px',
+              fontWeight: '500'
+            }}>
+              {filterLabel}
+            </span>
+          )}
         </div>
         <div className="all-loans-actions">
           <button
@@ -365,6 +447,7 @@ const AllLoans = ({ initialLoans = [] }) => {
                 <th onClick={() => handleSort('days_since_last_repayment')}>Days Since Last Repayment</th>
                 <th onClick={() => handleSort('current_dpd')}>Current DPD</th>
                 <th onClick={() => handleSort('total_outstanding')}>Total Outstanding</th>
+              <th onClick={() => handleSort('total_repayments')}>Total Repayments</th>
                 <th onClick={() => handleSort('status')}>Status</th>
                 <th>FIMR Tagged</th>
                 <th>Actions</th>
@@ -387,6 +470,7 @@ const AllLoans = ({ initialLoans = [] }) => {
                   <td className="days-since">{loan.days_since_last_repayment != null ? loan.days_since_last_repayment : 'N/A'}</td>
                   <td className="dpd">{loan.current_dpd}</td>
                   <td className="amount">{formatCurrency(loan.total_outstanding)}</td>
+                  <td className="amount">{formatCurrency(loan.total_repayments || 0)}</td>
                   <td>
                     <span className={`status-badge status-${loan.status.toLowerCase()}`}>
                       {loan.status}

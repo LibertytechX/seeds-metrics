@@ -31,6 +31,7 @@ function App() {
 
   const [activeTab, setActiveTab] = useState('performance');
   const [lastRefresh, setLastRefresh] = useState(new Date());
+  const [allLoansFilter, setAllLoansFilter] = useState(null);
 
   // State for real data from API
   const [portfolioMetrics, setPortfolioMetrics] = useState(mockPortfolioMetrics);
@@ -125,6 +126,44 @@ function App() {
     setLastRefresh(new Date());
   };
 
+  const handleViewOfficerPortfolio = (officerId, officerName) => {
+    // Set the filter for All Loans view
+    setAllLoansFilter({ officer_id: officerId, officer_name: officerName });
+    // Switch to All Loans tab
+    setActiveTab('allLoans');
+  };
+
+  // Portfolio Metrics filtering callbacks
+  const handleViewActiveLoans = () => {
+    console.log('🔵 handleViewActiveLoans called');
+    setAllLoansFilter({ loan_type: 'active', label: 'Active Loans' });
+    setActiveTab('allLoans');
+  };
+
+  const handleViewInactiveLoans = () => {
+    console.log('🔵 handleViewInactiveLoans called');
+    setAllLoansFilter({ loan_type: 'inactive', label: 'Inactive Loans' });
+    setActiveTab('allLoans');
+  };
+
+  const handleViewEarlyROT = () => {
+    console.log('🔵 handleViewEarlyROT called');
+    setAllLoansFilter({ rot_type: 'early', label: 'Early ROT Loans' });
+    setActiveTab('allLoans');
+  };
+
+  const handleViewLateROT = () => {
+    console.log('🔵 handleViewLateROT called');
+    setAllLoansFilter({ rot_type: 'late', label: 'Late ROT Loans' });
+    setActiveTab('allLoans');
+  };
+
+  const handleViewAtRiskOfficers = () => {
+    console.log('🔵 handleViewAtRiskOfficers called');
+    setActiveTab('agentPerformance');
+    // TODO: Add filter for at-risk officers in AgentPerformance component
+  };
+
   if (loading) {
     return (
       <div className="app">
@@ -157,7 +196,14 @@ function App() {
         lastRefresh={lastRefresh}
       />
 
-      <KPIStrip portfolioMetrics={portfolioMetrics} />
+      <KPIStrip
+        portfolioMetrics={portfolioMetrics}
+        onViewActiveLoans={handleViewActiveLoans}
+        onViewInactiveLoans={handleViewInactiveLoans}
+        onViewEarlyROT={handleViewEarlyROT}
+        onViewLateROT={handleViewLateROT}
+        onViewAtRiskOfficers={handleViewAtRiskOfficers}
+      />
 
       <div className="main-content">
         <div className="tabs">
@@ -257,11 +303,14 @@ function App() {
           ) : activeTab === 'earlyIndicatorsDrilldown' ? (
             <EarlyIndicatorsDrilldown loans={earlyIndicatorLoans} />
           ) : activeTab === 'agentPerformance' ? (
-            <AgentPerformance agents={officers} />
+            <AgentPerformance agents={officers} onViewPortfolio={handleViewOfficerPortfolio} />
           ) : activeTab === 'creditHealthByBranch' ? (
             <CreditHealthByBranch branches={branches} />
           ) : activeTab === 'allLoans' ? (
-            <AllLoans />
+            <AllLoans
+              key={JSON.stringify(allLoansFilter)}
+              initialFilter={allLoansFilter}
+            />
           ) : (
             <DataTables officers={filteredOfficers} activeTab={activeTab} />
           )}

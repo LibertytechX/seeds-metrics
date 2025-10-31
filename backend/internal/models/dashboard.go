@@ -5,7 +5,7 @@ import "time"
 // PortfolioMetrics represents aggregated portfolio-level KPIs
 type PortfolioMetrics struct {
 	TotalOverdue15d float64     `json:"totalOverdue15d"`
-	AvgDQI          int         `json:"avgDQI"`
+	AvgDQI          int         `json:"avgDQI"` // Will be removed from frontend
 	AvgAYR          float64     `json:"avgAYR"`
 	AvgRiskScore    int         `json:"avgRiskScore"`
 	TopOfficer      *TopOfficer `json:"topOfficer"`
@@ -14,6 +14,27 @@ type PortfolioMetrics struct {
 	TotalLoans      int         `json:"totalLoans"`
 	TotalPortfolio  float64     `json:"totalPortfolio"`
 	Trends          *Trends     `json:"trends,omitempty"`
+
+	// Active vs Inactive Loans
+	ActiveLoansCount    int     `json:"activeLoansCount"`
+	ActiveLoansVolume   float64 `json:"activeLoansVolume"`
+	InactiveLoansCount  int     `json:"inactiveLoansCount"`
+	InactiveLoansVolume float64 `json:"inactiveLoansVolume"`
+
+	// ROT (Risk of Termination) Analysis
+	EarlyROTCount  int     `json:"earlyROTCount"`
+	EarlyROTVolume float64 `json:"earlyROTVolume"`
+	LateROTCount   int     `json:"lateROTCount"`
+	LateROTVolume  float64 `json:"lateROTVolume"`
+
+	// Portfolio Delinquency Risk
+	AtRiskOfficersCount      int     `json:"atRiskOfficersCount"`
+	AtRiskOfficersPercentage float64 `json:"atRiskOfficersPercentage"`
+
+	// Portfolio Repayment Behavior Metrics
+	AvgDaysPastDue        float64 `json:"avgDaysPastDue"`
+	AvgTimelinessScore    float64 `json:"avgTimelinessScore"`
+	AvgRepaymentDelayRate float64 `json:"avgRepaymentDelayRate"`
 }
 
 type TopOfficer struct {
@@ -26,6 +47,20 @@ type Trends struct {
 	Overdue15dWoW float64 `json:"overdue15d_wow"`
 	DQIChange     int     `json:"dqi_change"`
 	AYRChange     float64 `json:"ayr_change"`
+}
+
+// PortfolioLoanMetrics represents loan-level aggregated metrics for portfolio
+type PortfolioLoanMetrics struct {
+	ActiveLoansCount    int     `json:"activeLoansCount"`
+	ActiveLoansVolume   float64 `json:"activeLoansVolume"`
+	InactiveLoansCount  int     `json:"inactiveLoansCount"`
+	InactiveLoansVolume float64 `json:"inactiveLoansVolume"`
+	EarlyROTCount       int     `json:"earlyROTCount"`
+	EarlyROTVolume      float64 `json:"earlyROTVolume"`
+	LateROTCount        int     `json:"lateROTCount"`
+	LateROTVolume       float64 `json:"lateROTVolume"`
+	AvgDaysPastDue      float64 `json:"avgDaysPastDue"`
+	AvgTimelinessScore  float64 `json:"avgTimelinessScore"`
 }
 
 // DashboardOfficerMetrics represents an officer with all calculated metrics for dashboard

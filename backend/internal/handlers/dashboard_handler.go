@@ -61,8 +61,31 @@ func (h *DashboardHandler) GetPortfolioMetrics(c *gin.Context) {
 		officer.RiskBand = models.GetRiskBand(officer.CalculatedMetrics.RiskScore)
 	}
 
-	// Calculate portfolio-level metrics
+	// Calculate portfolio-level metrics from officers
 	portfolio := h.metricsService.CalculatePortfolioMetrics(officers)
+
+	// Get loan-level metrics for new portfolio cards
+	loanMetrics, err := h.dashboardRepo.GetPortfolioLoanMetrics()
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.APIResponse{
+			Status:  "error",
+			Message: "Failed to retrieve loan metrics",
+			Error:   newAPIError("LOAN_METRICS_ERROR", err.Error()),
+		})
+		return
+	}
+
+	// Merge loan metrics into portfolio
+	portfolio.ActiveLoansCount = loanMetrics.ActiveLoansCount
+	portfolio.ActiveLoansVolume = loanMetrics.ActiveLoansVolume
+	portfolio.InactiveLoansCount = loanMetrics.InactiveLoansCount
+	portfolio.InactiveLoansVolume = loanMetrics.InactiveLoansVolume
+	portfolio.EarlyROTCount = loanMetrics.EarlyROTCount
+	portfolio.EarlyROTVolume = loanMetrics.EarlyROTVolume
+	portfolio.LateROTCount = loanMetrics.LateROTCount
+	portfolio.LateROTVolume = loanMetrics.LateROTVolume
+	portfolio.AvgDaysPastDue = loanMetrics.AvgDaysPastDue
+	portfolio.AvgTimelinessScore = loanMetrics.AvgTimelinessScore
 
 	c.JSON(http.StatusOK, models.APIResponse{
 		Status: "success",

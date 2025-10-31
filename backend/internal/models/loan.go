@@ -51,6 +51,7 @@ type Loan struct {
 	TotalPrincipalPaid       decimal.Decimal `json:"total_principal_paid" db:"total_principal_paid"`
 	TotalInterestPaid        decimal.Decimal `json:"total_interest_paid" db:"total_interest_paid"`
 	TotalFeesPaid            decimal.Decimal `json:"total_fees_paid" db:"total_fees_paid"`
+	TotalRepayments          decimal.Decimal `json:"total_repayments" db:"total_repayments"`
 	FIMRTagged               *bool           `json:"fimr_tagged,omitempty" db:"fimr_tagged"`
 	EarlyIndicatorTagged     *bool           `json:"early_indicator_tagged,omitempty" db:"early_indicator_tagged"`
 	DaysSinceLastRepayment   *int            `json:"days_since_last_repayment,omitempty" db:"days_since_last_repayment"`
@@ -135,6 +136,7 @@ type AllLoan struct {
 	InterestOutstanding    float64  `json:"interest_outstanding"`
 	FeesOutstanding        float64  `json:"fees_outstanding"`
 	TotalOutstanding       float64  `json:"total_outstanding"`
+	TotalRepayments        float64  `json:"total_repayments"`
 	Status                 string   `json:"status"`
 	FIMRTagged             *bool    `json:"fimr_tagged,omitempty"`
 	TimelinessScore        *float64 `json:"timeliness_score"`

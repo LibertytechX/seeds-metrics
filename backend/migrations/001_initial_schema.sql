@@ -89,6 +89,7 @@ CREATE TABLE loans (
     total_principal_paid DECIMAL(15, 2) DEFAULT 0,
     total_interest_paid DECIMAL(15, 2) DEFAULT 0,
     total_fees_paid DECIMAL(15, 2) DEFAULT 0,
+    total_repayments DECIMAL(15, 2) DEFAULT 0,
     fimr_tagged BOOLEAN DEFAULT FALSE,
     early_indicator_tagged BOOLEAN DEFAULT FALSE,
 
@@ -386,6 +387,7 @@ DECLARE
     v_total_principal_paid DECIMAL(15, 2);
     v_total_interest_paid DECIMAL(15, 2);
     v_total_fees_paid DECIMAL(15, 2);
+    v_total_repayments DECIMAL(15, 2);
     v_first_payment_date DATE;
     v_last_payment_date DATE;
     v_first_due_date DATE;
@@ -414,6 +416,7 @@ BEGIN
         COALESCE(SUM(principal_paid), 0),
         COALESCE(SUM(interest_paid), 0),
         COALESCE(SUM(fees_paid), 0),
+        COALESCE(SUM(payment_amount), 0),
         MIN(payment_date),
         MAX(payment_date),
         COUNT(*)
@@ -421,6 +424,7 @@ BEGIN
         v_total_principal_paid,
         v_total_interest_paid,
         v_total_fees_paid,
+        v_total_repayments,
         v_first_payment_date,
         v_last_payment_date,
         v_repayment_count
@@ -491,6 +495,7 @@ BEGIN
         total_principal_paid = v_total_principal_paid,
         total_interest_paid = v_total_interest_paid,
         total_fees_paid = v_total_fees_paid,
+        total_repayments = v_total_repayments,
 
         -- Outstanding balances
         principal_outstanding = v_loan_amount - v_total_principal_paid,

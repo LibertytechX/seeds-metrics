@@ -18,6 +18,60 @@ func NewDashboardRepository(db *sql.DB) *DashboardRepository {
 	return &DashboardRepository{db: db}
 }
 
+// GetPortfolioLoanMetrics retrieves loan-level aggregated metrics for portfolio calculations
+func (r *DashboardRepository) GetPortfolioLoanMetrics() (*models.PortfolioLoanMetrics, error) {
+	query := `
+		SELECT
+			-- Active vs Inactive Loans
+			COUNT(CASE WHEN (principal_outstanding + interest_outstanding + fees_outstanding) > 2000
+				AND days_since_last_repayment < 6 THEN 1 END) as active_loans_count,
+			COALESCE(SUM(CASE WHEN (principal_outstanding + interest_outstanding + fees_outstanding) > 2000
+				AND days_since_last_repayment < 6
+				THEN (principal_outstanding + interest_outstanding + fees_outstanding) END), 0) as active_loans_volume,
+			COUNT(CASE WHEN (principal_outstanding + interest_outstanding + fees_outstanding) <= 2000
+				OR days_since_last_repayment > 5 THEN 1 END) as inactive_loans_count,
+			COALESCE(SUM(CASE WHEN (principal_outstanding + interest_outstanding + fees_outstanding) <= 2000
+				OR days_since_last_repayment > 5
+				THEN (principal_outstanding + interest_outstanding + fees_outstanding) END), 0) as inactive_loans_volume,
+
+			-- ROT (Risk of Termination) Analysis
+			COUNT(CASE WHEN (CURRENT_DATE - disbursement_date::date) < 7 AND current_dpd > 4 THEN 1 END) as early_rot_count,
+			COALESCE(SUM(CASE WHEN (CURRENT_DATE - disbursement_date::date) < 7 AND current_dpd > 4
+				THEN (principal_outstanding + interest_outstanding + fees_outstanding) END), 0) as early_rot_volume,
+			COUNT(CASE WHEN (CURRENT_DATE - disbursement_date::date) >= 7 AND current_dpd > 4 THEN 1 END) as late_rot_count,
+			COALESCE(SUM(CASE WHEN (CURRENT_DATE - disbursement_date::date) >= 7 AND current_dpd > 4
+				THEN (principal_outstanding + interest_outstanding + fees_outstanding) END), 0) as late_rot_volume,
+
+			-- Portfolio Repayment Behavior Metrics (only active loans)
+			COALESCE(AVG(CASE WHEN (principal_outstanding + interest_outstanding + fees_outstanding) > 2000
+				THEN current_dpd END), 0) as avg_days_past_due,
+			COALESCE(AVG(CASE WHEN (principal_outstanding + interest_outstanding + fees_outstanding) > 2000
+				THEN timeliness_score END), 0) as avg_timeliness_score
+		FROM loans
+		WHERE UPPER(status) = 'ACTIVE'
+	`
+
+	metrics := &models.PortfolioLoanMetrics{}
+	err := r.db.QueryRow(query).Scan(
+		&metrics.ActiveLoansCount,
+		&metrics.ActiveLoansVolume,
+		&metrics.InactiveLoansCount,
+		&metrics.InactiveLoansVolume,
+		&metrics.EarlyROTCount,
+		&metrics.EarlyROTVolume,
+		&metrics.LateROTCount,
+		&metrics.LateROTVolume,
+		&metrics.AvgDaysPastDue,
+		&metrics.AvgTimelinessScore,
+	)
+
+	if err != nil {
+		return nil, err
+	}
+
+	return metrics, nil
+}
+
 // GetOfficers retrieves all officers with their raw metrics
 func (r *DashboardRepository) GetOfficers(filters map[string]interface{}) ([]*models.DashboardOfficerMetrics, error) {
 	query := `
@@ -486,6 +540,7 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 			l.interest_outstanding,
 			l.fees_outstanding,
 			l.principal_outstanding + l.interest_outstanding + l.fees_outstanding as total_outstanding,
+			l.total_repayments,
 			l.status,
 			l.fimr_tagged,
 			l.timeliness_score,
@@ -606,6 +661,7 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 			&loan.InterestOutstanding,
 			&loan.FeesOutstanding,
 			&loan.TotalOutstanding,
+			&loan.TotalRepayments,
 			&loan.Status,
 			&loan.FIMRTagged,
 			&timelinessScore,
