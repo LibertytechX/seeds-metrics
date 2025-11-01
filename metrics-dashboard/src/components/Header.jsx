@@ -11,6 +11,10 @@ export const Header = ({ filters, onFilterChange, onExport, lastRefresh, branche
     onFilterChange({ ...filters, branch: e.target.value });
   };
 
+  const handleWaveChange = (e) => {
+    onFilterChange({ ...filters, wave: e.target.value });
+  };
+
   const handleToggle = (toggleName) => {
     onFilterChange({
       ...filters,
@@ -57,6 +61,14 @@ export const Header = ({ filters, onFilterChange, onExport, lastRefresh, branche
             {branchOptions.map(branch => (
               <option key={branch} value={branch}>{branch}</option>
             ))}
+          </select>
+        </div>
+
+        <div className="control-group">
+          <select value={filters.wave} onChange={handleWaveChange}>
+            <option value="">All Waves</option>
+            <option value="Wave 1">Wave 1</option>
+            <option value="Wave 2">Wave 2</option>
           </select>
         </div>
 

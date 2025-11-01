@@ -24,6 +24,7 @@ function App() {
   const [filters, setFilters] = useState({
     dateRange: 'week',
     branch: '',
+    wave: '',
     includeWatch: false,
     dqiCpToggle: true,
     showRedOnly: false,
@@ -32,6 +33,7 @@ function App() {
   const [activeTab, setActiveTab] = useState('performance');
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [allLoansFilter, setAllLoansFilter] = useState(null);
+  const [agentPerformanceFilter, setAgentPerformanceFilter] = useState(null);
 
   // State for real data from API
   const [portfolioMetrics, setPortfolioMetrics] = useState(mockPortfolioMetrics);
@@ -57,6 +59,12 @@ function App() {
 
         console.log('🔄 Fetching data from backend API...');
 
+        // Build query params for wave filter
+        const queryParams = {};
+        if (filters.wave) {
+          queryParams.wave = filters.wave;
+        }
+
         // Fetch all data in parallel
         const [
           portfolioData,
@@ -65,11 +73,11 @@ function App() {
           earlyIndicatorData,
           branchesData,
         ] = await Promise.all([
-          apiService.fetchPortfolioMetrics(),
-          apiService.fetchOfficers(),
-          apiService.fetchFIMRLoans(),
-          apiService.fetchEarlyIndicatorLoans(),
-          apiService.fetchBranches(),
+          apiService.fetchPortfolioMetrics(queryParams),
+          apiService.fetchOfficers(queryParams),
+          apiService.fetchFIMRLoans(queryParams),
+          apiService.fetchEarlyIndicatorLoans(queryParams),
+          apiService.fetchBranches(queryParams),
         ]);
 
         console.log('✅ Data fetched successfully:');
@@ -102,7 +110,7 @@ function App() {
     };
 
     fetchData();
-  }, [useRealData]);
+  }, [useRealData, filters.wave]);
 
   // Filter officers based on current filters
   const filteredOfficers = officers.filter((officer) => {
@@ -129,6 +137,19 @@ function App() {
   const handleViewOfficerPortfolio = (officerId, officerName) => {
     // Set the filter for All Loans view
     setAllLoansFilter({ officer_id: officerId, officer_name: officerName });
+    // Switch to All Loans tab
+    setActiveTab('allLoans');
+  };
+
+  const handleViewOfficerLowDelayLoans = (officerId, officerName, delayRate) => {
+    console.log('🔵 handleViewOfficerLowDelayLoans called', { officerId, officerName, delayRate });
+    // Set the filter for All Loans view with risky delay filter
+    setAllLoansFilter({
+      officer_id: officerId,
+      officer_name: officerName,
+      delay_type: 'risky', // Loans with high days_since_last_repayment
+      label: `Risky Delay Loans for ${officerName} (Delay Rate: ${delayRate != null ? delayRate.toFixed(2) : 'N/A'}%)`
+    });
     // Switch to All Loans tab
     setActiveTab('allLoans');
   };
@@ -162,6 +183,12 @@ function App() {
     console.log('🔵 handleViewAtRiskOfficers called');
     setActiveTab('agentPerformance');
     // TODO: Add filter for at-risk officers in AgentPerformance component
+  };
+
+  const handleViewLowDelayOfficers = () => {
+    console.log('🔵 handleViewLowDelayOfficers called');
+    setAgentPerformanceFilter({ delayRateMax: 60, label: 'Officers with Delay Rate < 60%' });
+    setActiveTab('agentPerformance');
   };
 
   const handleViewOverdueLoans = () => {
@@ -211,6 +238,7 @@ function App() {
         onViewEarlyROT={handleViewEarlyROT}
         onViewLateROT={handleViewLateROT}
         onViewAtRiskOfficers={handleViewAtRiskOfficers}
+        onViewLowDelayOfficers={handleViewLowDelayOfficers}
       />
 
       <div className="main-content">
@@ -311,7 +339,13 @@ function App() {
           ) : activeTab === 'earlyIndicatorsDrilldown' ? (
             <EarlyIndicatorsDrilldown loans={earlyIndicatorLoans} />
           ) : activeTab === 'agentPerformance' ? (
-            <AgentPerformance agents={officers} onViewPortfolio={handleViewOfficerPortfolio} />
+            <AgentPerformance
+              key={JSON.stringify(agentPerformanceFilter)}
+              agents={officers}
+              onViewPortfolio={handleViewOfficerPortfolio}
+              onViewLowDelayLoans={handleViewOfficerLowDelayLoans}
+              initialFilter={agentPerformanceFilter}
+            />
           ) : activeTab === 'creditHealthByBranch' ? (
             <CreditHealthByBranch branches={branches} />
           ) : activeTab === 'allLoans' ? (

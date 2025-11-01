@@ -17,6 +17,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     status: '',
     loan_type: initialFilter?.loan_type || '', // 'active' or 'inactive'
     rot_type: initialFilter?.rot_type || '', // 'early' or 'late'
+    delay_type: initialFilter?.delay_type || '', // 'risky' for high delay loans
   });
   const [filterLabel, setFilterLabel] = useState(
     initialFilter?.officer_name ? `Officer: ${initialFilter.officer_name}` :
@@ -40,9 +41,9 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     try {
       console.log('🔍 AllLoans: fetchLoans called with filters:', filters);
 
-      // Exclude loan_type and rot_type from API params (client-side filtering)
+      // Exclude loan_type, rot_type, and delay_type from API params (client-side filtering)
       const apiFilters = Object.fromEntries(
-        Object.entries(filters).filter(([k, v]) => v !== '' && k !== 'loan_type' && k !== 'rot_type')
+        Object.entries(filters).filter(([k, v]) => v !== '' && k !== 'loan_type' && k !== 'rot_type' && k !== 'delay_type')
       );
 
       const params = new URLSearchParams({
@@ -98,6 +99,25 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
           console.log(`✅ Late ROT loans filtered: ${fetchedLoans.length} loans`);
         }
 
+        // Filter for risky delay loans (repayment_delay_rate < 60%)
+        if (filters.delay_type === 'risky') {
+          console.log('🔵 Filtering for RISKY DELAY loans (repayment_delay_rate < 60%)');
+          fetchedLoans = fetchedLoans.filter(loan => {
+            // Only consider active loans with outstanding balance > 2000
+            if (loan.status !== 'Active' || loan.total_outstanding <= 2000) {
+              return false;
+            }
+
+            // Filter by repayment_delay_rate < 60% (strict less-than)
+            if (loan.repayment_delay_rate != null) {
+              return loan.repayment_delay_rate < 60;
+            }
+
+            return false;
+          });
+          console.log(`✅ Risky delay loans filtered: ${fetchedLoans.length} loans`);
+        }
+
         setLoans(fetchedLoans);
         setPagination({
           page: data.data.page,
@@ -125,6 +145,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
         status: '',
         loan_type: initialFilter.loan_type || '',
         rot_type: initialFilter.rot_type || '',
+        delay_type: initialFilter.delay_type || '',
       });
       setFilterLabel(
         initialFilter.officer_name ? `Officer: ${initialFilter.officer_name}` :
@@ -185,7 +206,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     const headers = [
       'Loan ID', 'Customer Name', 'Customer Phone', 'Officer Name', 'Region', 'Branch',
       'Channel', 'Loan Amount', 'Repayment Amount', 'Disbursement Date', 'Loan Tenure', 'Maturity Date',
-      'Timeliness Score', 'Repayment Health', 'Days Since Last Repayment', 'Current DPD',
+      'Timeliness Score', 'Repayment Health', 'Repayment Delay Rate %', 'Wave', 'Days Since Last Repayment', 'Current DPD',
       'Principal Outstanding', 'Interest Outstanding', 'Fees Outstanding', 'Total Outstanding',
       'Actual Outstanding', 'Total Repayments', 'Status', 'FIMR Tagged'
     ];
@@ -205,6 +226,8 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       loan.maturity_date,
       loan.timeliness_score != null ? loan.timeliness_score.toFixed(2) : 'N/A',
       loan.repayment_health != null ? loan.repayment_health.toFixed(2) : 'N/A',
+      loan.repayment_delay_rate != null ? loan.repayment_delay_rate.toFixed(2) : 'N/A',
+      loan.wave || 'N/A',
       loan.days_since_last_repayment != null ? loan.days_since_last_repayment : 'N/A',
       loan.current_dpd,
       loan.principal_outstanding,
@@ -254,6 +277,8 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       formatTenure(loan.loan_term_days),
       loan.timeliness_score != null ? loan.timeliness_score.toFixed(1) : 'N/A',
       loan.repayment_health != null ? loan.repayment_health.toFixed(1) : 'N/A',
+      loan.repayment_delay_rate != null ? loan.repayment_delay_rate.toFixed(1) + '%' : 'N/A',
+      loan.wave || 'N/A',
       loan.days_since_last_repayment != null ? loan.days_since_last_repayment : 'N/A',
       loan.current_dpd,
       `₦${(loan.total_outstanding / 1000000).toFixed(2)}M`,
@@ -264,7 +289,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
 
     doc.autoTable({
       startY: 32,
-      head: [['Loan ID', 'Customer', 'Phone', 'Officer', 'Branch', 'Amount', 'Repay. Amt', 'Disbursed', 'Tenure', 'T.Score', 'R.Health', 'Days Since', 'DPD', 'Total Out.', 'Actual Out.', 'Status', 'FIMR']],
+      head: [['Loan ID', 'Customer', 'Phone', 'Officer', 'Branch', 'Amount', 'Repay. Amt', 'Disbursed', 'Tenure', 'T.Score', 'R.Health', 'Delay %', 'Wave', 'Days Since', 'DPD', 'Total Out.', 'Actual Out.', 'Status', 'FIMR']],
       body: tableData,
       styles: { fontSize: 6 },
       headStyles: { fillColor: [41, 128, 185] },
@@ -519,6 +544,8 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                 <th onClick={() => handleSort('loan_term_days')}>Loan Tenure</th>
                 <th onClick={() => handleSort('timeliness_score')}>Timeliness Score</th>
                 <th onClick={() => handleSort('repayment_health')}>Repayment Health</th>
+                <th onClick={() => handleSort('repayment_delay_rate')}>Repayment Delay Rate %</th>
+                <th onClick={() => handleSort('wave')}>Wave</th>
                 <th onClick={() => handleSort('days_since_last_repayment')}>Days Since Last Repayment</th>
                 <th onClick={() => handleSort('current_dpd')}>Current DPD</th>
                 <th onClick={() => handleSort('total_outstanding')}>Total Outstanding</th>
@@ -545,6 +572,21 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                   <td className="tenure">{formatTenure(loan.loan_term_days)}</td>
                   <td className="score">{loan.timeliness_score != null ? loan.timeliness_score.toFixed(2) : 'N/A'}</td>
                   <td className="score">{loan.repayment_health != null ? loan.repayment_health.toFixed(2) : 'N/A'}</td>
+                  <td className="delay-rate" style={{
+                    color: loan.repayment_delay_rate != null
+                      ? (loan.repayment_delay_rate >= 60 ? '#2e7d32'
+                        : loan.repayment_delay_rate >= 30 ? '#f57c00'
+                        : '#c62828')
+                      : 'inherit',
+                    fontWeight: loan.repayment_delay_rate != null ? '600' : 'normal'
+                  }}>
+                    {loan.repayment_delay_rate != null ? loan.repayment_delay_rate.toFixed(2) + '%' : 'N/A'}
+                  </td>
+                  <td className="wave">
+                    <span className={`wave-badge wave-${loan.wave?.replace(' ', '-').toLowerCase()}`}>
+                      {loan.wave || 'N/A'}
+                    </span>
+                  </td>
                   <td className="days-since">{loan.days_since_last_repayment != null ? loan.days_since_last_repayment : 'N/A'}</td>
                   <td className="dpd">{loan.current_dpd}</td>
                   <td className="amount">{formatCurrency(loan.total_outstanding)}</td>

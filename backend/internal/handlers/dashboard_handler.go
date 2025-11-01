@@ -44,8 +44,14 @@ func newAPIError(code, message string) *models.APIError {
 // @Failure 500 {object} models.APIResponse
 // @Router /metrics/portfolio [get]
 func (h *DashboardHandler) GetPortfolioMetrics(c *gin.Context) {
+	// Parse filters
+	filters := make(map[string]interface{})
+	if wave := c.Query("wave"); wave != "" {
+		filters["wave"] = wave
+	}
+
 	// Get all officers with metrics
-	officers, err := h.dashboardRepo.GetOfficers(map[string]interface{}{})
+	officers, err := h.dashboardRepo.GetOfficers(filters)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.APIResponse{
 			Status:  "error",
@@ -65,7 +71,7 @@ func (h *DashboardHandler) GetPortfolioMetrics(c *gin.Context) {
 	portfolio := h.metricsService.CalculatePortfolioMetrics(officers)
 
 	// Get loan-level metrics for new portfolio cards
-	loanMetrics, err := h.dashboardRepo.GetPortfolioLoanMetrics()
+	loanMetrics, err := h.dashboardRepo.GetPortfolioLoanMetrics(filters)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.APIResponse{
 			Status:  "error",
@@ -88,7 +94,7 @@ func (h *DashboardHandler) GetPortfolioMetrics(c *gin.Context) {
 	portfolio.AvgTimelinessScore = loanMetrics.AvgTimelinessScore
 
 	// Get actual overdue amount (only installments due to date)
-	actualOverdue15d, err := h.dashboardRepo.GetActualOverdue15d()
+	actualOverdue15d, err := h.dashboardRepo.GetActualOverdue15d(filters)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, models.APIResponse{
 			Status:  "error",
@@ -133,6 +139,9 @@ func (h *DashboardHandler) GetOfficers(c *gin.Context) {
 	}
 	if channel := c.Query("channel"); channel != "" {
 		filters["channel"] = channel
+	}
+	if wave := c.Query("wave"); wave != "" {
+		filters["wave"] = wave
 	}
 	if sortBy := c.Query("sort_by"); sortBy != "" {
 		filters["sort_by"] = sortBy
@@ -230,6 +239,9 @@ func (h *DashboardHandler) GetFIMRLoans(c *gin.Context) {
 	if status := c.Query("status"); status != "" {
 		filters["status"] = status
 	}
+	if wave := c.Query("wave"); wave != "" {
+		filters["wave"] = wave
+	}
 	if sortBy := c.Query("sort_by"); sortBy != "" {
 		filters["sort_by"] = sortBy
 	}
@@ -269,6 +281,9 @@ func (h *DashboardHandler) GetFIMRSummary(c *gin.Context) {
 	}
 	if region := c.Query("region"); region != "" {
 		filters["region"] = region
+	}
+	if wave := c.Query("wave"); wave != "" {
+		filters["wave"] = wave
 	}
 
 	loans, err := h.dashboardRepo.GetFIMRLoans(filters)
@@ -330,6 +345,9 @@ func (h *DashboardHandler) GetEarlyIndicatorLoans(c *gin.Context) {
 	if status := c.Query("status"); status != "" {
 		filters["status"] = status
 	}
+	if wave := c.Query("wave"); wave != "" {
+		filters["wave"] = wave
+	}
 	if sortBy := c.Query("sort_by"); sortBy != "" {
 		filters["sort_by"] = sortBy
 	}
@@ -369,6 +387,9 @@ func (h *DashboardHandler) GetEarlyIndicatorSummary(c *gin.Context) {
 	}
 	if region := c.Query("region"); region != "" {
 		filters["region"] = region
+	}
+	if wave := c.Query("wave"); wave != "" {
+		filters["wave"] = wave
 	}
 
 	loans, err := h.dashboardRepo.GetEarlyIndicatorLoans(filters)
@@ -452,6 +473,9 @@ func (h *DashboardHandler) GetAllLoans(c *gin.Context) {
 	if status := c.Query("status"); status != "" {
 		filters["status"] = status
 	}
+	if wave := c.Query("wave"); wave != "" {
+		filters["wave"] = wave
+	}
 	if sortBy := c.Query("sort_by"); sortBy != "" {
 		filters["sort_by"] = sortBy
 	}
@@ -515,6 +539,9 @@ func (h *DashboardHandler) GetBranches(c *gin.Context) {
 
 	if region := c.Query("region"); region != "" {
 		filters["region"] = region
+	}
+	if wave := c.Query("wave"); wave != "" {
+		filters["wave"] = wave
 	}
 	if sortBy := c.Query("sort_by"); sortBy != "" {
 		filters["sort_by"] = sortBy

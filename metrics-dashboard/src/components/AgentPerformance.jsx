@@ -4,7 +4,7 @@ import { mockTeamMembers } from '../utils/mockData';
 import TopRiskLoansModal from './TopRiskLoansModal';
 import './AgentPerformance.css';
 
-const AgentPerformance = ({ agents, onViewPortfolio }) => {
+const AgentPerformance = ({ agents, onViewPortfolio, onViewLowDelayLoans, initialFilter = null }) => {
   const [sortConfig, setSortConfig] = useState({ key: 'riskScore', direction: 'asc' });
   const [filters, setFilters] = useState({
     region: '',
@@ -12,12 +12,14 @@ const AgentPerformance = ({ agents, onViewPortfolio }) => {
     riskBand: '',
     startDate: '',
     endDate: '',
+    delayRateMax: initialFilter?.delayRateMax || '',
   });
-  const [showFilters, setShowFilters] = useState(false);
+  const [showFilters, setShowFilters] = useState(!!initialFilter);
   const [activeActionMenu, setActiveActionMenu] = useState(null);
   const [agentData, setAgentData] = useState(agents);
   const [topRiskModalOpen, setTopRiskModalOpen] = useState(false);
   const [selectedOfficer, setSelectedOfficer] = useState(null);
+  const [filterLabel, setFilterLabel] = useState(initialFilter?.label || null);
 
   // Get unique values for filter dropdowns
   const filterOptions = useMemo(() => {
@@ -38,6 +40,11 @@ const AgentPerformance = ({ agents, onViewPortfolio }) => {
       // Date range filter (filter by lastAuditDate)
       if (filters.startDate && agent.lastAuditDate && agent.lastAuditDate < filters.startDate) return false;
       if (filters.endDate && agent.lastAuditDate && agent.lastAuditDate > filters.endDate) return false;
+
+      // Delay rate filter (< delayRateMax)
+      if (filters.delayRateMax !== '' && agent.repaymentDelayRate != null) {
+        if (agent.repaymentDelayRate >= parseFloat(filters.delayRateMax)) return false;
+      }
 
       return true;
     });
@@ -83,7 +90,9 @@ const AgentPerformance = ({ agents, onViewPortfolio }) => {
       riskBand: '',
       startDate: '',
       endDate: '',
+      delayRateMax: '',
     });
+    setFilterLabel(null);
   };
 
   const handleAssigneeChange = (officerName, newAssignee) => {
@@ -136,6 +145,14 @@ const AgentPerformance = ({ agents, onViewPortfolio }) => {
           onViewPortfolio(agent.officerId, agent.officerName);
         } else {
           alert(`View Entire Portfolio for ${agent.officerName}\n\nThis will open a detailed view.`);
+        }
+        break;
+      case 'viewLowDelayLoans':
+        // Navigate to All Loans view with officer filter and low delay rate filter
+        if (onViewLowDelayLoans) {
+          onViewLowDelayLoans(agent.officerId, agent.officerName, agent.repaymentDelayRate);
+        } else {
+          alert(`View Low Delay Loans for ${agent.officerName}\n\nThis will show loans with high delay.`);
         }
         break;
       case 'exportPortfolio':
@@ -321,6 +338,21 @@ const AgentPerformance = ({ agents, onViewPortfolio }) => {
                 ))}
               </select>
             </div>
+            <div className="filter-group">
+              <select value={filters.delayRateMax} onChange={(e) => handleFilterChange('delayRateMax', e.target.value)}>
+                <option value="">All Delay Rates</option>
+                <option value="10">Delay Rate &lt; 10%</option>
+                <option value="20">Delay Rate &lt; 20%</option>
+                <option value="30">Delay Rate &lt; 30%</option>
+                <option value="40">Delay Rate &lt; 40%</option>
+                <option value="50">Delay Rate &lt; 50%</option>
+                <option value="60">Delay Rate &lt; 60%</option>
+                <option value="70">Delay Rate &lt; 70%</option>
+                <option value="80">Delay Rate &lt; 80%</option>
+                <option value="90">Delay Rate &lt; 90%</option>
+                <option value="100">Delay Rate &lt; 100%</option>
+              </select>
+            </div>
             <div className="filter-group date-range-group">
               <div className="date-inputs">
                 <input
@@ -342,6 +374,36 @@ const AgentPerformance = ({ agents, onViewPortfolio }) => {
               <button className="clear-filters" onClick={clearFilters}>Clear All</button>
             </div>
           </div>
+        </div>
+      )}
+
+      {filterLabel && (
+        <div style={{
+          background: '#e3f2fd',
+          border: '1px solid #2196f3',
+          padding: '8px 12px',
+          margin: '10px 0',
+          borderRadius: '4px',
+          color: '#1565c0',
+          fontSize: '14px',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <span>🔍 <strong>Active Filter:</strong> {filterLabel}</span>
+          <button
+            onClick={clearFilters}
+            style={{
+              background: 'transparent',
+              border: 'none',
+              color: '#1565c0',
+              cursor: 'pointer',
+              fontSize: '14px',
+              textDecoration: 'underline'
+            }}
+          >
+            Clear Filter
+          </button>
         </div>
       )}
 
@@ -464,6 +526,9 @@ const AgentPerformance = ({ agents, onViewPortfolio }) => {
                         </button>
                         <button onClick={() => handleAction(agent, 'viewPortfolio')}>
                           View Entire Portfolio
+                        </button>
+                        <button onClick={() => handleAction(agent, 'viewLowDelayLoans')}>
+                          View Risky Delay Loans
                         </button>
                         <button onClick={() => handleAction(agent, 'exportPortfolio')}>
                           Export Entire Portfolio

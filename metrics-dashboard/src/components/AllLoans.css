@@ -348,6 +348,28 @@
   color: #c62828;
 }
 
+.wave {
+  text-align: center;
+}
+
+.wave-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.wave-badge.wave-wave-1 {
+  background: #e3f2fd;
+  color: #1976d2;
+}
+
+.wave-badge.wave-wave-2 {
+  background: #f3e5f5;
+  color: #7b1fa2;
+}
+
 .fimr-tagged {
   text-align: center;
 }

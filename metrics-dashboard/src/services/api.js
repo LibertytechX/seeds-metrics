@@ -3,9 +3,10 @@
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080/api/v1';
 
 class ApiService {
-  async fetchPortfolioMetrics() {
+  async fetchPortfolioMetrics(params = {}) {
     try {
-      const response = await fetch(`${API_BASE_URL}/metrics/portfolio`);
+      const queryParams = new URLSearchParams(params);
+      const response = await fetch(`${API_BASE_URL}/metrics/portfolio?${queryParams}`);
       const data = await response.json();
 
       if (data.status === 'success') {

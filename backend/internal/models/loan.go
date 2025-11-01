@@ -147,6 +147,8 @@ type AllLoan struct {
 	TimelinessScore        *float64 `json:"timeliness_score"`
 	RepaymentHealth        *float64 `json:"repayment_health"`
 	DaysSinceLastRepayment *int     `json:"days_since_last_repayment"`
+	RepaymentDelayRate     *float64 `json:"repayment_delay_rate"`
+	Wave                   string   `json:"wave"`
 }
 
 // TopRiskLoan represents a high-risk loan for audit purposes

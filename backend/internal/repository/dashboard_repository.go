@@ -37,7 +37,7 @@ func (r *DashboardRepository) RecalculateAllLoanFields() (int64, error) {
 }
 
 // GetPortfolioLoanMetrics retrieves loan-level aggregated metrics for portfolio calculations
-func (r *DashboardRepository) GetPortfolioLoanMetrics() (*models.PortfolioLoanMetrics, error) {
+func (r *DashboardRepository) GetPortfolioLoanMetrics(filters map[string]interface{}) (*models.PortfolioLoanMetrics, error) {
 	query := `
 		SELECT
 			-- Active vs Inactive Loans
@@ -69,8 +69,18 @@ func (r *DashboardRepository) GetPortfolioLoanMetrics() (*models.PortfolioLoanMe
 		WHERE UPPER(status) = 'ACTIVE'
 	`
 
+	args := []interface{}{}
+	argCount := 1
+
+	// Apply wave filter
+	if wave, ok := filters["wave"].(string); ok && wave != "" {
+		query += fmt.Sprintf(" AND wave = $%d", argCount)
+		args = append(args, wave)
+		argCount++
+	}
+
 	metrics := &models.PortfolioLoanMetrics{}
-	err := r.db.QueryRow(query).Scan(
+	err := r.db.QueryRow(query, args...).Scan(
 		&metrics.ActiveLoansCount,
 		&metrics.ActiveLoansVolume,
 		&metrics.InactiveLoansCount,
@@ -92,7 +102,7 @@ func (r *DashboardRepository) GetPortfolioLoanMetrics() (*models.PortfolioLoanMe
 
 // GetActualOverdue15d calculates the actual overdue amount (only installments due to date)
 // for loans with current_dpd >= 15
-func (r *DashboardRepository) GetActualOverdue15d() (float64, error) {
+func (r *DashboardRepository) GetActualOverdue15d(filters map[string]interface{}) (float64, error) {
 	// First, try to get from loan_schedule table (most accurate)
 	scheduleQuery := `
 		SELECT
@@ -105,8 +115,18 @@ func (r *DashboardRepository) GetActualOverdue15d() (float64, error) {
 			AND ls.payment_status IN ('Pending', 'Partial', 'Overdue')
 	`
 
+	args := []interface{}{}
+	argCount := 1
+
+	// Apply wave filter to schedule query
+	if wave, ok := filters["wave"].(string); ok && wave != "" {
+		scheduleQuery += fmt.Sprintf(" AND l.wave = $%d", argCount)
+		args = append(args, wave)
+		argCount++
+	}
+
 	var actualOverdue15d float64
-	err := r.db.QueryRow(scheduleQuery).Scan(&actualOverdue15d)
+	err := r.db.QueryRow(scheduleQuery, args...).Scan(&actualOverdue15d)
 	if err != nil {
 		return 0, err
 	}
@@ -131,7 +151,17 @@ func (r *DashboardRepository) GetActualOverdue15d() (float64, error) {
 				AND UPPER(status) = 'ACTIVE'
 		`
 
-		err = r.db.QueryRow(fallbackQuery).Scan(&actualOverdue15d)
+		fallbackArgs := []interface{}{}
+		fallbackArgCount := 1
+
+		// Apply wave filter to fallback query
+		if wave, ok := filters["wave"].(string); ok && wave != "" {
+			fallbackQuery += fmt.Sprintf(" AND wave = $%d", fallbackArgCount)
+			fallbackArgs = append(fallbackArgs, wave)
+			fallbackArgCount++
+		}
+
+		err = r.db.QueryRow(fallbackQuery, fallbackArgs...).Scan(&actualOverdue15d)
 		if err != nil {
 			return 0, err
 		}
@@ -197,6 +227,12 @@ func (r *DashboardRepository) GetOfficers(filters map[string]interface{}) ([]*mo
 	if channel, ok := filters["channel"].(string); ok && channel != "" {
 		query += fmt.Sprintf(" AND o.primary_channel = $%d", argCount)
 		args = append(args, channel)
+		argCount++
+	}
+
+	if wave, ok := filters["wave"].(string); ok && wave != "" {
+		query += fmt.Sprintf(" AND l.wave = $%d", argCount)
+		args = append(args, wave)
 		argCount++
 	}
 
@@ -405,6 +441,12 @@ func (r *DashboardRepository) GetFIMRLoans(filters map[string]interface{}) ([]*m
 		argCount++
 	}
 
+	if wave, ok := filters["wave"].(string); ok && wave != "" {
+		query += fmt.Sprintf(" AND l.wave = $%d", argCount)
+		args = append(args, wave)
+		argCount++
+	}
+
 	// Apply sorting
 	sortBy := "l.disbursement_date"
 	if sort, ok := filters["sort_by"].(string); ok && sort != "" {
@@ -527,6 +569,12 @@ func (r *DashboardRepository) GetEarlyIndicatorLoans(filters map[string]interfac
 		}
 	}
 
+	if wave, ok := filters["wave"].(string); ok && wave != "" {
+		query += fmt.Sprintf(" AND l.wave = $%d", argCount)
+		args = append(args, wave)
+		argCount++
+	}
+
 	// Apply sorting
 	sortBy := "l.current_dpd"
 	if sort, ok := filters["sort_by"].(string); ok && sort != "" {
@@ -615,7 +663,9 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 			l.fimr_tagged,
 			l.timeliness_score,
 			l.repayment_health,
-			l.days_since_last_repayment
+			l.days_since_last_repayment,
+			l.repayment_delay_rate,
+			l.wave
 		FROM loans l
 		JOIN officers o ON l.officer_id = o.officer_id
 		WHERE 1=1
@@ -667,6 +717,13 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 		argCount++
 	}
 
+	if wave, ok := filters["wave"].(string); ok && wave != "" {
+		query += fmt.Sprintf(" AND l.wave = $%d", argCount)
+		countQuery += fmt.Sprintf(" AND l.wave = $%d", argCount)
+		args = append(args, wave)
+		argCount++
+	}
+
 	// Get total count
 	var total int
 	err := r.db.QueryRow(countQuery, args...).Scan(&total)
@@ -710,7 +767,7 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 	for rows.Next() {
 		loan := &models.AllLoan{}
 		var customerPhone, officerID sql.NullString
-		var repaymentAmount, timelinessScore, repaymentHealth sql.NullFloat64
+		var repaymentAmount, timelinessScore, repaymentHealth, repaymentDelayRate sql.NullFloat64
 		var daysSinceLastRepayment sql.NullInt64
 
 		err := rows.Scan(
@@ -739,6 +796,8 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 			&timelinessScore,
 			&repaymentHealth,
 			&daysSinceLastRepayment,
+			&repaymentDelayRate,
+			&loan.Wave,
 		)
 		if err != nil {
 			return nil, 0, err
@@ -765,6 +824,10 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 		if daysSinceLastRepayment.Valid {
 			val := int(daysSinceLastRepayment.Int64)
 			loan.DaysSinceLastRepayment = &val
+		}
+		if repaymentDelayRate.Valid {
+			val := repaymentDelayRate.Float64
+			loan.RepaymentDelayRate = &val
 		}
 
 		loans = append(loans, loan)
@@ -912,6 +975,12 @@ func (r *DashboardRepository) GetBranches(filters map[string]interface{}) ([]*mo
 	if region, ok := filters["region"].(string); ok && region != "" {
 		query += fmt.Sprintf(" AND l.region = $%d", argCount)
 		args = append(args, region)
+		argCount++
+	}
+
+	if wave, ok := filters["wave"].(string); ok && wave != "" {
+		query += fmt.Sprintf(" AND l.wave = $%d", argCount)
+		args = append(args, wave)
 		argCount++
 	}
 
