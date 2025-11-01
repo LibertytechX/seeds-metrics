@@ -245,6 +245,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     const tableData = loans.map(loan => [
       loan.loan_id,
       loan.customer_name,
+      loan.customer_phone || 'N/A',
       loan.officer_name,
       loan.branch,
       `₦${(loan.loan_amount / 1000000).toFixed(2)}M`,
@@ -263,7 +264,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
 
     doc.autoTable({
       startY: 32,
-      head: [['Loan ID', 'Customer', 'Officer', 'Branch', 'Amount', 'Repay. Amt', 'Disbursed', 'Tenure', 'T.Score', 'R.Health', 'Days Since', 'DPD', 'Total Out.', 'Actual Out.', 'Status', 'FIMR']],
+      head: [['Loan ID', 'Customer', 'Phone', 'Officer', 'Branch', 'Amount', 'Repay. Amt', 'Disbursed', 'Tenure', 'T.Score', 'R.Health', 'Days Since', 'DPD', 'Total Out.', 'Actual Out.', 'Status', 'FIMR']],
       body: tableData,
       styles: { fontSize: 6 },
       headStyles: { fillColor: [41, 128, 185] },
@@ -507,6 +508,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
               <tr>
                 <th onClick={() => handleSort('loan_id')}>Loan ID</th>
                 <th onClick={() => handleSort('customer_name')}>Customer Name</th>
+                <th onClick={() => handleSort('customer_phone')}>Customer Phone</th>
                 <th onClick={() => handleSort('officer_name')}>Officer Name</th>
                 <th onClick={() => handleSort('region')}>Region</th>
                 <th onClick={() => handleSort('branch')}>Branch</th>
@@ -532,6 +534,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                 <tr key={loan.loan_id}>
                   <td className="loan-id">{loan.loan_id}</td>
                   <td>{loan.customer_name}</td>
+                  <td>{loan.customer_phone || 'N/A'}</td>
                   <td>{loan.officer_name}</td>
                   <td>{loan.region}</td>
                   <td>{loan.branch}</td>
