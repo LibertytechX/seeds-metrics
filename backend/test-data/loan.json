@@ -10,6 +10,7 @@
   "branch": "Lagos Main",
   "state": "Lagos",
   "loan_amount": 500000.00,
+  "repayment_amount": 575000.00,
   "disbursement_date": "2024-10-15",
   "maturity_date": "2025-04-15",
   "loan_term_days": 180,
@@ -18,6 +19,7 @@
   "channel": "Direct",
   "channel_partner": null,
   "status": "Active",
-  "closed_date": null
+  "closed_date": null,
+  "wave": "Wave 1"
 }
 

@@ -15,6 +15,7 @@
         "branch": "Enugu Branch",
         "state": "Enugu",
         "loan_amount": 750000.00,
+        "repayment_amount": 862500.00,
         "disbursement_date": "2024-10-16",
         "maturity_date": "2025-04-16",
         "loan_term_days": 180,
@@ -23,7 +24,8 @@
         "channel": "Agent",
         "channel_partner": "Kuda Bank",
         "status": "Active",
-        "closed_date": null
+        "closed_date": null,
+        "wave": "Wave 2"
       },
       {
         "loan_id": "LN2024001236",
@@ -37,6 +39,7 @@
         "branch": "Abuja Branch",
         "state": "FCT",
         "loan_amount": 1000000.00,
+        "repayment_amount": 1150000.00,
         "disbursement_date": "2024-10-17",
         "maturity_date": "2025-04-17",
         "loan_term_days": 180,
@@ -45,7 +48,8 @@
         "channel": "Direct",
         "channel_partner": null,
         "status": "Active",
-        "closed_date": null
+        "closed_date": null,
+        "wave": "Wave 2"
       }
     ],
     "repayments": [

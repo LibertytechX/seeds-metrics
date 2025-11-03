@@ -29,11 +29,11 @@ func (r *LoanRepository) Create(ctx context.Context, input *models.LoanInput) er
 			loan_amount, repayment_amount, disbursement_date, maturity_date, loan_term_days,
 			interest_rate, fee_amount,
 			channel, channel_partner,
-			status, closed_date,
+			status, closed_date, wave,
 			created_at, updated_at
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-			$11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21,
+			$11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, COALESCE($22, 'Wave 2'),
 			NOW(), NOW()
 		)
 	`
@@ -64,7 +64,7 @@ func (r *LoanRepository) Create(ctx context.Context, input *models.LoanInput) er
 		input.LoanAmount, input.RepaymentAmount, disbursementDate, maturityDate, input.LoanTermDays,
 		input.InterestRate, input.FeeAmount,
 		input.Channel, input.ChannelPartner,
-		input.Status, closedDate,
+		input.Status, closedDate, input.Wave,
 	)
 
 	return err

@@ -86,6 +86,7 @@ type LoanInput struct {
 	ChannelPartner   *string          `json:"channel_partner"`
 	Status           string           `json:"status" binding:"required"`
 	ClosedDate       *string          `json:"closed_date"` // YYYY-MM-DD
+	Wave             *string          `json:"wave"`        // "Wave 1" or "Wave 2", defaults to "Wave 2"
 }
 
 // LoanFilter represents filter criteria for querying loans
