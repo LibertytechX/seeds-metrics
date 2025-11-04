@@ -514,19 +514,12 @@ BEGIN
         max_dpd_ever = GREATEST(v_max_dpd, v_current_dpd),
 
         -- Risk indicators
-        -- FIMR (First Installment Missed or Rescheduled): TRUE if first payment was late or never made
+        -- FIMR (First Installment Missed and Recovered): TRUE if NO repayments within first 7 days after disbursement
         fimr_tagged = CASE
-            WHEN v_repayment_count < 10 THEN
-                -- For loans with less than 10 repayments, check if first payment was late
-                CASE
-                    WHEN v_first_payment_date IS NULL THEN TRUE  -- No payment received yet
-                    WHEN v_first_due_date IS NULL THEN FALSE     -- No due date available
-                    WHEN v_first_payment_date > v_first_due_date THEN TRUE  -- Payment was late
-                    ELSE FALSE  -- Payment was on time
-                END
-            ELSE
-                -- For loans with 10+ repayments, keep existing value or set to FALSE
-                COALESCE((SELECT fimr_tagged FROM loans WHERE loan_id = v_loan_id), FALSE)
+            WHEN v_first_payment_date IS NULL THEN TRUE  -- No payment received yet
+            WHEN v_disbursement_date IS NULL THEN FALSE  -- No disbursement date available
+            WHEN (v_first_payment_date - v_disbursement_date) > 7 THEN TRUE  -- First payment was more than 7 days after disbursement
+            ELSE FALSE  -- First payment was within 7 days
         END,
         early_indicator_tagged = (v_current_dpd BETWEEN 1 AND 6),
 
