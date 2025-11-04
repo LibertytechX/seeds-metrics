@@ -96,42 +96,51 @@ func (s *MetricsService) CalculateOfficerMetrics(raw *models.RawMetrics) *models
 
 // CalculateRiskScoreNorm calculates normalized risk score (0-1)
 func (s *MetricsService) CalculateRiskScoreNorm(raw *models.RawMetrics, calc *models.CalculatedMetrics) float64 {
-	// Risk Score = 1 - (weighted average of negative indicators)
-	// Negative indicators: PORR, FIMR, Roll, Waivers, Backdated, Reversals, Float Gap
+	// NEW Risk Score Formula = 1 - (weighted penalties)
+	// Penalties:
+	// - PORR: 20 points max (0.20 weight)
+	// - FIMR: 15 points max (0.15 weight)
+	// - Roll: 10 points max (0.10 weight)
+	// - Repayment Delay Rate: 40 points max (0.40 weight)
+	// - AYR: 15 points max (0.15 weight)
+	// Total: 100 points max
 
 	score := 1.0
 
-	// PORR penalty (weight: 0.25)
-	score -= calc.PORR * 0.25
+	// PORR penalty (max: 20 points = 0.20 weight)
+	score -= calc.PORR * 0.20
 
-	// FIMR penalty (weight: 0.20)
-	score -= calc.FIMR * 0.20
+	// FIMR penalty (max: 15 points = 0.15 weight)
+	score -= calc.FIMR * 0.15
 
-	// Roll penalty (weight: 0.15)
-	score -= calc.Roll * 0.15
+	// Roll penalty (max: 10 points = 0.10 weight)
+	score -= calc.Roll * 0.10
 
-	// Waivers penalty (weight: 0.10)
-	if raw.TotalPortfolio > 0 {
-		waiversRatio := raw.Waivers / raw.TotalPortfolio
-		score -= waiversRatio * 0.10
+	// Repayment Delay Rate penalty (max: 40 points = 0.40 weight)
+	// Formula: penalty = (1 - (repayment_delay_rate / 100)) * 0.40
+	// If repayment_delay_rate = 100%, penalty = 0
+	// If repayment_delay_rate = 0%, penalty = 0.40
+	// If repayment_delay_rate is negative, penalty > 0.40 (capped at 0.40)
+	if calc.RepaymentDelayRate <= 100 {
+		delayRatePenalty := (1.0 - (calc.RepaymentDelayRate / 100.0)) * 0.40
+		// Cap penalty at 0.40 (for negative delay rates)
+		if delayRatePenalty > 0.40 {
+			delayRatePenalty = 0.40
+		}
+		score -= delayRatePenalty
 	}
+	// If repayment_delay_rate > 100%, no penalty (better than expected)
 
-	// Backdated entries penalty (weight: 0.10)
-	if raw.Entries > 0 {
-		backdatedRatio := float64(raw.Backdated) / float64(raw.Entries)
-		score -= backdatedRatio * 0.10
+	// AYR penalty (max: 15 points = 0.15 weight)
+	// Formula: penalty = (1 - min(AYR, 1.0)) * 0.15
+	// If AYR >= 1.0, penalty = 0
+	// If AYR = 0.5, penalty = 0.075 (7.5 points)
+	// If AYR = 0, penalty = 0.15 (15 points)
+	ayrCapped := calc.AYR
+	if ayrCapped > 1.0 {
+		ayrCapped = 1.0
 	}
-
-	// Reversals penalty (weight: 0.10)
-	if raw.Entries > 0 {
-		reversalsRatio := float64(raw.Reversals) / float64(raw.Entries)
-		score -= reversalsRatio * 0.10
-	}
-
-	// Float gap penalty (weight: 0.10)
-	if raw.HadFloatGap {
-		score -= 0.10
-	}
+	score -= (1.0 - ayrCapped) * 0.15
 
 	// Ensure score is between 0 and 1
 	if score < 0 {
@@ -147,22 +156,20 @@ func (s *MetricsService) CalculateRiskScoreNorm(raw *models.RawMetrics, calc *mo
 // CalculateDQI calculates Data Quality Index (0-100)
 func (s *MetricsService) CalculateDQI(raw *models.RawMetrics, calc *models.CalculatedMetrics) int {
 	// DQI = weighted average of positive indicators
-	// Positive indicators: Risk Score, On-time Rate, Channel Purity
+	// Positive indicators: Risk Score, On-time Rate
 	// Negative indicators: FIMR
+	// Note: Channel Purity removed as it's no longer part of Risk Score
 
 	dqi := 0.0
 
-	// Risk Score contribution (weight: 0.40)
-	dqi += calc.RiskScoreNorm * 0.40
+	// Risk Score contribution (weight: 0.50 - increased from 0.40)
+	dqi += calc.RiskScoreNorm * 0.50
 
-	// On-time rate contribution (weight: 0.30)
-	dqi += calc.OnTimeRate * 0.30
+	// On-time rate contribution (weight: 0.35 - increased from 0.30)
+	dqi += calc.OnTimeRate * 0.35
 
-	// Channel purity contribution (weight: 0.20)
-	dqi += calc.ChannelPurity * 0.20
-
-	// FIMR penalty (weight: 0.10)
-	dqi += (1.0 - calc.FIMR) * 0.10
+	// FIMR penalty (weight: 0.15 - increased from 0.10)
+	dqi += (1.0 - calc.FIMR) * 0.15
 
 	// Convert to 0-100 scale
 	dqiScore := int(dqi * 100)

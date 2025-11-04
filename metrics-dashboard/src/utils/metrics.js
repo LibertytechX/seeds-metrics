@@ -57,49 +57,67 @@ export const calculateAYR = (interestCollected, feesCollected, par15MidMonth) =>
 
 /**
  * DQI - Delinquency Quality Index (0-100)
- * Formula: DQI = round(100 * (0.4 * RQ + 0.35 * OTI + 0.25 * (1 - FIMR)) * CP_toggle)
+ * Formula: DQI = round(100 * (0.50 * RQ + 0.35 * OTI + 0.15 * (1 - FIMR)))
+ * Note: Channel Purity removed as it's no longer part of Risk Score
  */
-export const calculateDQI = (riskScoreNorm, onTimeRate, fimr, channelPurity, cpToggle = true) => {
+export const calculateDQI = (riskScoreNorm, onTimeRate, fimr) => {
   const rq = clamp01(riskScoreNorm);
   const oti = clamp01(onTimeRate);
   const fimrClamped = clamp01(fimr);
-  const cp = cpToggle ? clamp01(channelPurity) : 1;
 
-  const dqi = 100 * (0.4 * rq + 0.35 * oti + 0.25 * (1 - fimrClamped)) * cp;
+  const dqi = 100 * (0.50 * rq + 0.35 * oti + 0.15 * (1 - fimrClamped));
   return Math.round(dqi);
 };
 
 /**
  * Composite Officer Risk Score (0-100)
- * Formula: RiskScore = 100 - 20*PORR - 15*FIMR - 10*Roll - 10*(waivers/amountDue7d)
- *                      - 10*(backdated/entries) - 10*(reversals/entries) - 10*(1-FRR)
- *                      - 5*(1-channelPurity) - 10*(hadFloatGap ? 1 : 0)
+ * NEW Formula: RiskScore = 100 - 20*PORR - 15*FIMR - 10*Roll
+ *                          - 40*(1 - repaymentDelayRate/100) - 15*(1 - min(AYR, 1.0))
+ *
+ * Penalties:
+ * - PORR: 20 points max
+ * - FIMR: 15 points max
+ * - Roll: 10 points max
+ * - Repayment Delay Rate: 40 points max
+ * - AYR: 15 points max
+ * Total: 100 points max
  */
 export const calculateRiskScore = (params) => {
   const {
     porr = 0,
     fimr = 0,
     roll = 0,
-    waivers = 0,
-    amountDue7d = 0,
-    backdated = 0,
-    entries = 0,
-    reversals = 0,
-    frr = 0,
-    channelPurity = 1,
-    hadFloatGap = false,
+    repaymentDelayRate = 0,
+    ayr = 0,
   } = params;
 
   let score = 100;
+
+  // PORR penalty (max: 20 points)
   score -= 20 * clamp01(porr);
+
+  // FIMR penalty (max: 15 points)
   score -= 15 * clamp01(fimr);
+
+  // Roll penalty (max: 10 points)
   score -= 10 * clamp01(roll);
-  score -= 10 * safeDivide(waivers, amountDue7d, 0);
-  score -= 10 * safeDivide(backdated, entries, 0);
-  score -= 10 * safeDivide(reversals, entries, 0);
-  score -= 10 * clamp01(1 - frr);
-  score -= 5 * clamp01(1 - channelPurity);
-  score -= 10 * (hadFloatGap ? 1 : 0);
+
+  // Repayment Delay Rate penalty (max: 40 points)
+  // If repaymentDelayRate = 100%, penalty = 0
+  // If repaymentDelayRate = 0%, penalty = 40
+  // If repaymentDelayRate is negative, penalty = 40 (capped)
+  if (repaymentDelayRate <= 100) {
+    const delayRatePenalty = (1 - (repaymentDelayRate / 100)) * 40;
+    score -= Math.min(40, Math.max(0, delayRatePenalty));
+  }
+  // If repaymentDelayRate > 100%, no penalty (better than expected)
+
+  // AYR penalty (max: 15 points)
+  // If AYR >= 1.0, penalty = 0
+  // If AYR = 0.5, penalty = 7.5
+  // If AYR = 0, penalty = 15
+  const ayrCapped = Math.min(ayr, 1.0);
+  score -= (1 - ayrCapped) * 15;
 
   return Math.max(0, Math.round(score));
 };

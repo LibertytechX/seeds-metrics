@@ -81,7 +81,7 @@ export const metricInfo = {
     name: 'DQI',
     fullName: 'Delinquency Quality Index',
     description: 'Composite index capturing loan quality and repayment discipline (0-100).',
-    formula: 'DQI = 100 * (0.4*RQ + 0.35*OTI + 0.25*(1-FIMR)) * CP_toggle',
+    formula: 'DQI = 100 * (0.50*RQ + 0.35*OTI + 0.15*(1-FIMR))',
     whatItMeasures: 'Overall portfolio quality combining risk, on-time rate, and early defaults.',
     bands: {
       flag: '< 65',
@@ -90,39 +90,34 @@ export const metricInfo = {
     },
     interpretation: 'Higher is better. Composite measure of portfolio health.',
     components: {
-      rq: '40% - Risk Quality (normalized risk score)',
+      rq: '50% - Risk Quality (normalized risk score)',
       oti: '35% - On-Time Rate (repayment discipline)',
-      fimr: '25% - First-Installment Miss Rate (early defaults)',
-      cp: 'Channel Purity multiplier (optional toggle)',
+      fimr: '15% - First-Installment Miss Rate (early defaults)',
     },
-    example: 'With RQ=0.85, OTI=0.92, FIMR=0.03, CP=0.95, DQI = 82',
+    example: 'With RQ=0.85, OTI=0.92, FIMR=0.03, DQI = 87',
   },
 
   riskScore: {
     name: 'Risk Score',
     fullName: 'Composite Officer Risk Score',
-    description: 'Single number combining portfolio risk, behavior signals, and integrity (0-100).',
-    formula: 'RiskScore = 100 - (penalties for various risk factors)',
-    whatItMeasures: 'Overall officer risk assessment across multiple dimensions.',
+    description: 'Single number combining portfolio risk, repayment behavior, and yield performance (0-100).',
+    formula: 'RiskScore = 100 - 20*PORR - 15*FIMR - 10*Roll - 40*(1-RepaymentDelayRate/100) - 15*(1-min(AYR,1.0))',
+    whatItMeasures: 'Overall officer risk assessment across portfolio quality, repayment behavior, and revenue generation.',
     bands: {
       red: '< 40 (Flag)',
       amber: '40 - 59 (Amber)',
       watch: '60 - 79 (Watch)',
       green: '≥ 80 (Green)',
     },
-    interpretation: 'Higher is better. Comprehensive risk indicator.',
+    interpretation: 'Higher is better. Comprehensive risk indicator focusing on portfolio quality, repayment behavior, and yield.',
     factors: {
-      porr: 'Portfolio Open Risk Ratio (20 points)',
-      fimr: 'First-Installment Miss Rate (15 points)',
-      roll: 'Delinquency Roll (10 points)',
-      waivers: 'Waiver volume (10 points)',
-      backdated: 'Backdated entries (10 points)',
-      reversals: 'Reversals (10 points)',
-      frr: 'Fee Realization Rate (10 points)',
-      channelPurity: 'Channel Purity (5 points)',
-      floatGap: 'Float/Settlement Gap (10 points)',
+      porr: 'Portfolio Open Risk Ratio (20 points max)',
+      fimr: 'First-Installment Miss Rate (15 points max)',
+      roll: 'Delinquency Roll (10 points max)',
+      repaymentDelayRate: 'Repayment Delay Rate (40 points max)',
+      ayr: 'Adjusted Yield Ratio (15 points max)',
     },
-    example: 'Officer with good metrics across all factors scores 85 (Green)',
+    example: 'Officer with PORR=0.05, FIMR=0.02, Roll=0.15, RepaymentDelayRate=85%, AYR=0.60 scores 91 (Green)',
   },
 
   porr: {
@@ -275,7 +270,7 @@ export const tabInfo = {
   earlyIndicators: {
     name: 'Early Indicators',
     description: 'Early warning metrics that predict future delinquency.',
-    metrics: ['FIMR', 'D0-6 Slippage', 'Roll', 'FRR', 'Channel Purity'],
+    metrics: ['FIMR', 'D0-6 Slippage', 'Roll', 'Repayment Delay Rate', 'AYR'],
     purpose: 'Detect early signs of problems before they become material.',
   },
 
@@ -296,7 +291,7 @@ export const tabInfo = {
   agentPerformance: {
     name: 'Agent Performance',
     description: 'Comprehensive officer-level performance metrics showing all key indicators in one view.',
-    metrics: ['Risk Score', 'AYR', 'DQI', 'FIMR', 'D0-6 Slippage', 'Roll', 'FRR', 'Portfolio Total', 'Overdue >15D'],
+    metrics: ['Risk Score', 'AYR', 'DQI', 'FIMR', 'D0-6 Slippage', 'Roll', 'Repayment Delay Rate', 'Portfolio Total', 'Overdue >15D'],
     purpose: 'Compare officer performance across all metrics and identify top performers and high-risk officers.',
   },
 };
