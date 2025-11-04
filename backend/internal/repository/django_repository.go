@@ -351,6 +351,7 @@ func (r *DjangoRepository) GetLoans(ctx context.Context, limit, offset int) ([]m
 			l.processing_fee as fee_amount,
 			l.tenor_in_days as loan_term_days,
 			l.date_disbursed as disbursement_date,
+			l.start_date as first_payment_due_date,
 			l.end_date as maturity_date,
 			CASE
 				WHEN l.status = 'COMPLETED' THEN 'Closed'
@@ -380,7 +381,7 @@ func (r *DjangoRepository) GetLoans(ctx context.Context, limit, offset int) ([]m
 		var customerPhone, officerPhone sql.NullString
 		var loanAmount, repaymentAmount, interestRate, feeAmount float64
 		var loanTermDays int
-		var disbursementDate, maturityDate sql.NullTime
+		var disbursementDate, firstPaymentDueDate, maturityDate sql.NullTime
 		var createdAt, updatedAt time.Time
 
 		err := rows.Scan(
@@ -399,6 +400,7 @@ func (r *DjangoRepository) GetLoans(ctx context.Context, limit, offset int) ([]m
 			&feeAmount,
 			&loanTermDays,
 			&disbursementDate,
+			&firstPaymentDueDate,
 			&maturityDate,
 			&status,
 			&createdAt,
@@ -435,6 +437,9 @@ func (r *DjangoRepository) GetLoans(ctx context.Context, limit, offset int) ([]m
 		}
 		if disbursementDate.Valid {
 			loan["disbursement_date"] = disbursementDate.Time.Format("2006-01-02")
+		}
+		if firstPaymentDueDate.Valid {
+			loan["first_payment_due_date"] = firstPaymentDueDate.Time.Format("2006-01-02")
 		}
 		if maturityDate.Valid {
 			loan["maturity_date"] = maturityDate.Time.Format("2006-01-02")
