@@ -135,7 +135,7 @@ type AllLoan struct {
 	LoanAmount             float64  `json:"loan_amount"`
 	RepaymentAmount        *float64 `json:"repayment_amount,omitempty"`
 	DisbursementDate       string   `json:"disbursement_date"`
-	FirstPaymentDueDate    string   `json:"first_payment_due_date"`
+	FirstPaymentDueDate    *string  `json:"first_payment_due_date,omitempty"`
 	MaturityDate           string   `json:"maturity_date"`
 	LoanTermDays           int      `json:"loan_term_days"`
 	CurrentDPD             int      `json:"current_dpd"`
