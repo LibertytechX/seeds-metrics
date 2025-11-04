@@ -191,40 +191,67 @@ func syncLoans(ctx context.Context, djangoRepo *repository.DjangoRepository, loa
 		log.Printf("Processing batch: offset=%d, count=%d", offset, len(loans))
 
 		for _, loanData := range loans {
-			// Convert map to LoanInput
+			// Convert map to LoanInput with nil-safe type assertions
+			loanID, _ := loanData["loan_id"].(string)
+			customerID, _ := loanData["customer_id"].(string)
+			customerName, _ := loanData["customer_name"].(string)
+			officerID, _ := loanData["officer_id"].(string)
+			officerName, _ := loanData["officer_name"].(string)
+			branch, _ := loanData["branch"].(string)
+			region, _ := loanData["region"].(string)
+			loanAmount, _ := loanData["loan_amount"].(float64)
+			loanTermDays, _ := loanData["loan_term_days"].(int)
+			status, _ := loanData["status"].(string)
+			channel, _ := loanData["channel"].(string)
+			disbursementDate, _ := loanData["disbursement_date"].(string)
+			maturityDate, _ := loanData["maturity_date"].(string)
+
+			// Skip if essential fields are missing
+			if loanID == "" || customerID == "" || officerID == "" || disbursementDate == "" || maturityDate == "" {
+				log.Printf("⚠️  Skipping loan with missing essential fields: %v", loanData)
+				errorCount++
+				continue
+			}
+
 			input := &models.LoanInput{
-				LoanID:           loanData["loan_id"].(string),
-				CustomerID:       loanData["customer_id"].(string),
-				CustomerName:     loanData["customer_name"].(string),
-				OfficerID:        loanData["officer_id"].(string),
-				OfficerName:      loanData["officer_name"].(string),
-				Branch:           loanData["branch"].(string),
-				Region:           loanData["region"].(string),
-				LoanAmount:       decimal.NewFromFloat(loanData["loan_amount"].(float64)),
-				LoanTermDays:     loanData["loan_term_days"].(int),
-				Status:           loanData["status"].(string),
-				Channel:          loanData["channel"].(string),
-				DisbursementDate: loanData["disbursement_date"].(string),
-				MaturityDate:     loanData["maturity_date"].(string),
+				LoanID:           loanID,
+				CustomerID:       customerID,
+				CustomerName:     customerName,
+				OfficerID:        officerID,
+				OfficerName:      officerName,
+				Branch:           branch,
+				Region:           region,
+				LoanAmount:       decimal.NewFromFloat(loanAmount),
+				LoanTermDays:     loanTermDays,
+				Status:           status,
+				Channel:          channel,
+				DisbursementDate: disbursementDate,
+				MaturityDate:     maturityDate,
 			}
 
 			// Optional fields
-			if customerPhone, ok := loanData["customer_phone"].(string); ok {
+			if customerPhone, ok := loanData["customer_phone"].(string); ok && customerPhone != "" {
 				input.CustomerPhone = &customerPhone
 			}
-			if officerPhone, ok := loanData["officer_phone"].(string); ok {
+			if officerPhone, ok := loanData["officer_phone"].(string); ok && officerPhone != "" {
 				input.OfficerPhone = &officerPhone
 			}
 
 			// Decimal fields
-			repaymentAmt := decimal.NewFromFloat(loanData["repayment_amount"].(float64))
-			input.RepaymentAmount = &repaymentAmt
+			if repaymentAmt, ok := loanData["repayment_amount"].(float64); ok && repaymentAmt > 0 {
+				amt := decimal.NewFromFloat(repaymentAmt)
+				input.RepaymentAmount = &amt
+			}
 
-			interestRate := decimal.NewFromFloat(loanData["interest_rate"].(float64))
-			input.InterestRate = &interestRate
+			if interestRate, ok := loanData["interest_rate"].(float64); ok && interestRate > 0 {
+				rate := decimal.NewFromFloat(interestRate)
+				input.InterestRate = &rate
+			}
 
-			feeAmount := decimal.NewFromFloat(loanData["fee_amount"].(float64))
-			input.FeeAmount = &feeAmount
+			if feeAmount, ok := loanData["fee_amount"].(float64); ok && feeAmount > 0 {
+				fee := decimal.NewFromFloat(feeAmount)
+				input.FeeAmount = &fee
+			}
 
 			// Create/update loan
 			if err := loanRepo.Create(ctx, input); err != nil {
