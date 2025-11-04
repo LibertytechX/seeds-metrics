@@ -26,7 +26,7 @@ func (r *DjangoRepository) GetOfficers(ctx context.Context) ([]*models.Officer, 
 			id::VARCHAR(50) as officer_id,
 			COALESCE(username, email) as officer_name,
 			user_phone as officer_phone,
-			user_branch as branch,
+			COALESCE(user_branch, 'Unknown') as branch,
 			CASE
 				WHEN user_branch LIKE '%Lagos%' THEN 'Lagos'
 				WHEN user_branch LIKE '%Abuja%' THEN 'FCT'
