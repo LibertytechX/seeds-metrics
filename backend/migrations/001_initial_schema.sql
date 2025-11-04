@@ -404,12 +404,13 @@ DECLARE
     v_days_since_last_repayment INTEGER;
     v_total_outstanding DECIMAL(15, 2);
     v_schedule_count INTEGER;
+    v_payment_on_due_date_exists BOOLEAN;
 BEGIN
     v_loan_id := NEW.loan_id;
 
-    -- Get loan details including disbursement date
-    SELECT loan_amount, interest_rate, loan_term_days, fee_amount, max_dpd_ever, disbursement_date
-    INTO v_loan_amount, v_interest_rate, v_loan_term_days, v_fee_amount, v_max_dpd, v_disbursement_date
+    -- Get loan details including disbursement date and first_payment_due_date
+    SELECT loan_amount, interest_rate, loan_term_days, fee_amount, max_dpd_ever, disbursement_date, first_payment_due_date
+    INTO v_loan_amount, v_interest_rate, v_loan_term_days, v_fee_amount, v_max_dpd, v_disbursement_date, v_first_due_date
     FROM loans
     WHERE loan_id = v_loan_id;
 
@@ -439,13 +440,15 @@ BEGIN
                           ((v_loan_amount * v_interest_rate * v_loan_term_days / 365) - v_total_interest_paid) +
                           (v_fee_amount - v_total_fees_paid);
 
-    -- Get first due date from loan_schedule
-    SELECT MIN(due_date) INTO v_first_due_date
-    FROM loan_schedule
-    WHERE loan_id = v_loan_id;
-
-    -- If no schedule exists, calculate first due date as 30 days after disbursement
+    -- If first_due_date is NULL, try to get it from loan_schedule
     IF v_first_due_date IS NULL THEN
+        SELECT MIN(due_date) INTO v_first_due_date
+        FROM loan_schedule
+        WHERE loan_id = v_loan_id;
+    END IF;
+
+    -- If still NULL, calculate first due date as 30 days after disbursement
+    IF v_first_due_date IS NULL AND v_disbursement_date IS NOT NULL THEN
         v_first_due_date := v_disbursement_date + INTERVAL '30 days';
     END IF;
 
@@ -490,6 +493,20 @@ BEGIN
         END IF;
     END IF;
 
+    -- NEW FIMR LOGIC: Check if there exists a repayment on the exact first_payment_due_date
+    IF v_first_due_date IS NOT NULL THEN
+        SELECT EXISTS (
+            SELECT 1
+            FROM repayments
+            WHERE loan_id = v_loan_id
+              AND payment_date = v_first_due_date
+              AND is_reversed = FALSE
+        ) INTO v_payment_on_due_date_exists;
+    ELSE
+        -- If no first_payment_due_date, cannot determine FIMR status
+        v_payment_on_due_date_exists := FALSE;
+    END IF;
+
     -- Update loans table with computed values
     UPDATE loans
     SET
@@ -515,12 +532,11 @@ BEGIN
         max_dpd_ever = GREATEST(v_max_dpd, v_current_dpd),
 
         -- Risk indicators
-        -- FIMR (First Installment Missed and Recovered): TRUE if NO repayments within first 7 days after disbursement
+        -- NEW FIMR (First Installment Missed and Recovered): TRUE if NO repayment on exact first_payment_due_date
         fimr_tagged = CASE
-            WHEN v_first_payment_date IS NULL THEN TRUE  -- No payment received yet
-            WHEN v_disbursement_date IS NULL THEN FALSE  -- No disbursement date available
-            WHEN (v_first_payment_date - v_disbursement_date) > 7 THEN TRUE  -- First payment was more than 7 days after disbursement
-            ELSE FALSE  -- First payment was within 7 days
+            WHEN v_first_due_date IS NULL THEN TRUE  -- No first payment due date available
+            WHEN v_payment_on_due_date_exists THEN FALSE  -- Payment exists on first_payment_due_date
+            ELSE TRUE  -- No payment on first_payment_due_date
         END,
         early_indicator_tagged = (v_current_dpd BETWEEN 1 AND 6),
 
