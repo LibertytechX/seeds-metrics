@@ -526,6 +526,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                 <th onClick={() => handleSort('loan_amount')}>Loan Amount</th>
                 <th onClick={() => handleSort('repayment_amount')}>Repayment Amount</th>
                 <th onClick={() => handleSort('disbursement_date')}>Disbursement Date</th>
+                <th onClick={() => handleSort('first_payment_due_date')}>First Payment Due</th>
                 <th onClick={() => handleSort('loan_term_days')}>Loan Tenure</th>
                 <th onClick={() => handleSort('timeliness_score')}>Timeliness Score</th>
                 <th onClick={() => handleSort('repayment_health')}>Repayment Health</th>
@@ -554,6 +555,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                   <td className="amount">{formatCurrency(loan.loan_amount)}</td>
                   <td className="amount">{loan.repayment_amount ? formatCurrency(loan.repayment_amount) : 'N/A'}</td>
                   <td>{formatDate(loan.disbursement_date)}</td>
+                  <td>{loan.first_payment_due_date ? formatDate(loan.first_payment_due_date) : 'N/A'}</td>
                   <td className="tenure">{formatTenure(loan.loan_term_days)}</td>
                   <td className="score">{loan.timeliness_score != null ? loan.timeliness_score.toFixed(2) : 'N/A'}</td>
                   <td className="score">{loan.repayment_health != null ? loan.repayment_health.toFixed(2) : 'N/A'}</td>
