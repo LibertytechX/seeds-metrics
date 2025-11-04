@@ -43,6 +43,7 @@ func main() {
 	officerRepo := repository.NewOfficerRepository(seedsDB)
 	customerRepo := repository.NewCustomerRepository(seedsDB)
 	loanRepo := repository.NewLoanRepository(seedsDB)
+	repaymentRepo := repository.NewRepaymentRepository(seedsDB)
 
 	ctx := context.Background()
 
@@ -64,8 +65,13 @@ func main() {
 		log.Fatalf("Failed to sync loans: %v", err)
 	}
 
+	// Sync Repayments
+	log.Println("\n📊 Syncing Repayments...")
+	if err := syncRepayments(ctx, djangoRepo, repaymentRepo); err != nil {
+		log.Fatalf("Failed to sync repayments: %v", err)
+	}
+
 	log.Println("\n✅ Data sync completed successfully!")
-	log.Println("\n📝 Note: Repayments and schedules sync will be implemented in Phase 2")
 }
 
 func syncOfficers(ctx context.Context, djangoRepo *repository.DjangoRepository, officerRepo *repository.OfficerRepository) error {
@@ -278,5 +284,93 @@ func syncLoans(ctx context.Context, djangoRepo *repository.DjangoRepository, loa
 	}
 
 	log.Printf("✅ Loans sync complete: %d successful, %d errors", totalSynced, errorCount)
+	return nil
+}
+
+// syncRepayments syncs repayments from Django to SeedsMetrics
+func syncRepayments(ctx context.Context, djangoRepo *repository.DjangoRepository, repaymentRepo *repository.RepaymentRepository) error {
+	batchSize := 1000
+	offset := 0
+	totalSynced := 0
+	errorCount := 0
+
+	for {
+		log.Printf("Processing batch: offset=%d, count=%d", offset, batchSize)
+
+		// Fetch repayments from Django
+		repayments, err := djangoRepo.GetRepayments(ctx, batchSize, offset)
+		if err != nil {
+			return fmt.Errorf("failed to fetch repayments: %w", err)
+		}
+
+		if len(repayments) == 0 {
+			break
+		}
+
+		// Process each repayment
+		for _, repaymentData := range repayments {
+			// Convert map to RepaymentInput with nil-safe type assertions
+			repaymentID, _ := repaymentData["repayment_id"].(string)
+			loanID, _ := repaymentData["loan_id"].(string)
+			paymentDate, _ := repaymentData["payment_date"].(string)
+			paymentAmount, _ := repaymentData["payment_amount"].(float64)
+			paymentMethod, _ := repaymentData["payment_method"].(string)
+
+			// Skip if essential fields are missing
+			if repaymentID == "" || loanID == "" || paymentDate == "" || paymentAmount <= 0 {
+				log.Printf("⚠️  Skipping repayment with missing essential fields: %v", repaymentData)
+				errorCount++
+				continue
+			}
+
+			// For Django repayments, we don't have breakdown of principal/interest/fees
+			// So we'll put the full amount as principal_paid and let the triggers calculate
+			input := &models.RepaymentInput{
+				RepaymentID:   repaymentID,
+				LoanID:        loanID,
+				PaymentDate:   paymentDate,
+				PaymentAmount: decimal.NewFromFloat(paymentAmount),
+				PrincipalPaid: decimal.NewFromFloat(paymentAmount), // Full amount as principal
+				InterestPaid:  decimal.Zero,
+				FeesPaid:      decimal.Zero,
+				PenaltyPaid:   decimal.Zero,
+				PaymentMethod: paymentMethod,
+				DPDAtPayment:  0,
+				IsBackdated:   false,
+				IsReversed:    false,
+				WaiverAmount:  decimal.Zero,
+			}
+
+			// Create/update repayment
+			if err := repaymentRepo.Create(ctx, input); err != nil {
+				// Check if it's a foreign key constraint error (loan doesn't exist)
+				if err.Error() == "loan not found" {
+					// Skip silently - this loan wasn't synced
+					errorCount++
+				} else {
+					log.Printf("❌ Failed to sync repayment %s: %v", input.RepaymentID, err)
+					errorCount++
+				}
+			} else {
+				totalSynced++
+				if totalSynced%500 == 0 {
+					log.Printf("   Synced %d repayments...", totalSynced)
+				}
+			}
+		}
+
+		// Move to next batch
+		offset += batchSize
+
+		// If we got fewer than batchSize, we're done
+		if len(repayments) < batchSize {
+			break
+		}
+
+		// Small delay to avoid overwhelming the database
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	log.Printf("✅ Repayments sync complete: %d successful, %d errors", totalSynced, errorCount)
 	return nil
 }

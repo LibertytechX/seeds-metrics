@@ -450,6 +450,67 @@ func (r *DjangoRepository) GetLoans(ctx context.Context, limit, offset int) ([]m
 	return loans, nil
 }
 
+// GetRepayments retrieves repayments from Django database
+func (r *DjangoRepository) GetRepayments(ctx context.Context, limit, offset int) ([]map[string]interface{}, error) {
+	query := `
+		SELECT
+			r.id::VARCHAR(50) as repayment_id,
+			r.ajo_loan_id::VARCHAR(50) as loan_id,
+			r.paid_date as payment_date,
+			r.repayment_amount as payment_amount,
+			COALESCE(r.repayment_type, 'TRANSFER') as payment_method,
+			r.created_at,
+			r.updated_at
+		FROM loans_ajoloanrepayment r
+		WHERE r.applied_to_loan = TRUE
+			AND r.paid_date IS NOT NULL
+		ORDER BY r.paid_date DESC
+		LIMIT $1 OFFSET $2
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query repayments: %w", err)
+	}
+	defer rows.Close()
+
+	var repayments []map[string]interface{}
+	for rows.Next() {
+		repayment := make(map[string]interface{})
+		var repaymentID, loanID, paymentMethod string
+		var paymentDate, createdAt, updatedAt time.Time
+		var paymentAmount float64
+
+		if err := rows.Scan(
+			&repaymentID,
+			&loanID,
+			&paymentDate,
+			&paymentAmount,
+			&paymentMethod,
+			&createdAt,
+			&updatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan repayment: %w", err)
+		}
+
+		repayment["repayment_id"] = repaymentID
+		repayment["loan_id"] = loanID
+		repayment["payment_date"] = paymentDate.Format("2006-01-02")
+		repayment["payment_amount"] = paymentAmount
+		repayment["payment_method"] = paymentMethod
+		repayment["created_at"] = createdAt
+		repayment["updated_at"] = updatedAt
+
+		repayments = append(repayments, repayment)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating repayments: %w", err)
+	}
+
+	return repayments, nil
+}
+
 // HealthCheck verifies the Django database connection is healthy
 func (r *DjangoRepository) HealthCheck(ctx context.Context) error {
 	query := `SELECT 1`
