@@ -19,7 +19,8 @@ func NewDjangoRepository(db *sql.DB) *DjangoRepository {
 	return &DjangoRepository{db: db}
 }
 
-// GetOfficers retrieves all active officers from Django database
+// GetOfficers retrieves all users from Django database (officers, merchants, personal users, etc.)
+// Note: We sync ALL users because loans can be assigned to any user_type (MERCHANT, PERSONAL, etc.)
 func (r *DjangoRepository) GetOfficers(ctx context.Context) ([]*models.Officer, error) {
 	query := `
 		SELECT
@@ -42,8 +43,7 @@ func (r *DjangoRepository) GetOfficers(ctx context.Context) ([]*models.Officer, 
 			created_at,
 			updated_at
 		FROM accounts_customuser
-		WHERE user_type IN ('AGENT', 'STAFF_AGENT', 'PROSPER_AGENT', 'DMO_AGENT', 'AJO_AGENT', 'RECOVERY_AGENT')
-		AND is_active = TRUE
+		WHERE is_active = TRUE
 		ORDER BY officer_name
 	`
 
