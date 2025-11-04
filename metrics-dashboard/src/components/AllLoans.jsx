@@ -339,7 +339,8 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     setRecalculateMessage('');
 
     try {
-      const response = await fetch('http://localhost:8081/api/v1/loans/recalculate-fields', {
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8081/api/v1';
+      const response = await fetch(`${API_BASE_URL}/loans/recalculate-fields`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',

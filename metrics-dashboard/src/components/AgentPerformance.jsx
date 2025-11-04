@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Download, Filter, ChevronDown } from 'lucide-react';
 import { mockTeamMembers } from '../utils/mockData';
 import TopRiskLoansModal from './TopRiskLoansModal';
@@ -25,6 +25,11 @@ const AgentPerformance = ({ agents, onViewPortfolio, onViewLowDelayLoans, initia
     page: 1,
     limit: 50,
   });
+
+  // Sync agentData with agents prop when it changes
+  useEffect(() => {
+    setAgentData(agents);
+  }, [agents]);
 
   // Get unique values for filter dropdowns
   const filterOptions = useMemo(() => {

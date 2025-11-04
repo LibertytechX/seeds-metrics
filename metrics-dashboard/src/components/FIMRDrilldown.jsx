@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { Download, Filter } from 'lucide-react';
+import { Download, Filter, Eye } from 'lucide-react';
 import Pagination from './Pagination';
+import LoanRepaymentsModal from './LoanRepaymentsModal';
 import './FIMRDrilldown.css';
 
 const FIMRDrilldown = ({ loans }) => {
@@ -19,6 +20,8 @@ const FIMRDrilldown = ({ loans }) => {
     page: 1,
     limit: 50,
   });
+  const [repaymentsModalOpen, setRepaymentsModalOpen] = useState(false);
+  const [selectedLoan, setSelectedLoan] = useState(null);
 
   // Get unique values for filter dropdowns
   const filterOptions = useMemo(() => {
@@ -110,6 +113,11 @@ const FIMRDrilldown = ({ loans }) => {
 
   const handlePageSizeChange = (newLimit) => {
     setPagination({ page: 1, limit: newLimit });
+  };
+
+  const handleViewRepayments = (loan) => {
+    setSelectedLoan(loan);
+    setRepaymentsModalOpen(true);
   };
 
   const handleExport = () => {
@@ -310,6 +318,7 @@ const FIMRDrilldown = ({ loans }) => {
               <th onClick={() => handleSort('channel')}>Channel</th>
               <th onClick={() => handleSort('status')}>Status</th>
               <th onClick={() => handleSort('fimrTagged')}>FIMR Tagged</th>
+              <th>Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -340,6 +349,16 @@ const FIMRDrilldown = ({ loans }) => {
                     {loan.fimrTagged ? 'True' : 'False'}
                   </span>
                 </td>
+                <td className="action-cell">
+                  <button
+                    className="view-repayments-btn"
+                    onClick={() => handleViewRepayments(loan)}
+                    title="View Repayment History"
+                  >
+                    <Eye size={16} />
+                    Repayments
+                  </button>
+                </td>
               </tr>
             ))}
           </tbody>
@@ -355,6 +374,14 @@ const FIMRDrilldown = ({ loans }) => {
         onPageSizeChange={handlePageSizeChange}
         pageSizeOptions={[10, 25, 50, 100, 200]}
         position="bottom"
+      />
+
+      {/* Repayments Modal */}
+      <LoanRepaymentsModal
+        isOpen={repaymentsModalOpen}
+        onClose={() => setRepaymentsModalOpen(false)}
+        loanId={selectedLoan?.loanId || ''}
+        customerName={selectedLoan?.customerName || ''}
       />
     </div>
   );

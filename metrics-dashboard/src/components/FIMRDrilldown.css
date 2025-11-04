@@ -343,6 +343,38 @@
   color: #475569;
 }
 
+/* Action Cell */
+.action-cell {
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* View Repayments Button */
+.view-repayments-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 14px;
+  background: #667eea;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 600;
+  transition: all 0.2s;
+}
+
+.view-repayments-btn:hover {
+  background: #5568d3;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(102, 126, 234, 0.3);
+}
+
+.view-repayments-btn:active {
+  transform: translateY(0);
+}
+
 /* Responsive */
 @media (max-width: 1024px) {
   .fimr-header {

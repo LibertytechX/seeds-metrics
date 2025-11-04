@@ -80,6 +80,9 @@ function App() {
           queryParams.wave = filters.wave;
         }
 
+        // Build query params for officers with high limit to fetch all
+        const officersQueryParams = { ...queryParams, limit: 10000 };
+
         // Fetch all data in parallel
         const [
           portfolioData,
@@ -89,7 +92,7 @@ function App() {
           branchesData,
         ] = await Promise.all([
           apiService.fetchPortfolioMetrics(queryParams),
-          apiService.fetchOfficers(queryParams),
+          apiService.fetchOfficers(officersQueryParams),
           apiService.fetchFIMRLoans(queryParams),
           apiService.fetchEarlyIndicatorLoans(queryParams),
           apiService.fetchBranches(queryParams),
