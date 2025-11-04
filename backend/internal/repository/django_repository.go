@@ -462,8 +462,7 @@ func (r *DjangoRepository) GetRepayments(ctx context.Context, limit, offset int)
 			r.created_at,
 			r.updated_at
 		FROM loans_ajoloanrepayment r
-		WHERE r.applied_to_loan = TRUE
-			AND r.paid_date IS NOT NULL
+		WHERE r.paid_date IS NOT NULL
 		ORDER BY r.paid_date DESC
 		LIMIT $1 OFFSET $2
 	`

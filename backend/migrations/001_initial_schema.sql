@@ -92,6 +92,7 @@ CREATE TABLE loans (
     total_repayments DECIMAL(15, 2) DEFAULT 0,
     fimr_tagged BOOLEAN DEFAULT FALSE,
     early_indicator_tagged BOOLEAN DEFAULT FALSE,
+    days_since_last_repayment INTEGER DEFAULT 0,
 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
