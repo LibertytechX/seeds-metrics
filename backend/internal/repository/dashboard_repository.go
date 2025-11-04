@@ -471,6 +471,7 @@ func (r *DashboardRepository) GetFIMRLoans(filters map[string]interface{}) ([]*m
 	loans := []*models.FIMRLoan{}
 	for rows.Next() {
 		loan := &models.FIMRLoan{}
+		var firstPaymentDueDate sql.NullString
 		var firstPaymentReceivedDate sql.NullString
 		err := rows.Scan(
 			&loan.LoanID,
@@ -483,7 +484,7 @@ func (r *DashboardRepository) GetFIMRLoans(filters map[string]interface{}) ([]*m
 			&loan.CustomerPhone,
 			&loan.DisbursementDate,
 			&loan.LoanAmount,
-			&loan.FirstPaymentDueDate,
+			&firstPaymentDueDate,
 			&firstPaymentReceivedDate,
 			&loan.DaysSinceDue,
 			&loan.AmountDue1stInstallment,
@@ -496,6 +497,9 @@ func (r *DashboardRepository) GetFIMRLoans(filters map[string]interface{}) ([]*m
 		)
 		if err != nil {
 			return nil, err
+		}
+		if firstPaymentDueDate.Valid {
+			loan.FirstPaymentDueDate = firstPaymentDueDate.String
 		}
 		if firstPaymentReceivedDate.Valid {
 			loan.FirstPaymentReceivedDate = &firstPaymentReceivedDate.String
