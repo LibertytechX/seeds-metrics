@@ -493,13 +493,13 @@ BEGIN
         END IF;
     END IF;
 
-    -- NEW FIMR LOGIC: Check if there exists a repayment on the exact first_payment_due_date
+    -- NEW FIMR LOGIC: Check if there exists a repayment on or before first_payment_due_date (early payments count as on-time)
     IF v_first_due_date IS NOT NULL THEN
         SELECT EXISTS (
             SELECT 1
             FROM repayments
             WHERE loan_id = v_loan_id
-              AND payment_date = v_first_due_date
+              AND payment_date <= v_first_due_date
               AND is_reversed = FALSE
         ) INTO v_payment_on_due_date_exists;
     ELSE
@@ -532,11 +532,11 @@ BEGIN
         max_dpd_ever = GREATEST(v_max_dpd, v_current_dpd),
 
         -- Risk indicators
-        -- NEW FIMR (First Installment Missed and Recovered): TRUE if NO repayment on exact first_payment_due_date
+        -- NEW FIMR (First Installment Missed and Recovered): TRUE if NO repayment on or before first_payment_due_date
         fimr_tagged = CASE
             WHEN v_first_due_date IS NULL THEN TRUE  -- No first payment due date available
-            WHEN v_payment_on_due_date_exists THEN FALSE  -- Payment exists on first_payment_due_date
-            ELSE TRUE  -- No payment on first_payment_due_date
+            WHEN v_payment_on_due_date_exists THEN FALSE  -- Payment exists on or before first_payment_due_date
+            ELSE TRUE  -- No payment on or before first_payment_due_date
         END,
         early_indicator_tagged = (v_current_dpd BETWEEN 1 AND 6),
 
