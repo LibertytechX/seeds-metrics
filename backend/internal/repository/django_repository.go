@@ -159,7 +159,6 @@ func (r *DjangoRepository) GetCustomers(ctx context.Context, limit, offset int) 
 			id::VARCHAR(50) as customer_id,
 			COALESCE(TRIM(first_name || ' ' || last_name), phone_number) as customer_name,
 			phone_number as customer_phone,
-			email,
 			dob as date_of_birth,
 			gender,
 			state,
@@ -187,13 +186,12 @@ func (r *DjangoRepository) GetCustomers(ctx context.Context, limit, offset int) 
 	var customers []*models.Customer
 	for rows.Next() {
 		var customer models.Customer
-		var phone, email, dob, gender, state, lga, address, kycStatus sql.NullString
+		var phone, dob, gender, state, lga, address, kycStatus sql.NullString
 
 		err := rows.Scan(
 			&customer.CustomerID,
 			&customer.CustomerName,
 			&phone,
-			&email,
 			&dob,
 			&gender,
 			&state,
@@ -209,9 +207,6 @@ func (r *DjangoRepository) GetCustomers(ctx context.Context, limit, offset int) 
 
 		if phone.Valid {
 			customer.CustomerPhone = &phone.String
-		}
-		if email.Valid {
-			customer.CustomerEmail = &email.String
 		}
 		if dob.Valid {
 			dobTime, _ := time.Parse("2006-01-02", dob.String)
@@ -250,7 +245,6 @@ func (r *DjangoRepository) GetCustomerByID(ctx context.Context, customerID strin
 			id::VARCHAR(50) as customer_id,
 			COALESCE(TRIM(first_name || ' ' || last_name), phone_number) as customer_name,
 			phone_number as customer_phone,
-			email,
 			dob as date_of_birth,
 			gender,
 			state,
@@ -269,13 +263,12 @@ func (r *DjangoRepository) GetCustomerByID(ctx context.Context, customerID strin
 	`
 
 	var customer models.Customer
-	var phone, email, dob, gender, state, lga, address, kycStatus sql.NullString
+	var phone, dob, gender, state, lga, address, kycStatus sql.NullString
 
 	err := r.db.QueryRowContext(ctx, query, customerID).Scan(
 		&customer.CustomerID,
 		&customer.CustomerName,
 		&phone,
-		&email,
 		&dob,
 		&gender,
 		&state,
@@ -295,9 +288,6 @@ func (r *DjangoRepository) GetCustomerByID(ctx context.Context, customerID strin
 
 	if phone.Valid {
 		customer.CustomerPhone = &phone.String
-	}
-	if email.Valid {
-		customer.CustomerEmail = &email.String
 	}
 	if dob.Valid {
 		dobTime, _ := time.Parse("2006-01-02", dob.String)
