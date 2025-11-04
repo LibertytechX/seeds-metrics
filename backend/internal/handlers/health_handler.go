@@ -6,15 +6,20 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/seeds-metrics/analytics-backend/internal/models"
+	"github.com/seeds-metrics/analytics-backend/internal/repository"
 	"github.com/seeds-metrics/analytics-backend/pkg/database"
 )
 
 type HealthHandler struct {
-	db *database.DB
+	db         *database.DB
+	djangoRepo *repository.DjangoRepository
 }
 
-func NewHealthHandler(db *database.DB) *HealthHandler {
-	return &HealthHandler{db: db}
+func NewHealthHandler(db *database.DB, djangoRepo *repository.DjangoRepository) *HealthHandler {
+	return &HealthHandler{
+		db:         db,
+		djangoRepo: djangoRepo,
+	}
 }
 
 // HealthCheck handles GET /health
@@ -29,21 +34,38 @@ func NewHealthHandler(db *database.DB) *HealthHandler {
 func (h *HealthHandler) HealthCheck(c *gin.Context) {
 	services := make(map[string]models.ServiceHealth)
 
-	// Check database
+	// Check SeedsMetrics database
 	dbStatus := "healthy"
-	dbMessage := "Database connection is healthy"
+	dbMessage := "SeedsMetrics database connection is healthy"
 	if err := h.db.HealthCheck(); err != nil {
 		dbStatus = "unhealthy"
 		dbMessage = err.Error()
 	}
-	services["database"] = models.ServiceHealth{
+	services["seedsmetrics_database"] = models.ServiceHealth{
 		Status:  dbStatus,
 		Message: dbMessage,
 	}
 
+	// Check Django database
+	djangoStatus := "healthy"
+	djangoMessage := "Django database connection is healthy"
+	if h.djangoRepo != nil {
+		if err := h.djangoRepo.HealthCheck(c.Request.Context()); err != nil {
+			djangoStatus = "unhealthy"
+			djangoMessage = err.Error()
+		}
+	} else {
+		djangoStatus = "not_configured"
+		djangoMessage = "Django database not configured"
+	}
+	services["django_database"] = models.ServiceHealth{
+		Status:  djangoStatus,
+		Message: djangoMessage,
+	}
+
 	// Overall status
 	overallStatus := "healthy"
-	if dbStatus != "healthy" {
+	if dbStatus != "healthy" || djangoStatus != "healthy" {
 		overallStatus = "unhealthy"
 	}
 

@@ -48,14 +48,23 @@ func main() {
 	// Set Gin mode
 	gin.SetMode(cfg.Server.GinMode)
 
-	// Initialize database
+	// Initialize SeedsMetrics database (read-write)
 	db, err := database.NewPostgresDB(&cfg.Database)
 	if err != nil {
-		log.Fatalf("Failed to connect to database: %v", err)
+		log.Fatalf("Failed to connect to SeedsMetrics database: %v", err)
 	}
 	defer db.Close()
 
-	log.Println("✅ Database connection established")
+	log.Println("✅ SeedsMetrics database connection established")
+
+	// Initialize Django database (read-only)
+	djangoDB, err := database.NewPostgresDB(&cfg.DjangoDatabase)
+	if err != nil {
+		log.Fatalf("Failed to connect to Django database: %v", err)
+	}
+	defer djangoDB.Close()
+
+	log.Println("✅ Django database connection established")
 
 	// Initialize repositories
 	loanRepo := repository.NewLoanRepository(db)
@@ -64,13 +73,16 @@ func main() {
 	customerRepo := repository.NewCustomerRepository(db)
 	dashboardRepo := repository.NewDashboardRepository(db.DB)
 
+	// Initialize Django repository (read-only access to source data)
+	djangoRepo := repository.NewDjangoRepository(djangoDB.DB)
+
 	// Initialize services
 	metricsService := services.NewMetricsService()
 
 	// Initialize handlers
 	etlHandler := handlers.NewETLHandler(loanRepo, repaymentRepo, officerRepo)
 	customerHandler := handlers.NewCustomerHandler(customerRepo)
-	healthHandler := handlers.NewHealthHandler(db)
+	healthHandler := handlers.NewHealthHandler(db, djangoRepo)
 	dashboardHandler := handlers.NewDashboardHandler(dashboardRepo, repaymentRepo, metricsService)
 
 	// Setup router

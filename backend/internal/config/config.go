@@ -10,13 +10,14 @@ import (
 )
 
 type Config struct {
-	Server   ServerConfig
-	Database DatabaseConfig
-	Redis    RedisConfig
-	CORS     CORSConfig
-	Logging  LoggingConfig
-	ETL      ETLConfig
-	Metrics  MetricsConfig
+	Server         ServerConfig
+	Database       DatabaseConfig // SeedsMetrics database (read-write)
+	DjangoDatabase DatabaseConfig // Django database (read-only)
+	Redis          RedisConfig
+	CORS           CORSConfig
+	Logging        LoggingConfig
+	ETL            ETLConfig
+	Metrics        MetricsConfig
 }
 
 type ServerConfig struct {
@@ -86,6 +87,17 @@ func Load() (*Config, error) {
 			MaxConnections:     getEnvAsInt("DB_MAX_CONNECTIONS", 25),
 			MaxIdleConnections: getEnvAsInt("DB_MAX_IDLE_CONNECTIONS", 5),
 			ConnMaxLifetime:    getEnvAsDuration("DB_CONNECTION_MAX_LIFETIME", 5*time.Minute),
+		},
+		DjangoDatabase: DatabaseConfig{
+			Host:               getEnv("DJANGO_DB_HOST", "localhost"),
+			Port:               getEnv("DJANGO_DB_PORT", "5432"),
+			User:               getEnv("DJANGO_DB_USER", "metricsuser"),
+			Password:           getEnv("DJANGO_DB_PASSWORD", ""),
+			DBName:             getEnv("DJANGO_DB_NAME", "savings"),
+			SSLMode:            getEnv("DJANGO_DB_SSLMODE", "require"),
+			MaxConnections:     getEnvAsInt("DJANGO_DB_MAX_CONNECTIONS", 10),
+			MaxIdleConnections: getEnvAsInt("DJANGO_DB_MAX_IDLE_CONNECTIONS", 2),
+			ConnMaxLifetime:    getEnvAsDuration("DJANGO_DB_CONNECTION_MAX_LIFETIME", 5*time.Minute),
 		},
 		Redis: RedisConfig{
 			Host:     getEnv("REDIS_HOST", "localhost"),
@@ -163,7 +175,7 @@ func getEnvAsSlice(key string, defaultValue []string) []string {
 	if valueStr == "" {
 		return defaultValue
 	}
-	
+
 	var result []string
 	for _, v := range splitString(valueStr, ",") {
 		result = append(result, v)
@@ -189,4 +201,3 @@ func splitString(s, sep string) []string {
 	}
 	return result
 }
-
