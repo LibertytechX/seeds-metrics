@@ -43,8 +43,6 @@ func main() {
 	officerRepo := repository.NewOfficerRepository(seedsDB)
 	customerRepo := repository.NewCustomerRepository(seedsDB)
 	loanRepo := repository.NewLoanRepository(seedsDB)
-	repaymentRepo := repository.NewRepaymentRepository(seedsDB)
-	scheduleRepo := repository.NewLoanScheduleRepository(seedsDB)
 
 	ctx := context.Background()
 
@@ -66,19 +64,8 @@ func main() {
 		log.Fatalf("Failed to sync loans: %v", err)
 	}
 
-	// Sync Repayments (this will trigger computed field calculations)
-	log.Println("\n📊 Syncing Repayments...")
-	if err := syncRepayments(ctx, djangoRepo, repaymentRepo); err != nil {
-		log.Fatalf("Failed to sync repayments: %v", err)
-	}
-
-	// Sync Loan Schedules
-	log.Println("\n📊 Syncing Loan Schedules...")
-	if err := syncSchedules(ctx, djangoRepo, scheduleRepo); err != nil {
-		log.Fatalf("Failed to sync loan schedules: %v", err)
-	}
-
 	log.Println("\n✅ Data sync completed successfully!")
+	log.Println("\n📝 Note: Repayments and schedules sync will be implemented in Phase 2")
 }
 
 func syncOfficers(ctx context.Context, djangoRepo *repository.DjangoRepository, officerRepo *repository.OfficerRepository) error {
@@ -264,21 +251,5 @@ func syncLoans(ctx context.Context, djangoRepo *repository.DjangoRepository, loa
 	}
 
 	log.Printf("✅ Loans sync complete: %d successful, %d errors", totalSynced, errorCount)
-	return nil
-}
-
-func syncRepayments(ctx context.Context, djangoRepo *repository.DjangoRepository, repaymentRepo *repository.RepaymentRepository) error {
-	log.Println("⚠️  Note: Repayment sync will be implemented in Phase 2")
-	log.Println("⚠️  Repayments require loan-by-loan processing and complex field mapping")
-	log.Println("⚠️  For now, focus is on getting loans synced first")
-
-	return nil
-}
-
-func syncSchedules(ctx context.Context, djangoRepo *repository.DjangoRepository, scheduleRepo *repository.LoanScheduleRepository) error {
-	log.Println("⚠️  Note: Schedule sync will be implemented in Phase 2")
-	log.Println("⚠️  Schedules require loan-by-loan processing and complex field mapping")
-	log.Println("⚠️  For now, focus is on getting loans synced first")
-
 	return nil
 }
