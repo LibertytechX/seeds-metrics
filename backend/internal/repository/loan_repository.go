@@ -19,7 +19,7 @@ func NewLoanRepository(db *database.DB) *LoanRepository {
 }
 
 // Create inserts a new loan (ETL fields only)
-// Returns error if loan_id already exists (no UPSERT behavior)
+// Skips if loan_id already exists (ON CONFLICT DO NOTHING)
 func (r *LoanRepository) Create(ctx context.Context, input *models.LoanInput) error {
 	query := `
 		INSERT INTO loans (
@@ -36,6 +36,7 @@ func (r *LoanRepository) Create(ctx context.Context, input *models.LoanInput) er
 			$11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, COALESCE($22, 'Wave 2'),
 			NOW(), NOW()
 		)
+		ON CONFLICT (loan_id) DO NOTHING
 	`
 
 	disbursementDate, err := time.Parse("2006-01-02", input.DisbursementDate)
