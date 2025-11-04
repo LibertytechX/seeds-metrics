@@ -41,6 +41,9 @@ func main() {
 	djangoRepo := repository.NewDjangoRepository(djangoDB.DB)
 	officerRepo := repository.NewOfficerRepository(seedsDB)
 	customerRepo := repository.NewCustomerRepository(seedsDB)
+	loanRepo := repository.NewLoanRepository(seedsDB)
+	repaymentRepo := repository.NewRepaymentRepository(seedsDB)
+	scheduleRepo := repository.NewLoanScheduleRepository(seedsDB)
 
 	ctx := context.Background()
 
@@ -54,6 +57,24 @@ func main() {
 	log.Println("\n📊 Syncing Customers...")
 	if err := syncCustomers(ctx, djangoRepo, customerRepo); err != nil {
 		log.Fatalf("Failed to sync customers: %v", err)
+	}
+
+	// Sync Loans
+	log.Println("\n📊 Syncing Loans...")
+	if err := syncLoans(ctx, djangoRepo, loanRepo); err != nil {
+		log.Fatalf("Failed to sync loans: %v", err)
+	}
+
+	// Sync Repayments (this will trigger computed field calculations)
+	log.Println("\n📊 Syncing Repayments...")
+	if err := syncRepayments(ctx, djangoRepo, repaymentRepo); err != nil {
+		log.Fatalf("Failed to sync repayments: %v", err)
+	}
+
+	// Sync Loan Schedules
+	log.Println("\n📊 Syncing Loan Schedules...")
+	if err := syncSchedules(ctx, djangoRepo, scheduleRepo); err != nil {
+		log.Fatalf("Failed to sync loan schedules: %v", err)
 	}
 
 	log.Println("\n✅ Data sync completed successfully!")
@@ -159,5 +180,105 @@ func syncCustomers(ctx context.Context, djangoRepo *repository.DjangoRepository,
 	}
 
 	log.Printf("✅ Customers sync complete: %d successful, %d errors", totalSynced, errorCount)
+	return nil
+}
+
+func syncLoans(ctx context.Context, djangoRepo *repository.DjangoRepository, loanRepo *repository.LoanRepository) error {
+	const batchSize = 500
+	offset := 0
+	totalSynced := 0
+	errorCount := 0
+
+	for {
+		// Get loans in batches
+		loans, err := djangoRepo.GetLoans(ctx, batchSize, offset)
+		if err != nil {
+			return fmt.Errorf("failed to get loans from Django: %w", err)
+		}
+
+		if len(loans) == 0 {
+			break
+		}
+
+		log.Printf("Processing batch: offset=%d, count=%d", offset, len(loans))
+
+		for _, loan := range loans {
+			// Convert to LoanInput
+			input := &models.LoanInput{
+				LoanID:           loan.LoanID,
+				CustomerID:       loan.CustomerID,
+				OfficerID:        loan.OfficerID,
+				Branch:           loan.Branch,
+				Region:           loan.Region,
+				PrincipalAmount:  loan.PrincipalAmount,
+				InterestRate:     loan.InterestRate,
+				InterestAmount:   loan.InterestAmount,
+				ProcessingFee:    loan.ProcessingFee,
+				LoanTermDays:     loan.LoanTermDays,
+				DisbursementDate: loan.DisbursementDate,
+				StartDate:        loan.StartDate,
+				MaturityDate:     loan.MaturityDate,
+				LoanStatus:       loan.LoanStatus,
+			}
+
+			// Create/update loan
+			if err := loanRepo.Create(ctx, input); err != nil {
+				log.Printf("❌ Failed to sync loan %s: %v", loan.LoanID, err)
+				errorCount++
+			} else {
+				totalSynced++
+				if totalSynced%100 == 0 {
+					log.Printf("   Synced %d loans...", totalSynced)
+				}
+			}
+		}
+
+		// Move to next batch
+		offset += batchSize
+
+		// If we got fewer than batchSize, we're done
+		if len(loans) < batchSize {
+			break
+		}
+
+		// Small delay to avoid overwhelming the database
+		time.Sleep(100 * time.Millisecond)
+	}
+
+	log.Printf("✅ Loans sync complete: %d successful, %d errors", totalSynced, errorCount)
+	return nil
+}
+
+func syncRepayments(ctx context.Context, djangoRepo *repository.DjangoRepository, repaymentRepo *repository.RepaymentRepository) error {
+	// Get all loan IDs from SeedsMetrics database
+	// We need to sync repayments for each loan
+	log.Println("Getting loan IDs from SeedsMetrics database...")
+
+	// For now, we'll use a simple approach: get all loans and sync their repayments
+	// This is a placeholder - we need to implement GetAllLoanIDs in loan repository
+	// For the initial sync, we'll query Django directly for all repayments
+
+	totalSynced := 0
+	errorCount := 0
+
+	// Get total count first
+	totalCount, err := djangoRepo.GetRepaymentsCount(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get repayments count: %w", err)
+	}
+
+	log.Printf("Found %d repayments in Django database", totalCount)
+	log.Println("⚠️  Note: Repayment sync requires loan-by-loan processing")
+	log.Println("⚠️  This will be implemented in the next iteration")
+	log.Println("⚠️  For now, repayments will be synced via the ETL process")
+
+	return nil
+}
+
+func syncSchedules(ctx context.Context, djangoRepo *repository.DjangoRepository, scheduleRepo *repository.LoanScheduleRepository) error {
+	log.Println("⚠️  Note: Schedule sync requires loan-by-loan processing")
+	log.Println("⚠️  This will be implemented in the next iteration")
+	log.Println("⚠️  For now, schedules will be synced via the ETL process")
+
 	return nil
 }
