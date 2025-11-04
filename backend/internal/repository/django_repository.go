@@ -346,7 +346,7 @@ func (r *DjangoRepository) GetLoans(ctx context.Context, limit, offset int) ([]m
 				ELSE 'Nigeria'
 			END as region,
 			l.amount as loan_amount,
-			l.daily_repayment_amount as repayment_amount,
+			l.repayment_amount as repayment_amount,
 			l.interest_rate / 100.0 as interest_rate,
 			l.processing_fee as fee_amount,
 			l.tenor_in_days as loan_term_days,
