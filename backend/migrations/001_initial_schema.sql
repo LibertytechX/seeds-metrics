@@ -93,6 +93,7 @@ CREATE TABLE loans (
     fimr_tagged BOOLEAN DEFAULT FALSE,
     early_indicator_tagged BOOLEAN DEFAULT FALSE,
     days_since_last_repayment INTEGER DEFAULT 0,
+    loan_age INTEGER DEFAULT 0,
 
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -525,6 +526,12 @@ BEGIN
 
         -- Days since last repayment
         days_since_last_repayment = v_days_since_last_repayment,
+
+        -- Loan age: Days since disbursement
+        loan_age = CASE
+            WHEN v_disbursement_date IS NULL THEN 0
+            ELSE (CURRENT_DATE - v_disbursement_date)::INTEGER
+        END,
 
         updated_at = CURRENT_TIMESTAMP
     WHERE loan_id = v_loan_id;

@@ -57,6 +57,7 @@ type Loan struct {
 	FIMRTagged               *bool           `json:"fimr_tagged,omitempty" db:"fimr_tagged"`
 	EarlyIndicatorTagged     *bool           `json:"early_indicator_tagged,omitempty" db:"early_indicator_tagged"`
 	DaysSinceLastRepayment   *int            `json:"days_since_last_repayment,omitempty" db:"days_since_last_repayment"`
+	LoanAge                  *int            `json:"loan_age,omitempty" db:"loan_age"`
 
 	// Timestamps
 	CreatedAt time.Time `json:"created_at" db:"created_at"`

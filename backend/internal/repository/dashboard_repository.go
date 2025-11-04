@@ -201,7 +201,7 @@ func (r *DashboardRepository) GetOfficers(filters map[string]interface{}) ([]*mo
 			COALESCE(AVG(CASE WHEN (l.principal_outstanding + l.interest_outstanding + l.fees_outstanding) > 2000 THEN l.timeliness_score ELSE NULL END), 0) as avg_timeliness_score,
 			COALESCE(AVG(CASE WHEN (l.principal_outstanding + l.interest_outstanding + l.fees_outstanding) > 2000 THEN l.repayment_health ELSE NULL END), 0) as avg_repayment_health,
 			COALESCE(AVG(CASE WHEN (l.principal_outstanding + l.interest_outstanding + l.fees_outstanding) > 2000 THEN l.days_since_last_repayment ELSE NULL END), 0) as avg_days_since_last_repayment,
-			COALESCE(AVG(CASE WHEN (l.principal_outstanding + l.interest_outstanding + l.fees_outstanding) > 2000 THEN (CURRENT_DATE - l.disbursement_date::date) ELSE NULL END), 0) as avg_loan_age,
+			COALESCE(AVG(CASE WHEN (l.principal_outstanding + l.interest_outstanding + l.fees_outstanding) > 2000 THEN l.loan_age ELSE NULL END), 0) as avg_loan_age,
 			COALESCE(COUNT(CASE WHEN (l.principal_outstanding + l.interest_outstanding + l.fees_outstanding) > 2000 THEN 1 ELSE NULL END), 0) as active_loans_count
 		FROM officers o
 		LEFT JOIN loans l ON o.officer_id = l.officer_id
