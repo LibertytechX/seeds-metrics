@@ -10,6 +10,7 @@ import (
 	"github.com/seeds-metrics/analytics-backend/internal/models"
 	"github.com/seeds-metrics/analytics-backend/internal/repository"
 	"github.com/seeds-metrics/analytics-backend/pkg/database"
+	"github.com/shopspring/decimal"
 )
 
 func main() {
@@ -202,28 +203,45 @@ func syncLoans(ctx context.Context, djangoRepo *repository.DjangoRepository, loa
 
 		log.Printf("Processing batch: offset=%d, count=%d", offset, len(loans))
 
-		for _, loan := range loans {
-			// Convert to LoanInput
+		for _, loanData := range loans {
+			// Convert map to LoanInput
 			input := &models.LoanInput{
-				LoanID:           loan.LoanID,
-				CustomerID:       loan.CustomerID,
-				OfficerID:        loan.OfficerID,
-				Branch:           loan.Branch,
-				Region:           loan.Region,
-				PrincipalAmount:  loan.PrincipalAmount,
-				InterestRate:     loan.InterestRate,
-				InterestAmount:   loan.InterestAmount,
-				ProcessingFee:    loan.ProcessingFee,
-				LoanTermDays:     loan.LoanTermDays,
-				DisbursementDate: loan.DisbursementDate,
-				StartDate:        loan.StartDate,
-				MaturityDate:     loan.MaturityDate,
-				LoanStatus:       loan.LoanStatus,
+				LoanID:           loanData["loan_id"].(string),
+				CustomerID:       loanData["customer_id"].(string),
+				CustomerName:     loanData["customer_name"].(string),
+				OfficerID:        loanData["officer_id"].(string),
+				OfficerName:      loanData["officer_name"].(string),
+				Branch:           loanData["branch"].(string),
+				Region:           loanData["region"].(string),
+				LoanAmount:       decimal.NewFromFloat(loanData["loan_amount"].(float64)),
+				LoanTermDays:     loanData["loan_term_days"].(int),
+				Status:           loanData["status"].(string),
+				Channel:          loanData["channel"].(string),
+				DisbursementDate: loanData["disbursement_date"].(string),
+				MaturityDate:     loanData["maturity_date"].(string),
 			}
+
+			// Optional fields
+			if customerPhone, ok := loanData["customer_phone"].(string); ok {
+				input.CustomerPhone = &customerPhone
+			}
+			if officerPhone, ok := loanData["officer_phone"].(string); ok {
+				input.OfficerPhone = &officerPhone
+			}
+
+			// Decimal fields
+			repaymentAmt := decimal.NewFromFloat(loanData["repayment_amount"].(float64))
+			input.RepaymentAmount = &repaymentAmt
+
+			interestRate := decimal.NewFromFloat(loanData["interest_rate"].(float64))
+			input.InterestRate = &interestRate
+
+			feeAmount := decimal.NewFromFloat(loanData["fee_amount"].(float64))
+			input.FeeAmount = &feeAmount
 
 			// Create/update loan
 			if err := loanRepo.Create(ctx, input); err != nil {
-				log.Printf("❌ Failed to sync loan %s: %v", loan.LoanID, err)
+				log.Printf("❌ Failed to sync loan %s: %v", input.LoanID, err)
 				errorCount++
 			} else {
 				totalSynced++
@@ -250,35 +268,17 @@ func syncLoans(ctx context.Context, djangoRepo *repository.DjangoRepository, loa
 }
 
 func syncRepayments(ctx context.Context, djangoRepo *repository.DjangoRepository, repaymentRepo *repository.RepaymentRepository) error {
-	// Get all loan IDs from SeedsMetrics database
-	// We need to sync repayments for each loan
-	log.Println("Getting loan IDs from SeedsMetrics database...")
-
-	// For now, we'll use a simple approach: get all loans and sync their repayments
-	// This is a placeholder - we need to implement GetAllLoanIDs in loan repository
-	// For the initial sync, we'll query Django directly for all repayments
-
-	totalSynced := 0
-	errorCount := 0
-
-	// Get total count first
-	totalCount, err := djangoRepo.GetRepaymentsCount(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to get repayments count: %w", err)
-	}
-
-	log.Printf("Found %d repayments in Django database", totalCount)
-	log.Println("⚠️  Note: Repayment sync requires loan-by-loan processing")
-	log.Println("⚠️  This will be implemented in the next iteration")
-	log.Println("⚠️  For now, repayments will be synced via the ETL process")
+	log.Println("⚠️  Note: Repayment sync will be implemented in Phase 2")
+	log.Println("⚠️  Repayments require loan-by-loan processing and complex field mapping")
+	log.Println("⚠️  For now, focus is on getting loans synced first")
 
 	return nil
 }
 
 func syncSchedules(ctx context.Context, djangoRepo *repository.DjangoRepository, scheduleRepo *repository.LoanScheduleRepository) error {
-	log.Println("⚠️  Note: Schedule sync requires loan-by-loan processing")
-	log.Println("⚠️  This will be implemented in the next iteration")
-	log.Println("⚠️  For now, schedules will be synced via the ETL process")
+	log.Println("⚠️  Note: Schedule sync will be implemented in Phase 2")
+	log.Println("⚠️  Schedules require loan-by-loan processing and complex field mapping")
+	log.Println("⚠️  For now, focus is on getting loans synced first")
 
 	return nil
 }

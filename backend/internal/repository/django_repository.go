@@ -326,12 +326,17 @@ func (r *DjangoRepository) GetLoansCount(ctx context.Context) (int, error) {
 }
 
 // GetLoans retrieves loans from Django database with pagination
-func (r *DjangoRepository) GetLoans(ctx context.Context, limit, offset int) ([]*models.Loan, error) {
+// Returns basic loan data that will be used to create LoanInput
+func (r *DjangoRepository) GetLoans(ctx context.Context, limit, offset int) ([]map[string]interface{}, error) {
 	query := `
 		SELECT
 			l.id::VARCHAR(50) as loan_id,
 			l.borrower_id::VARCHAR(50) as customer_id,
+			COALESCE(TRIM(c.first_name || ' ' || c.last_name), c.phone_number) as customer_name,
+			c.phone_number as customer_phone,
 			l.agent_id::VARCHAR(50) as officer_id,
+			COALESCE(u.username, u.email) as officer_name,
+			u.user_phone as officer_phone,
 			COALESCE(u.user_branch, 'Unknown') as branch,
 			CASE
 				WHEN u.user_branch LIKE '%Lagos%' THEN 'Lagos'
@@ -340,24 +345,24 @@ func (r *DjangoRepository) GetLoans(ctx context.Context, limit, offset int) ([]*
 				WHEN u.user_branch LIKE '%Oyo%' THEN 'Oyo'
 				ELSE 'Nigeria'
 			END as region,
-			l.amount as principal_amount,
+			l.amount as loan_amount,
+			l.daily_repayment_amount as repayment_amount,
 			l.interest_rate / 100.0 as interest_rate,
-			l.interest_amount,
-			l.processing_fee,
+			l.processing_fee as fee_amount,
 			l.tenor_in_days as loan_term_days,
 			l.date_disbursed as disbursement_date,
-			l.start_date,
 			l.end_date as maturity_date,
 			CASE
 				WHEN l.status = 'COMPLETED' THEN 'Closed'
 				WHEN l.status = 'ACTIVE' THEN 'Active'
 				WHEN l.status = 'DEFAULTED' THEN 'Defaulted'
 				ELSE 'Active'
-			END as loan_status,
+			END as status,
 			l.created_at,
 			l.updated_at
 		FROM loans_ajoloan l
 		LEFT JOIN accounts_customuser u ON l.agent_id = u.id
+		LEFT JOIN ajo_ajouser c ON l.borrower_id = c.id
 		WHERE l.is_disbursed = TRUE
 		ORDER BY l.date_disbursed DESC
 		LIMIT $1 OFFSET $2
@@ -369,44 +374,73 @@ func (r *DjangoRepository) GetLoans(ctx context.Context, limit, offset int) ([]*
 	}
 	defer rows.Close()
 
-	var loans []*models.Loan
+	var loans []map[string]interface{}
 	for rows.Next() {
-		var loan models.Loan
-		var disbursementDate, startDate, maturityDate sql.NullTime
+		var loanID, customerID, customerName, officerID, officerName, branch, region, status string
+		var customerPhone, officerPhone sql.NullString
+		var loanAmount, repaymentAmount, interestRate, feeAmount float64
+		var loanTermDays int
+		var disbursementDate, maturityDate sql.NullTime
+		var createdAt, updatedAt time.Time
 
 		err := rows.Scan(
-			&loan.LoanID,
-			&loan.CustomerID,
-			&loan.OfficerID,
-			&loan.Branch,
-			&loan.Region,
-			&loan.PrincipalAmount,
-			&loan.InterestRate,
-			&loan.InterestAmount,
-			&loan.ProcessingFee,
-			&loan.LoanTermDays,
+			&loanID,
+			&customerID,
+			&customerName,
+			&customerPhone,
+			&officerID,
+			&officerName,
+			&officerPhone,
+			&branch,
+			&region,
+			&loanAmount,
+			&repaymentAmount,
+			&interestRate,
+			&feeAmount,
+			&loanTermDays,
 			&disbursementDate,
-			&startDate,
 			&maturityDate,
-			&loan.LoanStatus,
-			&loan.CreatedAt,
-			&loan.UpdatedAt,
+			&status,
+			&createdAt,
+			&updatedAt,
 		)
 		if err != nil {
 			return nil, fmt.Errorf("failed to scan loan row: %w", err)
 		}
 
-		if disbursementDate.Valid {
-			loan.DisbursementDate = &disbursementDate.Time
-		}
-		if startDate.Valid {
-			loan.StartDate = &startDate.Time
-		}
-		if maturityDate.Valid {
-			loan.MaturityDate = &maturityDate.Time
+		loan := map[string]interface{}{
+			"loan_id":          loanID,
+			"customer_id":      customerID,
+			"customer_name":    customerName,
+			"officer_id":       officerID,
+			"officer_name":     officerName,
+			"branch":           branch,
+			"region":           region,
+			"loan_amount":      loanAmount,
+			"repayment_amount": repaymentAmount,
+			"interest_rate":    interestRate,
+			"fee_amount":       feeAmount,
+			"loan_term_days":   loanTermDays,
+			"status":           status,
+			"channel":          "AJO", // Default channel
+			"created_at":       createdAt,
+			"updated_at":       updatedAt,
 		}
 
-		loans = append(loans, &loan)
+		if customerPhone.Valid {
+			loan["customer_phone"] = customerPhone.String
+		}
+		if officerPhone.Valid {
+			loan["officer_phone"] = officerPhone.String
+		}
+		if disbursementDate.Valid {
+			loan["disbursement_date"] = disbursementDate.Time.Format("2006-01-02")
+		}
+		if maturityDate.Valid {
+			loan["maturity_date"] = maturityDate.Time.Format("2006-01-02")
+		}
+
+		loans = append(loans, loan)
 	}
 
 	if err := rows.Err(); err != nil {
@@ -414,144 +448,6 @@ func (r *DjangoRepository) GetLoans(ctx context.Context, limit, offset int) ([]*
 	}
 
 	return loans, nil
-}
-
-// GetRepayments retrieves repayments for a specific loan from Django database
-func (r *DjangoRepository) GetRepaymentsByLoanID(ctx context.Context, loanID string) ([]*models.Repayment, error) {
-	query := `
-		SELECT
-			id::VARCHAR(50) as repayment_id,
-			ajo_loan_id::VARCHAR(50) as loan_id,
-			repayment_amount as amount_paid,
-			paid_date as payment_date,
-			created_at,
-			updated_at
-		FROM loans_ajoloanrepayment
-		WHERE ajo_loan_id::VARCHAR(50) = $1
-		AND applied_to_loan = TRUE
-		ORDER BY paid_date ASC
-	`
-
-	rows, err := r.db.QueryContext(ctx, query, loanID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query repayments from Django: %w", err)
-	}
-	defer rows.Close()
-
-	var repayments []*models.Repayment
-	for rows.Next() {
-		var repayment models.Repayment
-		var paymentDate sql.NullTime
-
-		err := rows.Scan(
-			&repayment.RepaymentID,
-			&repayment.LoanID,
-			&repayment.AmountPaid,
-			&paymentDate,
-			&repayment.CreatedAt,
-			&repayment.UpdatedAt,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan repayment row: %w", err)
-		}
-
-		if paymentDate.Valid {
-			repayment.PaymentDate = &paymentDate.Time
-		}
-
-		repayments = append(repayments, &repayment)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating repayment rows: %w", err)
-	}
-
-	return repayments, nil
-}
-
-// GetRepaymentsCount returns the total count of repayments in Django database
-func (r *DjangoRepository) GetRepaymentsCount(ctx context.Context) (int, error) {
-	var count int
-	query := `SELECT COUNT(*) FROM loans_ajoloanrepayment WHERE applied_to_loan = TRUE`
-
-	err := r.db.QueryRowContext(ctx, query).Scan(&count)
-	if err != nil {
-		return 0, fmt.Errorf("failed to count repayments from Django: %w", err)
-	}
-
-	return count, nil
-}
-
-// GetSchedulesByLoanID retrieves loan schedules for a specific loan from Django database
-func (r *DjangoRepository) GetSchedulesByLoanID(ctx context.Context, loanID string) ([]*models.LoanSchedule, error) {
-	query := `
-		SELECT
-			id::VARCHAR(50) as schedule_id,
-			loan_id::VARCHAR(50),
-			due_amount,
-			amount_left,
-			paid_amount,
-			due_date,
-			paid_date,
-			fully_paid,
-			fully_paid_date,
-			is_late,
-			late_days,
-			created_at,
-			updated_at
-		FROM loans_ajoloanschedule
-		WHERE loan_id::VARCHAR(50) = $1
-		ORDER BY due_date ASC
-	`
-
-	rows, err := r.db.QueryContext(ctx, query, loanID)
-	if err != nil {
-		return nil, fmt.Errorf("failed to query schedules from Django: %w", err)
-	}
-	defer rows.Close()
-
-	var schedules []*models.LoanSchedule
-	for rows.Next() {
-		var schedule models.LoanSchedule
-		var dueDate, paidDate, fullyPaidDate sql.NullTime
-
-		err := rows.Scan(
-			&schedule.ScheduleID,
-			&schedule.LoanID,
-			&schedule.DueAmount,
-			&schedule.AmountLeft,
-			&schedule.PaidAmount,
-			&dueDate,
-			&paidDate,
-			&schedule.FullyPaid,
-			&fullyPaidDate,
-			&schedule.IsLate,
-			&schedule.LateDays,
-			&schedule.CreatedAt,
-			&schedule.UpdatedAt,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to scan schedule row: %w", err)
-		}
-
-		if dueDate.Valid {
-			schedule.DueDate = &dueDate.Time
-		}
-		if paidDate.Valid {
-			schedule.PaidDate = &paidDate.Time
-		}
-		if fullyPaidDate.Valid {
-			schedule.FullyPaidDate = &fullyPaidDate.Time
-		}
-
-		schedules = append(schedules, &schedule)
-	}
-
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("error iterating schedule rows: %w", err)
-	}
-
-	return schedules, nil
 }
 
 // HealthCheck verifies the Django database connection is healthy
