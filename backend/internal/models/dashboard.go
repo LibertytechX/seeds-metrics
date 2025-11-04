@@ -125,25 +125,26 @@ type CalculatedMetrics struct {
 
 // FIMRLoan represents a loan that missed first installment
 type FIMRLoan struct {
-	LoanID                  string  `json:"loan_id"`
-	OfficerID               string  `json:"officer_id"`
-	OfficerName             string  `json:"officer_name"`
-	Region                  string  `json:"region"`
-	Branch                  string  `json:"branch"`
-	CustomerID              string  `json:"customer_id"`
-	CustomerName            string  `json:"customer_name"`
-	CustomerPhone           string  `json:"customer_phone"`
-	DisbursementDate        string  `json:"disbursement_date"`
-	LoanAmount              float64 `json:"loan_amount"`
-	FirstPaymentDueDate     string  `json:"first_payment_due_date"`
-	DaysSinceDue            int     `json:"days_since_due"`
-	AmountDue1stInstallment float64 `json:"amount_due_1st_installment"`
-	AmountPaid              float64 `json:"amount_paid"`
-	OutstandingBalance      float64 `json:"outstanding_balance"`
-	CurrentDPD              int     `json:"current_dpd"`
-	Channel                 string  `json:"channel"`
-	Status                  string  `json:"status"`
-	FIMRTagged              bool    `json:"fimr_tagged"`
+	LoanID                   string  `json:"loan_id"`
+	OfficerID                string  `json:"officer_id"`
+	OfficerName              string  `json:"officer_name"`
+	Region                   string  `json:"region"`
+	Branch                   string  `json:"branch"`
+	CustomerID               string  `json:"customer_id"`
+	CustomerName             string  `json:"customer_name"`
+	CustomerPhone            string  `json:"customer_phone"`
+	DisbursementDate         string  `json:"disbursement_date"`
+	LoanAmount               float64 `json:"loan_amount"`
+	FirstPaymentDueDate      string  `json:"first_payment_due_date"`
+	FirstPaymentReceivedDate *string `json:"first_payment_received_date,omitempty"`
+	DaysSinceDue             int     `json:"days_since_due"`
+	AmountDue1stInstallment  float64 `json:"amount_due_1st_installment"`
+	AmountPaid               float64 `json:"amount_paid"`
+	OutstandingBalance       float64 `json:"outstanding_balance"`
+	CurrentDPD               int     `json:"current_dpd"`
+	Channel                  string  `json:"channel"`
+	Status                   string  `json:"status"`
+	FIMRTagged               bool    `json:"fimr_tagged"`
 }
 
 // EarlyIndicatorLoan represents a loan in early delinquency
