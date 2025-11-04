@@ -3,6 +3,7 @@ import { Download, Filter, FileText, Eye, RefreshCw } from 'lucide-react';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import LoanRepaymentsModal from './LoanRepaymentsModal';
+import Pagination from './Pagination';
 import './AllLoans.css';
 
 const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
@@ -119,11 +120,15 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
         }
 
         setLoans(fetchedLoans);
+
+        // Use backend total for pagination, not client-side filtered count
+        // The backend total represents the actual number of records matching server-side filters
+        // Client-side filtering (loan_type, rot_type, delay_type) is for display only
         setPagination({
           page: data.data.page,
           limit: data.data.limit,
-          total: fetchedLoans.length, // Update total to reflect filtered count
-          pages: Math.ceil(fetchedLoans.length / data.data.limit),
+          total: data.data.total, // Use backend total, not fetchedLoans.length
+          pages: data.data.pages, // Use backend calculated pages
         });
       }
     } catch (error) {
@@ -483,46 +488,25 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
         </div>
       )}
 
-      <div className="pagination-controls">
-        <div className="rows-per-page">
-          <label>Rows per page:</label>
-          <select value={pagination.limit} onChange={(e) => handleLimitChange(e.target.value)}>
-            <option value="10">10</option>
-            <option value="25">25</option>
-            <option value="50">50</option>
-            <option value="100">100</option>
-          </select>
+      <Pagination
+        currentPage={pagination.page}
+        totalPages={pagination.pages}
+        totalRecords={pagination.total}
+        pageSize={pagination.limit}
+        onPageChange={handlePageChange}
+        onPageSizeChange={handleLimitChange}
+        pageSizeOptions={[10, 25, 50, 100, 200]}
+        loading={loading}
+        position="top"
+      />
+
+      {/* Show info message when client-side filtering is active */}
+      {(filters.loan_type || filters.rot_type || filters.delay_type) && loans.length < pagination.limit && (
+        <div className="client-filter-info">
+          ℹ️ Showing {loans.length} loans after applying display filters.
+          Total matching records: {pagination.total}
         </div>
-        <div className="page-info">
-          Page {pagination.page} of {pagination.pages} ({pagination.total} total loans)
-        </div>
-        <div className="page-buttons">
-          <button
-            onClick={() => handlePageChange(1)}
-            disabled={pagination.page === 1}
-          >
-            First
-          </button>
-          <button
-            onClick={() => handlePageChange(pagination.page - 1)}
-            disabled={pagination.page === 1}
-          >
-            Previous
-          </button>
-          <button
-            onClick={() => handlePageChange(pagination.page + 1)}
-            disabled={pagination.page === pagination.pages}
-          >
-            Next
-          </button>
-          <button
-            onClick={() => handlePageChange(pagination.pages)}
-            disabled={pagination.page === pagination.pages}
-          >
-            Last
-          </button>
-        </div>
-      </div>
+      )}
 
       <div className="all-loans-table-container">
         {loading ? (
@@ -620,6 +604,18 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
           </table>
         )}
       </div>
+
+      <Pagination
+        currentPage={pagination.page}
+        totalPages={pagination.pages}
+        totalRecords={pagination.total}
+        pageSize={pagination.limit}
+        onPageChange={handlePageChange}
+        onPageSizeChange={handleLimitChange}
+        pageSizeOptions={[10, 25, 50, 100, 200]}
+        loading={loading}
+        position="bottom"
+      />
 
       {/* Repayments Modal */}
       <LoanRepaymentsModal

@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { Download, Filter, ChevronDown } from 'lucide-react';
 import { mockTeamMembers } from '../utils/mockData';
 import TopRiskLoansModal from './TopRiskLoansModal';
+import Pagination from './Pagination';
 import './AgentPerformance.css';
 
 const AgentPerformance = ({ agents, onViewPortfolio, onViewLowDelayLoans, initialFilter = null }) => {
@@ -20,6 +21,10 @@ const AgentPerformance = ({ agents, onViewPortfolio, onViewLowDelayLoans, initia
   const [topRiskModalOpen, setTopRiskModalOpen] = useState(false);
   const [selectedOfficer, setSelectedOfficer] = useState(null);
   const [filterLabel, setFilterLabel] = useState(initialFilter?.label || null);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 50,
+  });
 
   // Get unique values for filter dropdowns
   const filterOptions = useMemo(() => {
@@ -72,6 +77,15 @@ const AgentPerformance = ({ agents, onViewPortfolio, onViewLowDelayLoans, initia
     return sorted;
   }, [filteredAgents, sortConfig]);
 
+  // Apply pagination
+  const paginatedAgents = useMemo(() => {
+    const startIndex = (pagination.page - 1) * pagination.limit;
+    const endIndex = startIndex + pagination.limit;
+    return sortedAgents.slice(startIndex, endIndex);
+  }, [sortedAgents, pagination.page, pagination.limit]);
+
+  const totalPages = Math.ceil(sortedAgents.length / pagination.limit);
+
   const handleSort = (key) => {
     setSortConfig(prev => ({
       key,
@@ -81,6 +95,7 @@ const AgentPerformance = ({ agents, onViewPortfolio, onViewLowDelayLoans, initia
 
   const handleFilterChange = (filterKey, value) => {
     setFilters(prev => ({ ...prev, [filterKey]: value }));
+    setPagination(prev => ({ ...prev, page: 1 })); // Reset to first page when filter changes
   };
 
   const clearFilters = () => {
@@ -93,6 +108,15 @@ const AgentPerformance = ({ agents, onViewPortfolio, onViewLowDelayLoans, initia
       delayRateMax: '',
     });
     setFilterLabel(null);
+    setPagination(prev => ({ ...prev, page: 1 })); // Reset to first page
+  };
+
+  const handlePageChange = (newPage) => {
+    setPagination(prev => ({ ...prev, page: newPage }));
+  };
+
+  const handlePageSizeChange = (newLimit) => {
+    setPagination({ page: 1, limit: newLimit });
   };
 
   const handleAssigneeChange = (officerName, newAssignee) => {
@@ -407,6 +431,17 @@ const AgentPerformance = ({ agents, onViewPortfolio, onViewLowDelayLoans, initia
         </div>
       )}
 
+      <Pagination
+        currentPage={pagination.page}
+        totalPages={totalPages}
+        totalRecords={sortedAgents.length}
+        pageSize={pagination.limit}
+        onPageChange={handlePageChange}
+        onPageSizeChange={handlePageSizeChange}
+        pageSizeOptions={[10, 25, 50, 100, 200]}
+        position="top"
+      />
+
       <div className="agent-table-container">
         <table className="agent-table">
           <thead>
@@ -443,7 +478,7 @@ const AgentPerformance = ({ agents, onViewPortfolio, onViewLowDelayLoans, initia
             </tr>
           </thead>
           <tbody>
-            {sortedAgents.map((agent, index) => (
+            {paginatedAgents.map((agent, index) => (
               <tr key={agent.officerName}>
                 <td className="officer-name">{agent.officerName}</td>
                 <td>{agent.region}</td>
@@ -542,6 +577,17 @@ const AgentPerformance = ({ agents, onViewPortfolio, onViewLowDelayLoans, initia
           </tbody>
         </table>
       </div>
+
+      <Pagination
+        currentPage={pagination.page}
+        totalPages={totalPages}
+        totalRecords={sortedAgents.length}
+        pageSize={pagination.limit}
+        onPageChange={handlePageChange}
+        onPageSizeChange={handlePageSizeChange}
+        pageSizeOptions={[10, 25, 50, 100, 200]}
+        position="bottom"
+      />
 
       {/* Top Risk Loans Modal */}
       <TopRiskLoansModal

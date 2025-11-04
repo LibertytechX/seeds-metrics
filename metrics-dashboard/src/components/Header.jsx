@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
-import { Download, RefreshCw } from 'lucide-react';
+import { Download, RefreshCw, LogOut, User } from 'lucide-react';
 import './Header.css';
 
-export const Header = ({ filters, onFilterChange, onExport, lastRefresh, branches = [] }) => {
+export const Header = ({ filters, onFilterChange, onExport, lastRefresh, branches = [], onLogout }) => {
   const handleDateChange = (e) => {
     onFilterChange({ ...filters, dateRange: e.target.value });
   };
@@ -36,13 +36,33 @@ export const Header = ({ filters, onFilterChange, onExport, lastRefresh, branche
     return uniqueBranches;
   }, [branches]);
 
+  const username = localStorage.getItem('username') || 'Admin';
+
+  const handleLogout = () => {
+    if (window.confirm('Are you sure you want to logout?')) {
+      if (onLogout) {
+        onLogout();
+      }
+    }
+  };
+
   return (
     <header className="header">
       <div className="header-top">
         <h1>Loan Officer Metrics Dashboard</h1>
-        <div className="refresh-info">
-          Last refresh: {formatTime(lastRefresh)}
-          <RefreshCw size={16} />
+        <div className="header-top-right">
+          <div className="user-info">
+            <User size={16} />
+            <span>{username}</span>
+          </div>
+          <div className="refresh-info">
+            Last refresh: {formatTime(lastRefresh)}
+            <RefreshCw size={16} />
+          </div>
+          <button onClick={handleLogout} className="btn-logout" title="Logout">
+            <LogOut size={16} />
+            <span>Logout</span>
+          </button>
         </div>
       </div>
 

@@ -102,9 +102,14 @@ definitions:
         type: string
       region:
         type: string
+      repayment_amount:
+        type: number
       state:
         type: string
       status:
+        type: string
+      wave:
+        description: '"Wave 1" or "Wave 2", defaults to "Wave 2"'
         type: string
     required:
     - branch
@@ -167,12 +172,46 @@ definitions:
     type: object
   models.PortfolioMetrics:
     properties:
+      activeLoansCount:
+        description: Active vs Inactive Loans
+        type: integer
+      activeLoansVolume:
+        type: number
+      actualOverdue15d:
+        description: Only installments due to date
+        type: number
+      atRiskOfficersCount:
+        description: Portfolio Delinquency Risk
+        type: integer
+      atRiskOfficersPercentage:
+        type: number
       avgAYR:
         type: number
       avgDQI:
+        description: Will be removed from frontend
         type: integer
+      avgDaysPastDue:
+        description: Portfolio Repayment Behavior Metrics
+        type: number
+      avgRepaymentDelayRate:
+        type: number
       avgRiskScore:
         type: integer
+      avgTimelinessScore:
+        type: number
+      earlyROTCount:
+        description: ROT (Risk of Termination) Analysis
+        type: integer
+      earlyROTVolume:
+        type: number
+      inactiveLoansCount:
+        type: integer
+      inactiveLoansVolume:
+        type: number
+      lateROTCount:
+        type: integer
+      lateROTVolume:
+        type: number
       topOfficer:
         $ref: '#/definitions/models.TopOfficer'
       totalLoans:
@@ -531,6 +570,26 @@ paths:
           schema:
             $ref: '#/definitions/models.APIResponse'
       summary: Get all loans
+      tags:
+      - Loans
+  /loans/recalculate-fields:
+    post:
+      consumes:
+      - application/json
+      description: Manually trigger recalculation of all computed fields (actual_outstanding,
+        total_outstanding, current_dpd, etc.) for all loans
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/models.APIResponse'
+      summary: Recalculate all loan computed fields
       tags:
       - Loans
   /metrics/portfolio:

@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Download, Filter } from 'lucide-react';
+import Pagination from './Pagination';
 import './FIMRDrilldown.css';
 
 const FIMRDrilldown = ({ loans }) => {
@@ -14,6 +15,10 @@ const FIMRDrilldown = ({ loans }) => {
     endDate: '',
   });
   const [showFilters, setShowFilters] = useState(false);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 50,
+  });
 
   // Get unique values for filter dropdowns
   const filterOptions = useMemo(() => {
@@ -65,6 +70,15 @@ const FIMRDrilldown = ({ loans }) => {
     return sorted;
   }, [filteredLoans, sortConfig]);
 
+  // Apply pagination
+  const paginatedLoans = useMemo(() => {
+    const startIndex = (pagination.page - 1) * pagination.limit;
+    const endIndex = startIndex + pagination.limit;
+    return sortedLoans.slice(startIndex, endIndex);
+  }, [sortedLoans, pagination.page, pagination.limit]);
+
+  const totalPages = Math.ceil(sortedLoans.length / pagination.limit);
+
   const handleSort = (key) => {
     setSortConfig(prev => ({
       key,
@@ -74,6 +88,7 @@ const FIMRDrilldown = ({ loans }) => {
 
   const handleFilterChange = (filterKey, value) => {
     setFilters(prev => ({ ...prev, [filterKey]: value }));
+    setPagination(prev => ({ ...prev, page: 1 })); // Reset to first page when filter changes
   };
 
   const clearFilters = () => {
@@ -86,6 +101,15 @@ const FIMRDrilldown = ({ loans }) => {
       startDate: '',
       endDate: '',
     });
+    setPagination(prev => ({ ...prev, page: 1 })); // Reset to first page
+  };
+
+  const handlePageChange = (newPage) => {
+    setPagination(prev => ({ ...prev, page: newPage }));
+  };
+
+  const handlePageSizeChange = (newLimit) => {
+    setPagination({ page: 1, limit: newLimit });
   };
 
   const handleExport = () => {
@@ -254,6 +278,17 @@ const FIMRDrilldown = ({ loans }) => {
         </div>
       )}
 
+      <Pagination
+        currentPage={pagination.page}
+        totalPages={totalPages}
+        totalRecords={sortedLoans.length}
+        pageSize={pagination.limit}
+        onPageChange={handlePageChange}
+        onPageSizeChange={handlePageSizeChange}
+        pageSizeOptions={[10, 25, 50, 100, 200]}
+        position="top"
+      />
+
       <div className="fimr-table-container">
         <table className="fimr-table">
           <thead>
@@ -278,7 +313,7 @@ const FIMRDrilldown = ({ loans }) => {
             </tr>
           </thead>
           <tbody>
-            {sortedLoans.map(loan => (
+            {paginatedLoans.map(loan => (
               <tr key={loan.loanId}>
                 <td className="loan-id">{loan.loanId}</td>
                 <td>{loan.officerName}</td>
@@ -310,6 +345,17 @@ const FIMRDrilldown = ({ loans }) => {
           </tbody>
         </table>
       </div>
+
+      <Pagination
+        currentPage={pagination.page}
+        totalPages={totalPages}
+        totalRecords={sortedLoans.length}
+        pageSize={pagination.limit}
+        onPageChange={handlePageChange}
+        onPageSizeChange={handlePageSizeChange}
+        pageSizeOptions={[10, 25, 50, 100, 200]}
+        position="bottom"
+      />
     </div>
   );
 };

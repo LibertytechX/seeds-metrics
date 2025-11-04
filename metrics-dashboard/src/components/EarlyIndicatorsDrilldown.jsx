@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { Download, Filter } from 'lucide-react';
+import Pagination from './Pagination';
 import './EarlyIndicatorsDrilldown.css';
 
 const EarlyIndicatorsDrilldown = ({ loans }) => {
@@ -14,6 +15,10 @@ const EarlyIndicatorsDrilldown = ({ loans }) => {
     endDate: '',
   });
   const [showFilters, setShowFilters] = useState(false);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: 50,
+  });
 
   // Get unique values for filter dropdowns
   const filterOptions = useMemo(() => {
@@ -65,6 +70,15 @@ const EarlyIndicatorsDrilldown = ({ loans }) => {
     return sorted;
   }, [filteredLoans, sortConfig]);
 
+  // Apply pagination
+  const paginatedLoans = useMemo(() => {
+    const startIndex = (pagination.page - 1) * pagination.limit;
+    const endIndex = startIndex + pagination.limit;
+    return sortedLoans.slice(startIndex, endIndex);
+  }, [sortedLoans, pagination.page, pagination.limit]);
+
+  const totalPages = Math.ceil(sortedLoans.length / pagination.limit);
+
   const handleSort = (key) => {
     setSortConfig(prev => ({
       key,
@@ -74,6 +88,7 @@ const EarlyIndicatorsDrilldown = ({ loans }) => {
 
   const handleFilterChange = (filterKey, value) => {
     setFilters(prev => ({ ...prev, [filterKey]: value }));
+    setPagination(prev => ({ ...prev, page: 1 })); // Reset to first page when filter changes
   };
 
   const clearFilters = () => {
@@ -86,6 +101,15 @@ const EarlyIndicatorsDrilldown = ({ loans }) => {
       startDate: '',
       endDate: '',
     });
+    setPagination(prev => ({ ...prev, page: 1 })); // Reset to first page
+  };
+
+  const handlePageChange = (newPage) => {
+    setPagination(prev => ({ ...prev, page: newPage }));
+  };
+
+  const handlePageSizeChange = (newLimit) => {
+    setPagination({ page: 1, limit: newLimit });
   };
 
   const handleExport = () => {
@@ -262,6 +286,17 @@ const EarlyIndicatorsDrilldown = ({ loans }) => {
         </div>
       )}
 
+      <Pagination
+        currentPage={pagination.page}
+        totalPages={totalPages}
+        totalRecords={sortedLoans.length}
+        pageSize={pagination.limit}
+        onPageChange={handlePageChange}
+        onPageSizeChange={handlePageSizeChange}
+        pageSizeOptions={[10, 25, 50, 100, 200]}
+        position="top"
+      />
+
       <div className="early-table-container">
         <table className="early-table">
           <thead>
@@ -288,7 +323,7 @@ const EarlyIndicatorsDrilldown = ({ loans }) => {
             </tr>
           </thead>
           <tbody>
-            {sortedLoans.map(loan => (
+            {paginatedLoans.map(loan => (
               <tr key={loan.loanId}>
                 <td className="loan-id">{loan.loanId}</td>
                 <td>{loan.officerName}</td>
@@ -326,6 +361,17 @@ const EarlyIndicatorsDrilldown = ({ loans }) => {
           </tbody>
         </table>
       </div>
+
+      <Pagination
+        currentPage={pagination.page}
+        totalPages={totalPages}
+        totalRecords={sortedLoans.length}
+        pageSize={pagination.limit}
+        onPageChange={handlePageChange}
+        onPageSizeChange={handlePageSizeChange}
+        pageSizeOptions={[10, 25, 50, 100, 200]}
+        position="bottom"
+      />
     </div>
   );
 };

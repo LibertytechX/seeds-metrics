@@ -7,6 +7,7 @@ import EarlyIndicatorsDrilldown from './components/EarlyIndicatorsDrilldown';
 import AgentPerformance from './components/AgentPerformance';
 import CreditHealthByBranch from './components/CreditHealthByBranch';
 import AllLoans from './components/AllLoans';
+import Login from './components/Login';
 import { TabHeader } from './components/Tooltip';
 import { formatTabTooltip } from './utils/metricInfo';
 import {
@@ -21,6 +22,20 @@ import apiService from './services/api';
 import './App.css';
 
 function App() {
+  // Authentication state
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+
+  // Check authentication on mount
+  useEffect(() => {
+    const checkAuth = () => {
+      const authStatus = localStorage.getItem('isAuthenticated');
+      setIsAuthenticated(authStatus === 'true');
+      setIsCheckingAuth(false);
+    };
+    checkAuth();
+  }, []);
+
   const [filters, setFilters] = useState({
     dateRange: 'week',
     branch: '',
@@ -197,6 +212,35 @@ function App() {
     setActiveTab('allLoans');
   };
 
+  // Handle login
+  const handleLogin = () => {
+    setIsAuthenticated(true);
+  };
+
+  // Handle logout
+  const handleLogout = () => {
+    localStorage.removeItem('isAuthenticated');
+    localStorage.removeItem('username');
+    localStorage.removeItem('loginTime');
+    setIsAuthenticated(false);
+  };
+
+  // Show loading while checking authentication
+  if (isCheckingAuth) {
+    return (
+      <div className="app">
+        <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+          <div>Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show login if not authenticated
+  if (!isAuthenticated) {
+    return <Login onLogin={handleLogin} />;
+  }
+
   if (loading) {
     return (
       <div className="app">
@@ -228,6 +272,7 @@ function App() {
         onExport={handleExport}
         lastRefresh={lastRefresh}
         branches={branches}
+        onLogout={handleLogout}
       />
 
       <KPIStrip
