@@ -35,6 +35,7 @@ func (r *DjangoRepository) GetOfficers(ctx context.Context) ([]*models.Officer, 
 				WHEN user_branch LIKE '%Oyo%' THEN 'Oyo'
 				ELSE 'Nigeria'
 			END as region,
+			user_type,
 			CASE
 				WHEN performance_status = 'Active' THEN 'Active'
 				ELSE 'Inactive'
@@ -57,6 +58,7 @@ func (r *DjangoRepository) GetOfficers(ctx context.Context) ([]*models.Officer, 
 	for rows.Next() {
 		var officer models.Officer
 		var phone sql.NullString
+		var userType sql.NullString
 		var hireDate sql.NullTime
 
 		err := rows.Scan(
@@ -65,6 +67,7 @@ func (r *DjangoRepository) GetOfficers(ctx context.Context) ([]*models.Officer, 
 			&phone,
 			&officer.Branch,
 			&officer.Region,
+			&userType,
 			&officer.EmploymentStatus,
 			&hireDate,
 			&officer.CreatedAt,
@@ -76,6 +79,9 @@ func (r *DjangoRepository) GetOfficers(ctx context.Context) ([]*models.Officer, 
 
 		if phone.Valid {
 			officer.OfficerPhone = &phone.String
+		}
+		if userType.Valid {
+			officer.UserType = &userType.String
 		}
 		if hireDate.Valid {
 			officer.HireDate = &hireDate.Time
@@ -106,6 +112,7 @@ func (r *DjangoRepository) GetOfficerByID(ctx context.Context, officerID string)
 				WHEN user_branch LIKE '%Oyo%' THEN 'Oyo'
 				ELSE 'Nigeria'
 			END as region,
+			user_type,
 			CASE
 				WHEN performance_status = 'Active' THEN 'Active'
 				ELSE 'Inactive'
@@ -121,6 +128,7 @@ func (r *DjangoRepository) GetOfficerByID(ctx context.Context, officerID string)
 
 	var officer models.Officer
 	var phone sql.NullString
+	var userType sql.NullString
 	var hireDate sql.NullTime
 
 	err := r.db.QueryRowContext(ctx, query, officerID).Scan(
@@ -129,6 +137,7 @@ func (r *DjangoRepository) GetOfficerByID(ctx context.Context, officerID string)
 		&phone,
 		&officer.Branch,
 		&officer.Region,
+		&userType,
 		&officer.EmploymentStatus,
 		&hireDate,
 		&officer.CreatedAt,
@@ -144,6 +153,9 @@ func (r *DjangoRepository) GetOfficerByID(ctx context.Context, officerID string)
 
 	if phone.Valid {
 		officer.OfficerPhone = &phone.String
+	}
+	if userType.Valid {
+		officer.UserType = &userType.String
 	}
 	if hireDate.Valid {
 		officer.HireDate = &hireDate.Time

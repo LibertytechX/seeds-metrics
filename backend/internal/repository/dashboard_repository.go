@@ -230,6 +230,12 @@ func (r *DashboardRepository) GetOfficers(filters map[string]interface{}) ([]*mo
 		argCount++
 	}
 
+	if userType, ok := filters["user_type"].(string); ok && userType != "" {
+		query += fmt.Sprintf(" AND o.user_type = $%d", argCount)
+		args = append(args, userType)
+		argCount++
+	}
+
 	if wave, ok := filters["wave"].(string); ok && wave != "" {
 		query += fmt.Sprintf(" AND l.wave = $%d", argCount)
 		args = append(args, wave)
@@ -1057,6 +1063,8 @@ func (r *DashboardRepository) GetFilterOptions(filterType string, filters map[st
 		return r.getRegions()
 	case "channels":
 		return r.getChannels()
+	case "user-types":
+		return r.getUserTypes()
 	case "officers":
 		return r.getOfficerOptions(filters)
 	default:
@@ -1135,6 +1143,27 @@ func (r *DashboardRepository) getChannels() ([]string, error) {
 	}
 
 	return channels, nil
+}
+
+func (r *DashboardRepository) getUserTypes() ([]string, error) {
+	query := "SELECT DISTINCT user_type FROM officers WHERE user_type IS NOT NULL AND user_type != '' ORDER BY user_type"
+
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	userTypes := []string{}
+	for rows.Next() {
+		var userType string
+		if err := rows.Scan(&userType); err != nil {
+			return nil, err
+		}
+		userTypes = append(userTypes, userType)
+	}
+
+	return userTypes, nil
 }
 
 func (r *DashboardRepository) getOfficerOptions(filters map[string]interface{}) ([]*models.OfficerOption, error) {

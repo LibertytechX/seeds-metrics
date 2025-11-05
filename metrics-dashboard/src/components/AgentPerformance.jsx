@@ -3,6 +3,7 @@ import { Download, Filter, ChevronDown } from 'lucide-react';
 import { mockTeamMembers } from '../utils/mockData';
 import TopRiskLoansModal from './TopRiskLoansModal';
 import Pagination from './Pagination';
+import MultiSelect from './MultiSelect';
 import './AgentPerformance.css';
 
 const AgentPerformance = ({ agents, onViewPortfolio, onViewLowDelayLoans, initialFilter = null }) => {
@@ -14,6 +15,7 @@ const AgentPerformance = ({ agents, onViewPortfolio, onViewLowDelayLoans, initia
     startDate: '',
     endDate: '',
     delayRateMax: initialFilter?.delayRateMax || '',
+    userTypes: [],
   });
   const [showFilters, setShowFilters] = useState(!!initialFilter);
   const [activeActionMenu, setActiveActionMenu] = useState(null);
@@ -25,11 +27,31 @@ const AgentPerformance = ({ agents, onViewPortfolio, onViewLowDelayLoans, initia
     page: 1,
     limit: 50,
   });
+  const [allUserTypes, setAllUserTypes] = useState([]);
 
   // Sync agentData with agents prop when it changes
   useEffect(() => {
     setAgentData(agents);
   }, [agents]);
+
+  // Fetch user types from API on mount
+  useEffect(() => {
+    const fetchUserTypes = async () => {
+      try {
+        const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8081/api/v1';
+        const response = await fetch(`${API_BASE_URL}/filters/user-types`);
+        const data = await response.json();
+
+        if (data.status === 'success') {
+          setAllUserTypes(data.data.user_types || []);
+        }
+      } catch (error) {
+        console.error('Error fetching user types:', error);
+      }
+    };
+
+    fetchUserTypes();
+  }, []);
 
   // Get unique values for filter dropdowns
   const filterOptions = useMemo(() => {
@@ -46,6 +68,9 @@ const AgentPerformance = ({ agents, onViewPortfolio, onViewLowDelayLoans, initia
       if (filters.region && agent.region !== filters.region) return false;
       if (filters.branch && agent.branch !== filters.branch) return false;
       if (filters.riskBand && agent.riskBand !== filters.riskBand) return false;
+
+      // User type filter (multi-select)
+      if (filters.userTypes.length > 0 && !filters.userTypes.includes(agent.userType)) return false;
 
       // Date range filter (filter by lastAuditDate)
       if (filters.startDate && agent.lastAuditDate && agent.lastAuditDate < filters.startDate) return false;
@@ -111,6 +136,7 @@ const AgentPerformance = ({ agents, onViewPortfolio, onViewLowDelayLoans, initia
       startDate: '',
       endDate: '',
       delayRateMax: '',
+      userTypes: [],
     });
     setFilterLabel(null);
     setPagination(prev => ({ ...prev, page: 1 })); // Reset to first page
@@ -315,7 +341,10 @@ const AgentPerformance = ({ agents, onViewPortfolio, onViewLowDelayLoans, initia
     }
   };
 
-  const activeFilterCount = Object.values(filters).filter(v => v !== '').length;
+  const activeFilterCount = Object.entries(filters).filter(([key, value]) => {
+    if (key === 'userTypes') return value.length > 0;
+    return value !== '';
+  }).length;
 
   return (
     <div className="agent-performance">
@@ -366,6 +395,14 @@ const AgentPerformance = ({ agents, onViewPortfolio, onViewLowDelayLoans, initia
                   <option key={band} value={band}>{band}</option>
                 ))}
               </select>
+            </div>
+            <div className="filter-group">
+              <MultiSelect
+                options={allUserTypes}
+                selectedValues={filters.userTypes}
+                onChange={(values) => handleFilterChange('userTypes', values)}
+                placeholder="All User Types"
+              />
             </div>
             <div className="filter-group">
               <select value={filters.delayRateMax} onChange={(e) => handleFilterChange('delayRateMax', e.target.value)}>

@@ -13,6 +13,7 @@ type Officer struct {
 	OfficerPhone     *string    `json:"officer_phone,omitempty" db:"officer_phone"`
 	Region           string     `json:"region" db:"region"`
 	Branch           string     `json:"branch" db:"branch"`
+	UserType         *string    `json:"user_type,omitempty" db:"user_type"`
 	EmploymentStatus string     `json:"employment_status" db:"employment_status"`
 	HireDate         *time.Time `json:"hire_date,omitempty" db:"hire_date"`
 	CreatedAt        time.Time  `json:"created_at" db:"created_at"`
@@ -26,6 +27,7 @@ type OfficerInput struct {
 	OfficerPhone     *string `json:"officer_phone"`
 	Region           string  `json:"region" binding:"required"`
 	Branch           string  `json:"branch" binding:"required"`
+	UserType         *string `json:"user_type"`
 	EmploymentStatus string  `json:"employment_status"`
 	HireDate         *string `json:"hire_date"` // YYYY-MM-DD format
 }

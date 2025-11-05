@@ -95,6 +95,7 @@ func syncOfficers(ctx context.Context, djangoRepo *repository.DjangoRepository, 
 			OfficerPhone:     officer.OfficerPhone,
 			Region:           officer.Region,
 			Branch:           officer.Branch,
+			UserType:         officer.UserType,
 			EmploymentStatus: officer.EmploymentStatus,
 		}
 
