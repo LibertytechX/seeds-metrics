@@ -65,8 +65,10 @@ func (r *DashboardRepository) GetPortfolioLoanMetrics(filters map[string]interfa
 				THEN current_dpd END), 0) as avg_days_past_due,
 			COALESCE(AVG(CASE WHEN (principal_outstanding + interest_outstanding + fees_outstanding) > 2000
 				THEN timeliness_score END), 0) as avg_timeliness_score
-		FROM loans
-		WHERE UPPER(status) = 'ACTIVE'
+		FROM loans l
+		INNER JOIN officers o ON l.officer_id = o.officer_id
+		WHERE UPPER(l.status) = 'ACTIVE'
+			AND o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT')
 	`
 
 	args := []interface{}{}
@@ -74,7 +76,7 @@ func (r *DashboardRepository) GetPortfolioLoanMetrics(filters map[string]interfa
 
 	// Apply wave filter
 	if wave, ok := filters["wave"].(string); ok && wave != "" {
-		query += fmt.Sprintf(" AND wave = $%d", argCount)
+		query += fmt.Sprintf(" AND l.wave = $%d", argCount)
 		args = append(args, wave)
 		argCount++
 	}
@@ -109,10 +111,12 @@ func (r *DashboardRepository) GetActualOverdue15d(filters map[string]interface{}
 			COALESCE(SUM(ls.total_due - ls.amount_paid), 0) as actual_overdue_15d
 		FROM loan_schedule ls
 		INNER JOIN loans l ON ls.loan_id = l.loan_id
+		INNER JOIN officers o ON l.officer_id = o.officer_id
 		WHERE l.current_dpd >= 15
 			AND UPPER(l.status) = 'ACTIVE'
 			AND ls.due_date <= CURRENT_DATE
 			AND ls.payment_status IN ('Pending', 'Partial', 'Overdue')
+			AND o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT')
 	`
 
 	args := []interface{}{}
@@ -139,16 +143,18 @@ func (r *DashboardRepository) GetActualOverdue15d(filters map[string]interface{}
 				COALESCE(SUM(
 					CASE
 						-- Calculate proportion of loan term that has elapsed
-						WHEN loan_term_days > 0 THEN
-							(principal_outstanding + interest_outstanding + fees_outstanding) *
-							LEAST(1.0, GREATEST(0.0, (CURRENT_DATE - disbursement_date::date)::float / loan_term_days::float))
+						WHEN l.loan_term_days > 0 THEN
+							(l.principal_outstanding + l.interest_outstanding + l.fees_outstanding) *
+							LEAST(1.0, GREATEST(0.0, (CURRENT_DATE - l.disbursement_date::date)::float / l.loan_term_days::float))
 						ELSE
-							(principal_outstanding + interest_outstanding + fees_outstanding)
+							(l.principal_outstanding + l.interest_outstanding + l.fees_outstanding)
 					END
 				), 0) as estimated_actual_overdue
-			FROM loans
-			WHERE current_dpd >= 15
-				AND UPPER(status) = 'ACTIVE'
+			FROM loans l
+			INNER JOIN officers o ON l.officer_id = o.officer_id
+			WHERE l.current_dpd >= 15
+				AND UPPER(l.status) = 'ACTIVE'
+				AND o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT')
 		`
 
 		fallbackArgs := []interface{}{}
@@ -156,7 +162,7 @@ func (r *DashboardRepository) GetActualOverdue15d(filters map[string]interface{}
 
 		// Apply wave filter to fallback query
 		if wave, ok := filters["wave"].(string); ok && wave != "" {
-			fallbackQuery += fmt.Sprintf(" AND wave = $%d", fallbackArgCount)
+			fallbackQuery += fmt.Sprintf(" AND l.wave = $%d", fallbackArgCount)
 			fallbackArgs = append(fallbackArgs, wave)
 			fallbackArgCount++
 		}
@@ -207,6 +213,7 @@ func (r *DashboardRepository) GetOfficers(filters map[string]interface{}) ([]*mo
 		FROM officers o
 		LEFT JOIN loans l ON o.officer_id = l.officer_id
 		WHERE 1=1
+			AND o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT')
 	`
 
 	args := []interface{}{}
@@ -348,6 +355,7 @@ func (r *DashboardRepository) GetOfficerByID(officerID string) (*models.Dashboar
 		FROM officers o
 		LEFT JOIN loans l ON o.officer_id = l.officer_id
 		WHERE o.officer_id = $1
+			AND o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT')
 		GROUP BY o.officer_id, o.officer_name, o.region, o.branch, o.primary_channel
 	`
 
@@ -691,6 +699,7 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 		FROM loans l
 		JOIN officers o ON l.officer_id = o.officer_id
 		WHERE 1=1
+			AND o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT')
 	`
 
 	countQuery := `
@@ -698,6 +707,7 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 		FROM loans l
 		JOIN officers o ON l.officer_id = o.officer_id
 		WHERE 1=1
+			AND o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT')
 	`
 
 	args := []interface{}{}
@@ -1075,17 +1085,19 @@ func (r *DashboardRepository) GetFilterOptions(filterType string, filters map[st
 }
 
 func (r *DashboardRepository) getBranches(filters map[string]interface{}) ([]string, error) {
-	query := "SELECT DISTINCT branch FROM loans WHERE 1=1"
+	query := `SELECT DISTINCT l.branch FROM loans l
+		INNER JOIN officers o ON l.officer_id = o.officer_id
+		WHERE o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT')`
 	args := []interface{}{}
 	argCount := 1
 
 	if region, ok := filters["region"].(string); ok && region != "" {
-		query += fmt.Sprintf(" AND region = $%d", argCount)
+		query += fmt.Sprintf(" AND l.region = $%d", argCount)
 		args = append(args, region)
 		argCount++
 	}
 
-	query += " ORDER BY branch"
+	query += " ORDER BY l.branch"
 
 	rows, err := r.db.Query(query, args...)
 	if err != nil {
@@ -1106,7 +1118,10 @@ func (r *DashboardRepository) getBranches(filters map[string]interface{}) ([]str
 }
 
 func (r *DashboardRepository) getRegions() ([]string, error) {
-	query := "SELECT DISTINCT region FROM loans ORDER BY region"
+	query := `SELECT DISTINCT l.region FROM loans l
+		INNER JOIN officers o ON l.officer_id = o.officer_id
+		WHERE o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT')
+		ORDER BY l.region`
 
 	rows, err := r.db.Query(query)
 	if err != nil {
@@ -1127,7 +1142,10 @@ func (r *DashboardRepository) getRegions() ([]string, error) {
 }
 
 func (r *DashboardRepository) getChannels() ([]string, error) {
-	query := "SELECT DISTINCT channel FROM loans ORDER BY channel"
+	query := `SELECT DISTINCT l.channel FROM loans l
+		INNER JOIN officers o ON l.officer_id = o.officer_id
+		WHERE o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT')
+		ORDER BY l.channel`
 
 	rows, err := r.db.Query(query)
 	if err != nil {
@@ -1148,7 +1166,11 @@ func (r *DashboardRepository) getChannels() ([]string, error) {
 }
 
 func (r *DashboardRepository) getUserTypes() ([]string, error) {
-	query := "SELECT DISTINCT user_type FROM officers WHERE user_type IS NOT NULL AND user_type != '' ORDER BY user_type"
+	query := `SELECT DISTINCT user_type FROM officers
+		WHERE user_type IS NOT NULL
+		AND user_type != ''
+		AND user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT')
+		ORDER BY user_type`
 
 	rows, err := r.db.Query(query)
 	if err != nil {
@@ -1169,23 +1191,25 @@ func (r *DashboardRepository) getUserTypes() ([]string, error) {
 }
 
 func (r *DashboardRepository) getOfficerOptions(filters map[string]interface{}) ([]*models.OfficerOption, error) {
-	query := "SELECT DISTINCT officer_id, officer_name, branch, region FROM loans WHERE 1=1"
+	query := `SELECT DISTINCT l.officer_id, l.officer_name, l.branch, l.region FROM loans l
+		INNER JOIN officers o ON l.officer_id = o.officer_id
+		WHERE o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT')`
 	args := []interface{}{}
 	argCount := 1
 
 	if branch, ok := filters["branch"].(string); ok && branch != "" {
-		query += fmt.Sprintf(" AND branch = $%d", argCount)
+		query += fmt.Sprintf(" AND l.branch = $%d", argCount)
 		args = append(args, branch)
 		argCount++
 	}
 
 	if region, ok := filters["region"].(string); ok && region != "" {
-		query += fmt.Sprintf(" AND region = $%d", argCount)
+		query += fmt.Sprintf(" AND l.region = $%d", argCount)
 		args = append(args, region)
 		argCount++
 	}
 
-	query += " ORDER BY officer_name"
+	query += " ORDER BY l.officer_name"
 
 	rows, err := r.db.Query(query, args...)
 	if err != nil {

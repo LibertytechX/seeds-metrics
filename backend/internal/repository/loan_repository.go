@@ -124,69 +124,74 @@ func (r *LoanRepository) List(ctx context.Context, filter *models.LoanFilter) ([
 	// Build query with filters
 	query := `
 		SELECT
-			loan_id, customer_name, customer_phone, officer_name, branch,
-			loan_amount, disbursement_date, current_dpd, total_outstanding,
-			fimr_tagged, status
-		FROM loans
+			l.loan_id, l.customer_name, l.customer_phone, l.officer_name, l.branch,
+			l.loan_amount, l.disbursement_date, l.current_dpd, l.total_outstanding,
+			l.fimr_tagged, l.status
+		FROM loans l
+		INNER JOIN officers o ON l.officer_id = o.officer_id
 		WHERE 1=1
+			AND o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT')
 	`
-	countQuery := "SELECT COUNT(*) FROM loans WHERE 1=1"
+	countQuery := `SELECT COUNT(*) FROM loans l
+		INNER JOIN officers o ON l.officer_id = o.officer_id
+		WHERE 1=1
+			AND o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT')`
 	args := []interface{}{}
 	argCount := 1
 
 	// Apply filters
 	if filter.OfficerID != nil {
-		query += fmt.Sprintf(" AND officer_id = $%d", argCount)
-		countQuery += fmt.Sprintf(" AND officer_id = $%d", argCount)
+		query += fmt.Sprintf(" AND l.officer_id = $%d", argCount)
+		countQuery += fmt.Sprintf(" AND l.officer_id = $%d", argCount)
 		args = append(args, *filter.OfficerID)
 		argCount++
 	}
 
 	if filter.Region != nil {
-		query += fmt.Sprintf(" AND region = $%d", argCount)
-		countQuery += fmt.Sprintf(" AND region = $%d", argCount)
+		query += fmt.Sprintf(" AND l.region = $%d", argCount)
+		countQuery += fmt.Sprintf(" AND l.region = $%d", argCount)
 		args = append(args, *filter.Region)
 		argCount++
 	}
 
 	if filter.Branch != nil {
-		query += fmt.Sprintf(" AND branch = $%d", argCount)
-		countQuery += fmt.Sprintf(" AND branch = $%d", argCount)
+		query += fmt.Sprintf(" AND l.branch = $%d", argCount)
+		countQuery += fmt.Sprintf(" AND l.branch = $%d", argCount)
 		args = append(args, *filter.Branch)
 		argCount++
 	}
 
 	if filter.Status != nil {
-		query += fmt.Sprintf(" AND status = $%d", argCount)
-		countQuery += fmt.Sprintf(" AND status = $%d", argCount)
+		query += fmt.Sprintf(" AND l.status = $%d", argCount)
+		countQuery += fmt.Sprintf(" AND l.status = $%d", argCount)
 		args = append(args, *filter.Status)
 		argCount++
 	}
 
 	if filter.FIMRTagged != nil {
-		query += fmt.Sprintf(" AND fimr_tagged = $%d", argCount)
-		countQuery += fmt.Sprintf(" AND fimr_tagged = $%d", argCount)
+		query += fmt.Sprintf(" AND l.fimr_tagged = $%d", argCount)
+		countQuery += fmt.Sprintf(" AND l.fimr_tagged = $%d", argCount)
 		args = append(args, *filter.FIMRTagged)
 		argCount++
 	}
 
 	if filter.EarlyIndicator != nil {
-		query += fmt.Sprintf(" AND early_indicator_tagged = $%d", argCount)
-		countQuery += fmt.Sprintf(" AND early_indicator_tagged = $%d", argCount)
+		query += fmt.Sprintf(" AND l.early_indicator_tagged = $%d", argCount)
+		countQuery += fmt.Sprintf(" AND l.early_indicator_tagged = $%d", argCount)
 		args = append(args, *filter.EarlyIndicator)
 		argCount++
 	}
 
 	if filter.MinDPD != nil {
-		query += fmt.Sprintf(" AND current_dpd >= $%d", argCount)
-		countQuery += fmt.Sprintf(" AND current_dpd >= $%d", argCount)
+		query += fmt.Sprintf(" AND l.current_dpd >= $%d", argCount)
+		countQuery += fmt.Sprintf(" AND l.current_dpd >= $%d", argCount)
 		args = append(args, *filter.MinDPD)
 		argCount++
 	}
 
 	if filter.MaxDPD != nil {
-		query += fmt.Sprintf(" AND current_dpd <= $%d", argCount)
-		countQuery += fmt.Sprintf(" AND current_dpd <= $%d", argCount)
+		query += fmt.Sprintf(" AND l.current_dpd <= $%d", argCount)
+		countQuery += fmt.Sprintf(" AND l.current_dpd <= $%d", argCount)
 		args = append(args, *filter.MaxDPD)
 		argCount++
 	}
