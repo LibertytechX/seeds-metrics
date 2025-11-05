@@ -43,7 +43,7 @@ const AgentPerformance = ({ agents, onViewPortfolio, onViewLowDelayLoans, initia
         const data = await response.json();
 
         if (data.status === 'success') {
-          setAllUserTypes(data.data.user_types || []);
+          setAllUserTypes(data.data['user-types'] || []);
         }
       } catch (error) {
         console.error('Error fetching user types:', error);
