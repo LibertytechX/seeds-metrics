@@ -202,6 +202,7 @@ func (s *MetricsService) CalculatePortfolioMetrics(officers []*models.DashboardO
 	var totalLoans int
 	var totalPortfolio float64
 	var watchlistCount int
+	var watchlistPortfolio float64
 	var topAYR float64
 	var topOfficer *models.TopOfficer
 
@@ -230,6 +231,10 @@ func (s *MetricsService) CalculatePortfolioMetrics(officers []*models.DashboardO
 			// Count watchlist (risk score < 40: Red band only - target <50% of officers)
 			if officer.CalculatedMetrics.RiskScore < 40 {
 				watchlistCount++
+				// Add this officer's portfolio to watchlist portfolio
+				if officer.RawMetrics != nil {
+					watchlistPortfolio += officer.RawMetrics.TotalPortfolio
+				}
 			}
 
 			// Aggregate repayment delay rate
@@ -259,6 +264,7 @@ func (s *MetricsService) CalculatePortfolioMetrics(officers []*models.DashboardO
 	portfolio.AvgRiskScore = totalRiskScore / len(officers)
 	portfolio.TopOfficer = topOfficer
 	portfolio.WatchlistCount = watchlistCount
+	portfolio.WatchlistPortfolio = watchlistPortfolio
 	portfolio.TotalLoans = totalLoans
 	portfolio.TotalPortfolio = totalPortfolio
 

@@ -4,17 +4,18 @@ import "time"
 
 // PortfolioMetrics represents aggregated portfolio-level KPIs
 type PortfolioMetrics struct {
-	TotalOverdue15d  float64     `json:"totalOverdue15d"`
-	ActualOverdue15d float64     `json:"actualOverdue15d"` // Only installments due to date
-	AvgDQI           int         `json:"avgDQI"`           // Will be removed from frontend
-	AvgAYR           float64     `json:"avgAYR"`
-	AvgRiskScore     int         `json:"avgRiskScore"`
-	TopOfficer       *TopOfficer `json:"topOfficer"`
-	WatchlistCount   int         `json:"watchlistCount"`
-	TotalOfficers    int         `json:"totalOfficers"`
-	TotalLoans       int         `json:"totalLoans"`
-	TotalPortfolio   float64     `json:"totalPortfolio"`
-	Trends           *Trends     `json:"trends,omitempty"`
+	TotalOverdue15d    float64     `json:"totalOverdue15d"`
+	ActualOverdue15d   float64     `json:"actualOverdue15d"` // Only installments due to date
+	AvgDQI             int         `json:"avgDQI"`           // Will be removed from frontend
+	AvgAYR             float64     `json:"avgAYR"`
+	AvgRiskScore       int         `json:"avgRiskScore"`
+	TopOfficer         *TopOfficer `json:"topOfficer"`
+	WatchlistCount     int         `json:"watchlistCount"`
+	WatchlistPortfolio float64     `json:"watchlistPortfolio"` // Total portfolio of watchlist officers
+	TotalOfficers      int         `json:"totalOfficers"`
+	TotalLoans         int         `json:"totalLoans"`
+	TotalPortfolio     float64     `json:"totalPortfolio"`
+	Trends             *Trends     `json:"trends,omitempty"`
 
 	// Active vs Inactive Loans
 	ActiveLoansCount    int     `json:"activeLoansCount"`
