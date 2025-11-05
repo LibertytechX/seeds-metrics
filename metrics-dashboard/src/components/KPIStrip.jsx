@@ -138,7 +138,7 @@ export const KPIStrip = ({ portfolioMetrics, onViewOverdueLoans, onViewActiveLoa
       <KPICard
         title="Watchlist Count"
         value={portfolioMetrics.watchlistCount || 0}
-        unit={`Officers / ${formatCurrency((portfolioMetrics.totalOverdue15d || 0) / 10)}`}
+        unit={`Officers / ${formatCurrency(portfolioMetrics.watchlistPortfolio || 0)} Portfolio`}
       />
     </div>
   );
