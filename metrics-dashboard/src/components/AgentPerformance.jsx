@@ -267,7 +267,7 @@ const AgentPerformance = ({ agents, onViewPortfolio, onViewLowDelayLoans, initia
       agent.avgRepaymentHealth != null ? agent.avgRepaymentHealth.toFixed(2) : 'N/A',
       agent.avgDaysSinceLastRepayment != null ? agent.avgDaysSinceLastRepayment.toFixed(1) : 'N/A',
       agent.avgLoanAge != null ? agent.avgLoanAge.toFixed(1) : 'N/A',
-      agent.repaymentDelayRate != null ? agent.repaymentDelayRate.toFixed(2) + '%' : 'N/A',
+      agent.repaymentDelayRate != null ? Math.max(0, agent.repaymentDelayRate).toFixed(2) + '%' : 'N/A',
     ]);
 
     const csvContent = [
@@ -579,9 +579,9 @@ const AgentPerformance = ({ agents, onViewPortfolio, onViewLowDelayLoans, initia
                 <td className="metric">{agent.avgLoanAge != null ? formatDecimal(agent.avgLoanAge, 1) : 'N/A'}</td>
                 <td className="metric">
                   {agent.repaymentDelayRate != null ? (
-                    <span className={`delay-rate-badge ${getRepaymentDelayBand(agent.repaymentDelayRate).color}`}>
-                      {formatDecimal(agent.repaymentDelayRate, 2)}%
-                      <span className="band-label">{getRepaymentDelayBand(agent.repaymentDelayRate).band}</span>
+                    <span className={`delay-rate-badge ${getRepaymentDelayBand(Math.max(0, agent.repaymentDelayRate)).color}`}>
+                      {formatDecimal(Math.max(0, agent.repaymentDelayRate), 2)}%
+                      <span className="band-label">{getRepaymentDelayBand(Math.max(0, agent.repaymentDelayRate)).band}</span>
                     </span>
                   ) : 'N/A'}
                 </td>
