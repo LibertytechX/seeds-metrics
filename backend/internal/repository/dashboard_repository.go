@@ -18,22 +18,26 @@ func NewDashboardRepository(db *sql.DB) *DashboardRepository {
 	return &DashboardRepository{db: db}
 }
 
-// RecalculateAllLoanFields triggers recalculation of all computed fields for all loans
-// This is done by updating the updated_at timestamp, which triggers the update_loan_computed_fields() function
+// RecalculateAllLoanFields triggers comprehensive recalculation of all computed fields for all loans
+// This calls the recalculate_all_loan_fields() stored procedure which:
+// - Recalculates all outstanding balances (principal, interest, fees)
+// - Recalculates DPD and risk indicators (fimr_tagged, early_indicator_tagged)
+// - Recalculates repayment delay rates
+// - Recalculates timeliness scores and repayment health scores
+// - Updates all 17,419 loans in a single efficient operation
 func (r *DashboardRepository) RecalculateAllLoanFields() (int64, error) {
-	query := `UPDATE loans SET updated_at = CURRENT_TIMESTAMP WHERE 1=1`
+	query := `
+		SELECT total_loans_processed, loans_updated, execution_time_ms
+		FROM recalculate_all_loan_fields()
+	`
 
-	result, err := r.db.Exec(query)
+	var totalLoans, loansUpdated, executionTimeMs int64
+	err := r.db.QueryRow(query).Scan(&totalLoans, &loansUpdated, &executionTimeMs)
 	if err != nil {
 		return 0, fmt.Errorf("failed to recalculate loan fields: %w", err)
 	}
 
-	rowsAffected, err := result.RowsAffected()
-	if err != nil {
-		return 0, fmt.Errorf("failed to get rows affected: %w", err)
-	}
-
-	return rowsAffected, nil
+	return loansUpdated, nil
 }
 
 // GetPortfolioLoanMetrics retrieves loan-level aggregated metrics for portfolio calculations
@@ -409,7 +413,13 @@ func (r *DashboardRepository) GetOfficerByID(officerID string) (*models.Dashboar
 			0 as backdated,
 			0 as entries,
 			0 as reversals,
-			false as had_float_gap
+			false as had_float_gap,
+			-- Repayment behavior metrics (align with list query)
+			COALESCE(AVG(CASE WHEN (l.principal_outstanding + l.interest_outstanding + l.fees_outstanding) > 2000 THEN l.timeliness_score ELSE NULL END), 0) as avg_timeliness_score,
+			COALESCE(AVG(CASE WHEN (l.principal_outstanding + l.interest_outstanding + l.fees_outstanding) > 2000 THEN l.repayment_health ELSE NULL END), 0) as avg_repayment_health,
+			COALESCE(AVG(CASE WHEN (l.principal_outstanding + l.interest_outstanding + l.fees_outstanding) > 2000 THEN l.days_since_last_repayment ELSE NULL END), 0) as avg_days_since_last_repayment,
+			COALESCE(AVG(CASE WHEN (l.principal_outstanding + l.interest_outstanding + l.fees_outstanding) > 2000 THEN l.loan_age ELSE NULL END), 0) as avg_loan_age,
+			COALESCE(COUNT(CASE WHEN (l.principal_outstanding + l.interest_outstanding + l.fees_outstanding) > 2000 THEN 1 ELSE NULL END), 0) as active_loans_count
 		FROM officers o
 		LEFT JOIN loans l ON o.officer_id = l.officer_id
 		LEFT JOIN loan_repayments lr ON l.loan_id = lr.loan_id
@@ -447,6 +457,11 @@ func (r *DashboardRepository) GetOfficerByID(officerID string) (*models.Dashboar
 		&officer.RawMetrics.Entries,
 		&officer.RawMetrics.Reversals,
 		&officer.RawMetrics.HadFloatGap,
+		&officer.RawMetrics.AvgTimelinessScore,
+		&officer.RawMetrics.AvgRepaymentHealth,
+		&officer.RawMetrics.AvgDaysSinceLastRepayment,
+		&officer.RawMetrics.AvgLoanAge,
+		&officer.RawMetrics.ActiveLoansCount,
 	)
 
 	if err != nil {
