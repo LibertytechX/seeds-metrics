@@ -50,6 +50,9 @@ func (h *DashboardHandler) GetPortfolioMetrics(c *gin.Context) {
 		filters["wave"] = wave
 	}
 
+	// Set high limit to fetch all officers for portfolio-level aggregation
+	filters["limit"] = 100000
+
 	// Get all officers with metrics
 	officers, err := h.dashboardRepo.GetOfficers(filters)
 	if err != nil {
