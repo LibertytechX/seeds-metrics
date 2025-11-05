@@ -29,14 +29,14 @@ DECLARE
     v_loans_updated INTEGER;
 BEGIN
     v_start_time := CURRENT_TIMESTAMP;
-    
+
     -- Get total loan count
     SELECT COUNT(*) INTO v_total_loans FROM loans;
-    
+
     -- ========================================================================
     -- STEP 1: Recalculate all computed fields using the same logic as triggers
     -- ========================================================================
-    
+
     WITH loan_repayment_data AS (
         SELECT
             l.loan_id,
@@ -55,8 +55,17 @@ BEGIN
             COUNT(r.repayment_id) as repayment_count
         FROM loans l
         LEFT JOIN repayments r ON l.loan_id = r.loan_id AND r.is_reversed = FALSE
-        GROUP BY l.loan_id, l.loan_amount, l.interest_rate, l.loan_term_days, 
+        GROUP BY l.loan_id, l.loan_amount, l.interest_rate, l.loan_term_days,
                  l.fee_amount, l.max_dpd_ever, l.disbursement_date
+    ),
+    first_due_dates AS (
+        SELECT
+            lrd.loan_id,
+            COALESCE(
+                (SELECT MIN(due_date) FROM loan_schedule WHERE loan_id = lrd.loan_id),
+                lrd.disbursement_date + INTERVAL '30 days'
+            ) as first_payment_due_date
+        FROM loan_repayment_data lrd
     ),
     calculated_fields AS (
         SELECT
@@ -75,13 +84,10 @@ BEGIN
             (COALESCE(lrd.fee_amount, 0) - lrd.total_fees_paid) as total_outstanding,
             -- First payment tracking
             lrd.first_payment_date,
-            COALESCE(
-                (SELECT MIN(due_date) FROM loan_schedule WHERE loan_id = lrd.loan_id),
-                lrd.disbursement_date + INTERVAL '30 days'
-            ) as first_payment_due_date,
+            fdd.first_payment_due_date,
             -- Days since last repayment
-            CASE WHEN lrd.last_payment_date IS NOT NULL 
-                 THEN (CURRENT_DATE - lrd.last_payment_date)::INTEGER 
+            CASE WHEN lrd.last_payment_date IS NOT NULL
+                 THEN (CURRENT_DATE - lrd.last_payment_date)::INTEGER
                  ELSE NULL END as days_since_last_repayment,
             -- Loan age
             (CURRENT_DATE - lrd.disbursement_date)::INTEGER as loan_age,
@@ -96,19 +102,29 @@ BEGIN
             ) as current_dpd,
             lrd.max_dpd_ever,
             -- Risk indicators
-            (lrd.first_payment_date IS NULL OR lrd.first_payment_date > 
-             COALESCE((SELECT MIN(due_date) FROM loan_schedule WHERE loan_id = lrd.loan_id),
-                      lrd.disbursement_date + INTERVAL '30 days')) as fimr_tagged,
+            -- FIMR: TRUE if NO repayment on or before first_payment_due_date
+            CASE
+                WHEN fdd.first_payment_due_date IS NULL THEN TRUE
+                WHEN EXISTS (
+                    SELECT 1
+                    FROM repayments r
+                    WHERE r.loan_id = lrd.loan_id
+                      AND r.payment_date <= fdd.first_payment_due_date
+                      AND r.is_reversed = FALSE
+                ) THEN FALSE
+                ELSE TRUE
+            END as fimr_tagged,
             -- Repayment delay rate
-            CASE 
-                WHEN (CURRENT_DATE - lrd.disbursement_date)::INTEGER > 0 AND 
+            CASE
+                WHEN (CURRENT_DATE - lrd.disbursement_date)::INTEGER > 0 AND
                      lrd.last_payment_date IS NOT NULL
-                THEN (1.0 - (((CURRENT_DATE - lrd.last_payment_date)::DECIMAL / 
+                THEN (1.0 - (((CURRENT_DATE - lrd.last_payment_date)::DECIMAL /
                       (CURRENT_DATE - lrd.disbursement_date)::DECIMAL) / 0.25)) * 100
                 WHEN (CURRENT_DATE - lrd.disbursement_date)::INTEGER = 0 THEN 0
                 ELSE NULL
             END as repayment_delay_rate
         FROM loan_repayment_data lrd
+        JOIN first_due_dates fdd ON lrd.loan_id = fdd.loan_id
     )
     UPDATE loans l
     SET
@@ -133,15 +149,15 @@ BEGIN
         updated_at = CURRENT_TIMESTAMP
     FROM calculated_fields cf
     WHERE l.loan_id = cf.loan_id;
-    
+
     GET DIAGNOSTICS v_loans_updated = ROW_COUNT;
-    
+
     -- ========================================================================
     -- STEP 2: Recalculate behavior scores (timeliness_score, repayment_health)
     -- ========================================================================
-    
+
     UPDATE loans l
-    SET 
+    SET
         timeliness_score = CASE
             WHEN (SELECT COUNT(*) FROM repayments r WHERE r.loan_id = l.loan_id AND r.is_reversed = FALSE) = 0 THEN
                 CASE WHEN (CURRENT_DATE - l.disbursement_date) < 7 THEN 100.00 ELSE 50.00 END
@@ -194,10 +210,10 @@ BEGIN
                 ))
         END
     WHERE loan_id IS NOT NULL;
-    
+
     v_end_time := CURRENT_TIMESTAMP;
-    
-    RETURN QUERY SELECT 
+
+    RETURN QUERY SELECT
         v_total_loans,
         v_loans_updated,
         EXTRACT(EPOCH FROM (v_end_time - v_start_time))::INTEGER * 1000;
