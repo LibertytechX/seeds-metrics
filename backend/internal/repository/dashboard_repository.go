@@ -186,6 +186,7 @@ func (r *DashboardRepository) GetOfficers(filters map[string]interface{}) ([]*mo
 			o.branch,
 			COALESCE(o.primary_channel, '') as primary_channel,
 		o.user_type,
+			o.hire_date,
 			-- Raw metrics (to be aggregated from loans)
 			COALESCE(SUM(CASE WHEN l.fimr_tagged THEN 1 ELSE 0 END), 0) as first_miss,
 			COALESCE(COUNT(DISTINCT l.loan_id), 0) as disbursed,
@@ -250,7 +251,7 @@ func (r *DashboardRepository) GetOfficers(filters map[string]interface{}) ([]*mo
 		argCount++
 	}
 
-	query += " GROUP BY o.officer_id, o.officer_name, o.region, o.branch, o.primary_channel, o.user_type"
+	query += " GROUP BY o.officer_id, o.officer_name, o.region, o.branch, o.primary_channel, o.user_type, o.hire_date"
 
 	// Apply sorting
 	sortBy := "o.officer_name"
@@ -293,6 +294,7 @@ func (r *DashboardRepository) GetOfficers(filters map[string]interface{}) ([]*mo
 			&officer.Branch,
 			&officer.Channel,
 			&officer.UserType,
+			&officer.HireDate,
 			&officer.RawMetrics.FirstMiss,
 			&officer.RawMetrics.Disbursed,
 			&officer.RawMetrics.Dpd1to6Bal,
@@ -335,6 +337,8 @@ func (r *DashboardRepository) GetOfficerByID(officerID string) (*models.Dashboar
 			o.region,
 			o.branch,
 			COALESCE(o.primary_channel, '') as primary_channel,
+			o.user_type,
+			o.hire_date,
 			COALESCE(SUM(CASE WHEN l.fimr_tagged THEN 1 ELSE 0 END), 0) as first_miss,
 			COALESCE(COUNT(DISTINCT l.loan_id), 0) as disbursed,
 			COALESCE(SUM(CASE WHEN l.current_dpd BETWEEN 1 AND 6 THEN l.principal_outstanding ELSE 0 END), 0) as dpd1to6_bal,
@@ -356,7 +360,7 @@ func (r *DashboardRepository) GetOfficerByID(officerID string) (*models.Dashboar
 		LEFT JOIN loans l ON o.officer_id = l.officer_id
 		WHERE o.officer_id = $1
 			AND o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT')
-		GROUP BY o.officer_id, o.officer_name, o.region, o.branch, o.primary_channel
+		GROUP BY o.officer_id, o.officer_name, o.region, o.branch, o.primary_channel, o.user_type, o.hire_date
 	`
 
 	officer := &models.DashboardOfficerMetrics{
@@ -369,6 +373,8 @@ func (r *DashboardRepository) GetOfficerByID(officerID string) (*models.Dashboar
 		&officer.Region,
 		&officer.Branch,
 		&officer.Channel,
+		&officer.UserType,
+		&officer.HireDate,
 		&officer.RawMetrics.FirstMiss,
 		&officer.RawMetrics.Disbursed,
 		&officer.RawMetrics.Dpd1to6Bal,
