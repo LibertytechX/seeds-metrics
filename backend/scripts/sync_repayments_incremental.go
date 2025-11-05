@@ -5,31 +5,39 @@ import (
 	"database/sql"
 	"fmt"
 	"log"
-	"os"
 	"time"
 
-	"github.com/LibertytechX/seeds-metrics/backend/internal/database"
-	"github.com/LibertytechX/seeds-metrics/backend/internal/models"
-	"github.com/LibertytechX/seeds-metrics/backend/internal/repository"
+	"github.com/seeds-metrics/analytics-backend/internal/config"
+	"github.com/seeds-metrics/analytics-backend/internal/models"
+	"github.com/seeds-metrics/analytics-backend/internal/repository"
+	"github.com/seeds-metrics/analytics-backend/pkg/database"
 	"github.com/shopspring/decimal"
 )
 
 func main() {
-	// Connect to Django database
-	djangoDB, err := database.ConnectDjango()
-	if err != nil {
-		log.Fatalf("Failed to connect to Django database: %v", err)
-	}
-	defer djangoDB.Close()
-	log.Println("✅ Connected to Django database")
+	log.Println("🚀 Starting incremental repayment sync...")
 
-	// Connect to SeedsMetrics database
-	seedsDB, err := database.ConnectSeedsMetrics()
+	// Load configuration
+	cfg, err := config.Load()
+	if err != nil {
+		log.Fatalf("Failed to load configuration: %v", err)
+	}
+
+	// Connect to SeedsMetrics database (read-write)
+	seedsDB, err := database.NewPostgresDB(&cfg.Database)
 	if err != nil {
 		log.Fatalf("Failed to connect to SeedsMetrics database: %v", err)
 	}
 	defer seedsDB.Close()
 	log.Println("✅ Connected to SeedsMetrics database")
+
+	// Connect to Django database (read-only)
+	djangoDB, err := database.NewPostgresDB(&cfg.DjangoDatabase)
+	if err != nil {
+		log.Fatalf("Failed to connect to Django database: %v", err)
+	}
+	defer djangoDB.Close()
+	log.Println("✅ Connected to Django database")
 
 	// Initialize repositories
 	djangoRepo := repository.NewDjangoRepository(djangoDB.DB)
@@ -39,7 +47,7 @@ func main() {
 
 	// Sync repayments incrementally
 	log.Println("\n📊 Syncing Repayments (Incremental)...")
-	if err := syncRepaymentIncremental(ctx, seedsDB, djangoRepo, repaymentRepo); err != nil {
+	if err := syncRepaymentIncremental(ctx, seedsDB.DB, djangoRepo, repaymentRepo); err != nil {
 		log.Fatalf("Failed to sync repayments: %v", err)
 	}
 
@@ -284,4 +292,3 @@ func syncAllRepayments(ctx context.Context, seedsDB *sql.DB, djangoRepo *reposit
 	log.Printf("✅ Full repayment sync complete: %d successful, %d errors, %dms", totalSynced, errorCount, duration)
 	return nil
 }
-
