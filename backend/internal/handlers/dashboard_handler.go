@@ -143,6 +143,9 @@ func (h *DashboardHandler) GetOfficers(c *gin.Context) {
 	if wave := c.Query("wave"); wave != "" {
 		filters["wave"] = wave
 	}
+	if userType := c.Query("user_type"); userType != "" {
+		filters["user_type"] = userType
+	}
 	if sortBy := c.Query("sort_by"); sortBy != "" {
 		filters["sort_by"] = sortBy
 	}
