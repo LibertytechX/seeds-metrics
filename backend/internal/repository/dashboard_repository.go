@@ -194,9 +194,23 @@ func (r *DashboardRepository) GetOfficers(filters map[string]interface{}) ([]*mo
 			COALESCE(SUM(l.principal_outstanding + l.interest_outstanding + l.fees_outstanding), 0) as amount_due_7d,
 			COALESCE(SUM(CASE WHEN l.current_dpd BETWEEN 7 AND 30 THEN l.principal_outstanding ELSE 0 END), 0) as moved_to_7to30,
 			COALESCE(SUM(CASE WHEN l.current_dpd BETWEEN 1 AND 6 THEN l.principal_outstanding ELSE 0 END), 0) as prev_dpd1to6_bal,
-			COALESCE(SUM(l.total_fees_paid), 0) as fees_collected,
+			-- Calculate fees collected from repayments (proportional allocation)
+			COALESCE(SUM(
+				CASE
+					WHEN l.loan_amount * (1 + l.interest_rate) + l.fee_amount > 0 THEN
+						r.payment_amount * l.fee_amount / (l.loan_amount * (1 + l.interest_rate) + l.fee_amount)
+					ELSE 0
+				END
+			), 0) as fees_collected,
 			COALESCE(SUM(l.fee_amount), 0) as fees_due,
-			COALESCE(SUM(l.total_interest_paid), 0) as interest_collected,
+			-- Calculate interest collected from repayments (proportional allocation)
+			COALESCE(SUM(
+				CASE
+					WHEN l.loan_amount * (1 + l.interest_rate) + l.fee_amount > 0 THEN
+						r.payment_amount * (l.loan_amount * l.interest_rate) / (l.loan_amount * (1 + l.interest_rate) + l.fee_amount)
+					ELSE 0
+				END
+			), 0) as interest_collected,
 			COALESCE(SUM(CASE WHEN l.current_dpd >= 15 THEN l.principal_outstanding ELSE 0 END), 0) as overdue_15d,
 			COALESCE(SUM(l.principal_outstanding), 0) as total_portfolio,
 			COALESCE(SUM(l.principal_outstanding), 0) as par15_mid_month,
@@ -213,6 +227,7 @@ func (r *DashboardRepository) GetOfficers(filters map[string]interface{}) ([]*mo
 			COALESCE(COUNT(CASE WHEN (l.principal_outstanding + l.interest_outstanding + l.fees_outstanding) > 2000 THEN 1 ELSE NULL END), 0) as active_loans_count
 		FROM officers o
 		LEFT JOIN loans l ON o.officer_id = l.officer_id
+		LEFT JOIN repayments r ON l.loan_id = r.loan_id AND r.is_reversed = false
 		WHERE 1=1
 			AND o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT')
 	`
@@ -345,9 +360,23 @@ func (r *DashboardRepository) GetOfficerByID(officerID string) (*models.Dashboar
 			COALESCE(SUM(l.principal_outstanding + l.interest_outstanding + l.fees_outstanding), 0) as amount_due_7d,
 			COALESCE(SUM(CASE WHEN l.current_dpd BETWEEN 7 AND 30 THEN l.principal_outstanding ELSE 0 END), 0) as moved_to_7to30,
 			COALESCE(SUM(CASE WHEN l.current_dpd BETWEEN 1 AND 6 THEN l.principal_outstanding ELSE 0 END), 0) as prev_dpd1to6_bal,
-			COALESCE(SUM(l.total_fees_paid), 0) as fees_collected,
+			-- Calculate fees collected from repayments (proportional allocation)
+			COALESCE(SUM(
+				CASE
+					WHEN l.loan_amount * (1 + l.interest_rate) + l.fee_amount > 0 THEN
+						r.payment_amount * l.fee_amount / (l.loan_amount * (1 + l.interest_rate) + l.fee_amount)
+					ELSE 0
+				END
+			), 0) as fees_collected,
 			COALESCE(SUM(l.fee_amount), 0) as fees_due,
-			COALESCE(SUM(l.total_interest_paid), 0) as interest_collected,
+			-- Calculate interest collected from repayments (proportional allocation)
+			COALESCE(SUM(
+				CASE
+					WHEN l.loan_amount * (1 + l.interest_rate) + l.fee_amount > 0 THEN
+						r.payment_amount * (l.loan_amount * l.interest_rate) / (l.loan_amount * (1 + l.interest_rate) + l.fee_amount)
+					ELSE 0
+				END
+			), 0) as interest_collected,
 			COALESCE(SUM(CASE WHEN l.current_dpd >= 15 THEN l.principal_outstanding ELSE 0 END), 0) as overdue_15d,
 			COALESCE(SUM(l.principal_outstanding), 0) as total_portfolio,
 			COALESCE(SUM(l.principal_outstanding), 0) as par15_mid_month,
@@ -358,6 +387,7 @@ func (r *DashboardRepository) GetOfficerByID(officerID string) (*models.Dashboar
 			false as had_float_gap
 		FROM officers o
 		LEFT JOIN loans l ON o.officer_id = l.officer_id
+		LEFT JOIN repayments r ON l.loan_id = r.loan_id AND r.is_reversed = false
 		WHERE o.officer_id = $1
 			AND o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT')
 		GROUP BY o.officer_id, o.officer_name, o.region, o.branch, o.primary_channel, o.user_type, o.hire_date
