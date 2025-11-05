@@ -227,8 +227,8 @@ func (s *MetricsService) CalculatePortfolioMetrics(officers []*models.DashboardO
 				}
 			}
 
-			// Count watchlist (risk score < 60)
-			if officer.CalculatedMetrics.RiskScore < 60 {
+			// Count watchlist (risk score < 80: Watch, Amber, Red - excludes only Green)
+			if officer.CalculatedMetrics.RiskScore < 80 {
 				watchlistCount++
 			}
 
