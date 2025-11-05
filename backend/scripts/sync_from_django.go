@@ -211,6 +211,7 @@ func syncLoans(ctx context.Context, djangoRepo *repository.DjangoRepository, loa
 			status, _ := loanData["status"].(string)
 			channel, _ := loanData["channel"].(string)
 			disbursementDate, _ := loanData["disbursement_date"].(string)
+			firstPaymentDueDate, _ := loanData["first_payment_due_date"].(string)
 			maturityDate, _ := loanData["maturity_date"].(string)
 
 			// Skip if essential fields are missing
@@ -242,6 +243,9 @@ func syncLoans(ctx context.Context, djangoRepo *repository.DjangoRepository, loa
 			}
 			if officerPhone, ok := loanData["officer_phone"].(string); ok && officerPhone != "" {
 				input.OfficerPhone = &officerPhone
+			}
+			if firstPaymentDueDate != "" {
+				input.FirstPaymentDueDate = &firstPaymentDueDate
 			}
 
 			// Decimal fields

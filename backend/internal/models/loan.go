@@ -66,28 +66,29 @@ type Loan struct {
 
 // LoanInput represents the input payload for creating/updating a loan (ETL only)
 type LoanInput struct {
-	LoanID           string           `json:"loan_id" binding:"required"`
-	CustomerID       string           `json:"customer_id" binding:"required"`
-	CustomerName     string           `json:"customer_name" binding:"required"`
-	CustomerPhone    *string          `json:"customer_phone"`
-	OfficerID        string           `json:"officer_id" binding:"required"`
-	OfficerName      string           `json:"officer_name" binding:"required"`
-	OfficerPhone     *string          `json:"officer_phone"`
-	Region           string           `json:"region" binding:"required"`
-	Branch           string           `json:"branch" binding:"required"`
-	State            *string          `json:"state"`
-	LoanAmount       decimal.Decimal  `json:"loan_amount" binding:"required"`
-	RepaymentAmount  *decimal.Decimal `json:"repayment_amount"`
-	DisbursementDate string           `json:"disbursement_date" binding:"required"` // YYYY-MM-DD
-	MaturityDate     string           `json:"maturity_date" binding:"required"`     // YYYY-MM-DD
-	LoanTermDays     int              `json:"loan_term_days" binding:"required"`
-	InterestRate     *decimal.Decimal `json:"interest_rate"`
-	FeeAmount        *decimal.Decimal `json:"fee_amount"`
-	Channel          string           `json:"channel" binding:"required"`
-	ChannelPartner   *string          `json:"channel_partner"`
-	Status           string           `json:"status" binding:"required"`
-	ClosedDate       *string          `json:"closed_date"` // YYYY-MM-DD
-	Wave             *string          `json:"wave"`        // "Wave 1" or "Wave 2", defaults to "Wave 2"
+	LoanID              string           `json:"loan_id" binding:"required"`
+	CustomerID          string           `json:"customer_id" binding:"required"`
+	CustomerName        string           `json:"customer_name" binding:"required"`
+	CustomerPhone       *string          `json:"customer_phone"`
+	OfficerID           string           `json:"officer_id" binding:"required"`
+	OfficerName         string           `json:"officer_name" binding:"required"`
+	OfficerPhone        *string          `json:"officer_phone"`
+	Region              string           `json:"region" binding:"required"`
+	Branch              string           `json:"branch" binding:"required"`
+	State               *string          `json:"state"`
+	LoanAmount          decimal.Decimal  `json:"loan_amount" binding:"required"`
+	RepaymentAmount     *decimal.Decimal `json:"repayment_amount"`
+	DisbursementDate    string           `json:"disbursement_date" binding:"required"` // YYYY-MM-DD
+	FirstPaymentDueDate *string          `json:"first_payment_due_date"`               // YYYY-MM-DD (optional, from Django)
+	MaturityDate        string           `json:"maturity_date" binding:"required"`     // YYYY-MM-DD
+	LoanTermDays        int              `json:"loan_term_days" binding:"required"`
+	InterestRate        *decimal.Decimal `json:"interest_rate"`
+	FeeAmount           *decimal.Decimal `json:"fee_amount"`
+	Channel             string           `json:"channel" binding:"required"`
+	ChannelPartner      *string          `json:"channel_partner"`
+	Status              string           `json:"status" binding:"required"`
+	ClosedDate          *string          `json:"closed_date"` // YYYY-MM-DD
+	Wave                *string          `json:"wave"`        // "Wave 1" or "Wave 2", defaults to "Wave 2"
 }
 
 // LoanFilter represents filter criteria for querying loans

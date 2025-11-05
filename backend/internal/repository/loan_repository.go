@@ -26,14 +26,14 @@ func (r *LoanRepository) Create(ctx context.Context, input *models.LoanInput) er
 			loan_id, customer_id, customer_name, customer_phone,
 			officer_id, officer_name, officer_phone,
 			region, branch, state,
-			loan_amount, repayment_amount, disbursement_date, maturity_date, loan_term_days,
+			loan_amount, repayment_amount, disbursement_date, first_payment_due_date, maturity_date, loan_term_days,
 			interest_rate, fee_amount,
 			channel, channel_partner,
 			status, closed_date, wave,
 			created_at, updated_at
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-			$11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, COALESCE($22, 'Wave 2'),
+			$11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, COALESCE($23, 'Wave 2'),
 			NOW(), NOW()
 		)
 		ON CONFLICT (loan_id) DO NOTHING
@@ -42,6 +42,15 @@ func (r *LoanRepository) Create(ctx context.Context, input *models.LoanInput) er
 	disbursementDate, err := time.Parse("2006-01-02", input.DisbursementDate)
 	if err != nil {
 		return fmt.Errorf("invalid disbursement_date format: %w", err)
+	}
+
+	var firstPaymentDueDate *time.Time
+	if input.FirstPaymentDueDate != nil {
+		parsed, err := time.Parse("2006-01-02", *input.FirstPaymentDueDate)
+		if err != nil {
+			return fmt.Errorf("invalid first_payment_due_date format: %w", err)
+		}
+		firstPaymentDueDate = &parsed
 	}
 
 	maturityDate, err := time.Parse("2006-01-02", input.MaturityDate)
@@ -62,7 +71,7 @@ func (r *LoanRepository) Create(ctx context.Context, input *models.LoanInput) er
 		input.LoanID, input.CustomerID, input.CustomerName, input.CustomerPhone,
 		input.OfficerID, input.OfficerName, input.OfficerPhone,
 		input.Region, input.Branch, input.State,
-		input.LoanAmount, input.RepaymentAmount, disbursementDate, maturityDate, input.LoanTermDays,
+		input.LoanAmount, input.RepaymentAmount, disbursementDate, firstPaymentDueDate, maturityDate, input.LoanTermDays,
 		input.InterestRate, input.FeeAmount,
 		input.Channel, input.ChannelPartner,
 		input.Status, closedDate, input.Wave,
