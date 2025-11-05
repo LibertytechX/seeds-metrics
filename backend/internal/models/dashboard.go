@@ -72,6 +72,7 @@ type DashboardOfficerMetrics struct {
 	Region            string             `json:"region"`
 	Branch            string             `json:"branch"`
 	Channel           string             `json:"channel"`
+	UserType          *string            `json:"user_type,omitempty"`
 	RawMetrics        *RawMetrics        `json:"rawMetrics"`
 	CalculatedMetrics *CalculatedMetrics `json:"calculatedMetrics"`
 	RiskBand          string             `json:"riskBand"`
