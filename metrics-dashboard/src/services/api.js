@@ -125,6 +125,7 @@ class ApiService {
       region: officer.region,
       branch: officer.branch,
       channel: officer.channel,
+      userType: officer.user_type,
       riskScore: officer.calculatedMetrics?.riskScore || 0,
       riskBand: officer.riskBand || 'Green',
       fimr: officer.calculatedMetrics?.fimr || 0,
