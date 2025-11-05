@@ -70,7 +70,9 @@ func syncFirstPaymentDueDate(ctx context.Context, djangoDB *sql.DB, seedsDB *sql
 		}
 
 		batchCount := 0
+		rowsFetched := 0
 		for rows.Next() {
+			rowsFetched++
 			var loanID string
 			var firstPaymentDueDate sql.NullTime
 
@@ -119,14 +121,14 @@ func syncFirstPaymentDueDate(ctx context.Context, djangoDB *sql.DB, seedsDB *sql
 		}
 
 		if batchCount > 0 {
-			log.Printf("   Updated %d loans (batch offset=%d)", batchCount, offset)
+			log.Printf("   Updated %d loans (batch offset=%d, fetched %d rows)", batchCount, offset, rowsFetched)
 		}
 
 		// Move to next batch
 		offset += batchSize
 
 		// If we got fewer than batchSize, we're done
-		if batchCount < batchSize {
+		if rowsFetched < batchSize {
 			break
 		}
 
