@@ -55,7 +55,7 @@ func syncFirstPaymentDueDate(ctx context.Context, djangoDB *sql.DB, seedsDB *sql
 	for {
 		// Fetch loans from Django with their start_date
 		query := `
-			SELECT 
+			SELECT
 				l.id::VARCHAR(50) as loan_id,
 				l.start_date as first_payment_due_date
 			FROM loans_ajoloan l
@@ -68,7 +68,6 @@ func syncFirstPaymentDueDate(ctx context.Context, djangoDB *sql.DB, seedsDB *sql
 		if err != nil {
 			return fmt.Errorf("failed to query Django database: %w", err)
 		}
-		defer rows.Close()
 
 		batchCount := 0
 		for rows.Next() {
@@ -113,6 +112,8 @@ func syncFirstPaymentDueDate(ctx context.Context, djangoDB *sql.DB, seedsDB *sql
 			}
 		}
 
+		rows.Close()
+
 		if err := rows.Err(); err != nil {
 			return fmt.Errorf("error iterating rows: %w", err)
 		}
@@ -137,7 +138,7 @@ func syncFirstPaymentDueDate(ctx context.Context, djangoDB *sql.DB, seedsDB *sql
 
 	// Verify the update
 	verifyQuery := `
-		SELECT 
+		SELECT
 			COUNT(*) as total_loans,
 			COUNT(CASE WHEN (first_payment_due_date - disbursement_date) = 30 THEN 1 END) as loans_with_30_day_gap,
 			COUNT(CASE WHEN (first_payment_due_date - disbursement_date) != 30 THEN 1 END) as loans_with_correct_gap
@@ -157,4 +158,3 @@ func syncFirstPaymentDueDate(ctx context.Context, djangoDB *sql.DB, seedsDB *sql
 
 	return nil
 }
-
