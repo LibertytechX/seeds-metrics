@@ -20,6 +20,9 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     rot_type: initialFilter?.rot_type || '', // 'early' or 'late'
     delay_type: initialFilter?.delay_type || '', // 'risky' for high delay loans
   });
+  const [allBranches, setAllBranches] = useState([]);
+  const [allRegions, setAllRegions] = useState([]);
+  const [allChannels, setAllChannels] = useState([]);
   const [filterLabel, setFilterLabel] = useState(
     initialFilter?.officer_name ? `Officer: ${initialFilter.officer_name}` :
     initialFilter?.label ? initialFilter.label : ''
@@ -35,6 +38,38 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
   const [selectedLoan, setSelectedLoan] = useState(null);
   const [recalculating, setRecalculating] = useState(false);
   const [recalculateMessage, setRecalculateMessage] = useState('');
+
+  // Fetch filter options from API
+  const fetchFilterOptions = async () => {
+    try {
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8081/api/v1';
+
+      // Fetch branches, regions, and channels from API
+      const [branchesRes, regionsRes, channelsRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/filters/branches`),
+        fetch(`${API_BASE_URL}/filters/regions`),
+        fetch(`${API_BASE_URL}/filters/channels`),
+      ]);
+
+      const [branchesData, regionsData, channelsData] = await Promise.all([
+        branchesRes.json(),
+        regionsRes.json(),
+        channelsRes.json(),
+      ]);
+
+      if (branchesData.status === 'success') {
+        setAllBranches(branchesData.data.branches || []);
+      }
+      if (regionsData.status === 'success') {
+        setAllRegions(regionsData.data.regions || []);
+      }
+      if (channelsData.status === 'success') {
+        setAllChannels(channelsData.data.channels || []);
+      }
+    } catch (error) {
+      console.error('Error fetching filter options:', error);
+    }
+  };
 
   // Fetch loans from API
   const fetchLoans = async () => {
@@ -159,6 +194,11 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     }
   }, [initialFilter]);
 
+  // Fetch filter options on mount
+  useEffect(() => {
+    fetchFilterOptions();
+  }, []);
+
   useEffect(() => {
     fetchLoans();
   }, [pagination.page, pagination.limit, sortConfig, filters]);
@@ -167,12 +207,12 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
   const filterOptions = useMemo(() => {
     return {
       officers: [...new Set(loans.map(l => l.officer_name))].filter(Boolean).sort(),
-      branches: [...new Set(loans.map(l => l.branch))].filter(Boolean).sort(),
-      regions: [...new Set(loans.map(l => l.region))].filter(Boolean).sort(),
-      channels: [...new Set(loans.map(l => l.channel))].filter(Boolean).sort(),
+      branches: allBranches.length > 0 ? allBranches.sort() : [...new Set(loans.map(l => l.branch))].filter(Boolean).sort(),
+      regions: allRegions.length > 0 ? allRegions.sort() : [...new Set(loans.map(l => l.region))].filter(Boolean).sort(),
+      channels: allChannels.length > 0 ? allChannels.sort() : [...new Set(loans.map(l => l.channel))].filter(Boolean).sort(),
       statuses: [...new Set(loans.map(l => l.status))].filter(Boolean).sort(),
     };
-  }, [loans]);
+  }, [loans, allBranches, allRegions, allChannels]);
 
   const handleSort = (key) => {
     setSortConfig(prev => ({
