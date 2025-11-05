@@ -8,7 +8,7 @@ BEGIN
     RAISE NOTICE '=== FIMR STATISTICS BEFORE MIGRATION ===';
 END $$;
 
-SELECT 
+SELECT
     COUNT(*) as total_loans,
     SUM(CASE WHEN fimr_tagged = TRUE THEN 1 ELSE 0 END) as fimr_true_count,
     SUM(CASE WHEN fimr_tagged = FALSE THEN 1 ELSE 0 END) as fimr_false_count,
@@ -52,30 +52,30 @@ BEGIN
         v_loan_id := OLD.loan_id;
     END IF;
 
-    SELECT 
-        loan_amount, 
-        interest_rate, 
-        loan_term_days, 
+    SELECT
+        loan_amount,
+        interest_rate,
+        loan_term_days,
         fee_amount,
         disbursement_date,
         first_payment_due_date
-    INTO 
-        v_loan_amount, 
-        v_interest_rate, 
-        v_loan_term_days, 
+    INTO
+        v_loan_amount,
+        v_interest_rate,
+        v_loan_term_days,
         v_fee_amount,
         v_disbursement_date,
         v_first_due_date
     FROM loans
     WHERE loan_id = v_loan_id;
 
-    SELECT 
+    SELECT
         COALESCE(SUM(principal_amount), 0),
         COALESCE(SUM(interest_amount), 0),
         COALESCE(SUM(fees_amount), 0),
         MIN(payment_date),
         MAX(payment_date)
-    INTO 
+    INTO
         v_total_principal_paid,
         v_total_interest_paid,
         v_total_fees_paid,
@@ -86,10 +86,10 @@ BEGIN
       AND is_reversed = FALSE;
 
     v_principal_outstanding := GREATEST(0, v_loan_amount - v_total_principal_paid);
-    v_interest_outstanding := GREATEST(0, 
+    v_interest_outstanding := GREATEST(0,
         (v_loan_amount * v_interest_rate * v_loan_term_days / 365) - v_total_interest_paid
     );
-    v_fees_outstanding := GREATEST(0, 
+    v_fees_outstanding := GREATEST(0,
         COALESCE(v_fee_amount, 0) - v_total_fees_paid
     );
     v_total_outstanding := GREATEST(0,
@@ -178,6 +178,7 @@ SET
               AND r.payment_date <= l.first_payment_due_date
               AND r.is_reversed = FALSE
         ) THEN FALSE
+        WHEN l.first_payment_received_date IS NULL AND l.first_payment_due_date >= CURRENT_DATE THEN FALSE  -- No payment yet but due date not passed
         ELSE TRUE
     END,
     updated_at = CURRENT_TIMESTAMP;
@@ -188,7 +189,7 @@ BEGIN
     RAISE NOTICE '=== FIMR STATISTICS AFTER MIGRATION ===';
 END $$;
 
-SELECT 
+SELECT
     COUNT(*) as total_loans,
     SUM(CASE WHEN fimr_tagged = TRUE THEN 1 ELSE 0 END) as fimr_true_count,
     SUM(CASE WHEN fimr_tagged = FALSE THEN 1 ELSE 0 END) as fimr_false_count,
@@ -201,7 +202,7 @@ BEGIN
     RAISE NOTICE '=== SAMPLE: LOANS WITH EARLY PAYMENTS (NOW FIMR = FALSE) ===';
 END $$;
 
-SELECT 
+SELECT
     l.loan_id,
     l.first_payment_due_date,
     l.first_payment_received_date,
@@ -222,7 +223,7 @@ BEGIN
     RAISE NOTICE '=== SAMPLE: LOANS WITH LATE FIRST PAYMENTS (FIMR = TRUE) ===';
 END $$;
 
-SELECT 
+SELECT
     l.loan_id,
     l.first_payment_due_date,
     l.first_payment_received_date,

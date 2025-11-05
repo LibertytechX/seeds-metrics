@@ -17,7 +17,7 @@ BEGIN
     RAISE NOTICE '=== FIMR STATISTICS BEFORE MIGRATION ===';
 END $$;
 
-SELECT 
+SELECT
     COUNT(*) as total_loans,
     SUM(CASE WHEN fimr_tagged = TRUE THEN 1 ELSE 0 END) as fimr_true_count,
     SUM(CASE WHEN fimr_tagged = FALSE THEN 1 ELSE 0 END) as fimr_false_count,
@@ -26,7 +26,7 @@ FROM loans
 WHERE first_payment_due_date IS NOT NULL;
 
 -- Step 2: Recalculate FIMR for ALL loans using the correct logic
--- FIMR = TRUE if NO repayment on or before first_payment_due_date
+-- FIMR = TRUE if NO repayment on or before first_payment_due_date AND due date has passed
 UPDATE loans l
 SET
     fimr_tagged = CASE
@@ -38,6 +38,7 @@ SET
               AND r.payment_date <= l.first_payment_due_date
               AND r.is_reversed = FALSE
         ) THEN FALSE
+        WHEN l.first_payment_received_date IS NULL AND l.first_payment_due_date >= CURRENT_DATE THEN FALSE  -- No payment yet but due date not passed
         ELSE TRUE
     END,
     updated_at = CURRENT_TIMESTAMP
@@ -49,7 +50,7 @@ BEGIN
     RAISE NOTICE '=== FIMR STATISTICS AFTER MIGRATION ===';
 END $$;
 
-SELECT 
+SELECT
     COUNT(*) as total_loans,
     SUM(CASE WHEN fimr_tagged = TRUE THEN 1 ELSE 0 END) as fimr_true_count,
     SUM(CASE WHEN fimr_tagged = FALSE THEN 1 ELSE 0 END) as fimr_false_count,
@@ -63,7 +64,7 @@ BEGIN
     RAISE NOTICE '=== VERIFICATION: Early/On-Time Payments Tagged as FIMR ===';
 END $$;
 
-SELECT 
+SELECT
     COUNT(*) as incorrectly_tagged_count
 FROM loans l
 WHERE (l.first_payment_received_date <= l.first_payment_due_date
@@ -77,7 +78,7 @@ BEGIN
     RAISE NOTICE '=== VERIFICATION: Late Payments NOT Tagged as FIMR ===';
 END $$;
 
-SELECT 
+SELECT
     COUNT(*) as incorrectly_tagged_count
 FROM loans l
 WHERE l.first_payment_received_date > l.first_payment_due_date
@@ -90,7 +91,7 @@ BEGIN
     RAISE NOTICE '=== BREAKDOWN BY PAYMENT STATUS ===';
 END $$;
 
-SELECT 
+SELECT
     'Early Payments' as payment_status,
     COUNT(*) as total_loans,
     SUM(CASE WHEN fimr_tagged = FALSE THEN 1 ELSE 0 END) as correctly_tagged_false,
@@ -102,7 +103,7 @@ WHERE first_payment_received_date < first_payment_due_date
 
 UNION ALL
 
-SELECT 
+SELECT
     'On-Time Payments' as payment_status,
     COUNT(*) as total_loans,
     SUM(CASE WHEN fimr_tagged = FALSE THEN 1 ELSE 0 END) as correctly_tagged_false,
@@ -114,7 +115,7 @@ WHERE first_payment_received_date = first_payment_due_date
 
 UNION ALL
 
-SELECT 
+SELECT
     'Late Payments' as payment_status,
     COUNT(*) as total_loans,
     SUM(CASE WHEN fimr_tagged = TRUE THEN 1 ELSE 0 END) as correctly_tagged_true,
@@ -126,7 +127,7 @@ WHERE first_payment_received_date > first_payment_due_date
 
 UNION ALL
 
-SELECT 
+SELECT
     'No Payments' as payment_status,
     COUNT(*) as total_loans,
     SUM(CASE WHEN fimr_tagged = TRUE THEN 1 ELSE 0 END) as correctly_tagged_true,

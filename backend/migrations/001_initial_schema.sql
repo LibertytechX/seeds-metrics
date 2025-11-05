@@ -532,11 +532,12 @@ BEGIN
         max_dpd_ever = GREATEST(v_max_dpd, v_current_dpd),
 
         -- Risk indicators
-        -- NEW FIMR (First Installment Missed and Recovered): TRUE if NO repayment on or before first_payment_due_date
+        -- FIMR (First Installment Missed Rate): TRUE if NO repayment on or before first_payment_due_date AND due date has passed
         fimr_tagged = CASE
             WHEN v_first_due_date IS NULL THEN TRUE  -- No first payment due date available
             WHEN v_payment_on_due_date_exists THEN FALSE  -- Payment exists on or before first_payment_due_date
-            ELSE TRUE  -- No payment on or before first_payment_due_date
+            WHEN v_first_payment_date IS NULL AND v_first_due_date >= CURRENT_DATE THEN FALSE  -- No payment yet but due date not passed
+            ELSE TRUE  -- No payment on or before first_payment_due_date AND due date has passed
         END,
         early_indicator_tagged = (v_current_dpd BETWEEN 1 AND 6),
 

@@ -102,7 +102,7 @@ BEGIN
             ) as current_dpd,
             lrd.max_dpd_ever,
             -- Risk indicators
-            -- FIMR: TRUE if NO repayment on or before first_payment_due_date
+            -- FIMR: TRUE if NO repayment on or before first_payment_due_date AND due date has passed
             CASE
                 WHEN fdd.first_payment_due_date IS NULL THEN TRUE
                 WHEN EXISTS (
@@ -112,6 +112,7 @@ BEGIN
                       AND r.payment_date <= fdd.first_payment_due_date
                       AND r.is_reversed = FALSE
                 ) THEN FALSE
+                WHEN lrd.first_payment_date IS NULL AND fdd.first_payment_due_date >= CURRENT_DATE THEN FALSE  -- No payment yet but due date not passed
                 ELSE TRUE
             END as fimr_tagged,
             -- Repayment delay rate
