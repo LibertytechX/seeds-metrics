@@ -126,6 +126,7 @@ class ApiService {
       branch: officer.branch,
       channel: officer.channel,
       userType: officer.user_type,
+      dateJoined: officer.hire_date || null,
       riskScore: officer.calculatedMetrics?.riskScore || 0,
       riskBand: officer.riskBand || 'Green',
       fimr: officer.calculatedMetrics?.fimr || 0,

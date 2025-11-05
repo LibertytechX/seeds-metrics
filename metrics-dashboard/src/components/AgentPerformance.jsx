@@ -232,7 +232,7 @@ const AgentPerformance = ({ agents, onViewPortfolio, onViewLowDelayLoans, initia
   const handleExport = () => {
     // Create CSV content
     const headers = [
-      'Officer Name', 'Region', 'Branch', 'Risk Score', 'Risk Band', 'Assignee',
+      'Officer Name', 'Region', 'Branch', 'Date Joined', 'Risk Score', 'Risk Band', 'Assignee',
       'Audit Status', 'Last Audit Date', 'AYR', 'DQI', 'FIMR', 'All-Time FIMR', 'D0-6 Slippage',
       'Roll', 'FRR', 'Portfolio Total', 'Overdue >15D', 'Active Loans', 'Channel',
       'Yield', 'PORR', 'Channel Purity', 'Rank',
@@ -243,6 +243,7 @@ const AgentPerformance = ({ agents, onViewPortfolio, onViewLowDelayLoans, initia
       agent.officerName,
       agent.region,
       agent.branch,
+      agent.dateJoined ? formatDate(agent.dateJoined) : 'N/A',
       agent.riskScore,
       agent.riskBand,
       agent.assignee,
@@ -491,6 +492,7 @@ const AgentPerformance = ({ agents, onViewPortfolio, onViewLowDelayLoans, initia
               <th onClick={() => handleSort('officerName')}>Officer Name</th>
               <th onClick={() => handleSort('region')}>Region</th>
               <th onClick={() => handleSort('branch')}>Branch</th>
+              <th onClick={() => handleSort('dateJoined')}>Date Joined</th>
               <th onClick={() => handleSort('riskScore')}>Risk Score</th>
               <th onClick={() => handleSort('riskBand')}>Risk Band</th>
               <th onClick={() => handleSort('assignee')}>Assignee</th>
@@ -525,6 +527,9 @@ const AgentPerformance = ({ agents, onViewPortfolio, onViewLowDelayLoans, initia
                 <td className="officer-name">{agent.officerName}</td>
                 <td>{agent.region}</td>
                 <td>{agent.branch}</td>
+                <td className="date-joined">
+                  {agent.dateJoined ? formatDate(agent.dateJoined) : <span className="no-data">N/A</span>}
+                </td>
                 <td className="risk-score">{formatDecimal(agent.riskScore, 1)}</td>
                 <td>
                   <span className={`band-badge ${getRiskBandColor(agent.riskBand)}`}>
