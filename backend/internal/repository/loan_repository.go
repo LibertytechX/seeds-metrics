@@ -130,12 +130,12 @@ func (r *LoanRepository) List(ctx context.Context, filter *models.LoanFilter) ([
 		FROM loans l
 		INNER JOIN officers o ON l.officer_id = o.officer_id
 		WHERE 1=1
-			AND o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT')
+			AND o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PROSPER_AGENT', 'STAFF_AGENT')
 	`
 	countQuery := `SELECT COUNT(*) FROM loans l
 		INNER JOIN officers o ON l.officer_id = o.officer_id
 		WHERE 1=1
-			AND o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT')`
+			AND o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PROSPER_AGENT', 'STAFF_AGENT')`
 	args := []interface{}{}
 	argCount := 1
 
