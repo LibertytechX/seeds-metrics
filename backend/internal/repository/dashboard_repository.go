@@ -487,7 +487,7 @@ func (r *DashboardRepository) GetFIMRLoans(filters map[string]interface{}) ([]*m
 			l.loan_amount,
 			l.first_payment_due_date as first_payment_due_date,
 			l.first_payment_received_date,
-			l.current_dpd as days_since_due,
+			l.days_since_due,
 			CASE
 				WHEN l.loan_term_days > 0 THEN l.loan_amount / l.loan_term_days
 				ELSE 0
