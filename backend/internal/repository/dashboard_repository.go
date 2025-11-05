@@ -179,6 +179,18 @@ func (r *DashboardRepository) GetActualOverdue15d(filters map[string]interface{}
 // GetOfficers retrieves all officers with their raw metrics
 func (r *DashboardRepository) GetOfficers(filters map[string]interface{}) ([]*models.DashboardOfficerMetrics, error) {
 	query := `
+		WITH loan_repayments AS (
+			SELECT
+				l.loan_id,
+				l.officer_id,
+				l.loan_amount,
+				l.interest_rate,
+				l.fee_amount,
+				SUM(r.payment_amount) as total_repayments
+			FROM loans l
+			LEFT JOIN repayments r ON l.loan_id = r.loan_id AND r.is_reversed = false
+			GROUP BY l.loan_id, l.officer_id, l.loan_amount, l.interest_rate, l.fee_amount
+		)
 		SELECT
 			o.officer_id,
 			o.officer_name,
@@ -197,8 +209,8 @@ func (r *DashboardRepository) GetOfficers(filters map[string]interface{}) ([]*mo
 			-- Calculate fees collected from repayments (proportional allocation)
 			COALESCE(SUM(
 				CASE
-					WHEN l.loan_amount * (1 + l.interest_rate) + l.fee_amount > 0 THEN
-						r.payment_amount * l.fee_amount / (l.loan_amount * (1 + l.interest_rate) + l.fee_amount)
+					WHEN lr.loan_amount * (1 + lr.interest_rate) + lr.fee_amount > 0 THEN
+						lr.total_repayments * lr.fee_amount / (lr.loan_amount * (1 + lr.interest_rate) + lr.fee_amount)
 					ELSE 0
 				END
 			), 0) as fees_collected,
@@ -206,8 +218,8 @@ func (r *DashboardRepository) GetOfficers(filters map[string]interface{}) ([]*mo
 			-- Calculate interest collected from repayments (proportional allocation)
 			COALESCE(SUM(
 				CASE
-					WHEN l.loan_amount * (1 + l.interest_rate) + l.fee_amount > 0 THEN
-						r.payment_amount * (l.loan_amount * l.interest_rate) / (l.loan_amount * (1 + l.interest_rate) + l.fee_amount)
+					WHEN lr.loan_amount * (1 + lr.interest_rate) + lr.fee_amount > 0 THEN
+						lr.total_repayments * (lr.loan_amount * lr.interest_rate) / (lr.loan_amount * (1 + lr.interest_rate) + lr.fee_amount)
 					ELSE 0
 				END
 			), 0) as interest_collected,
@@ -227,7 +239,7 @@ func (r *DashboardRepository) GetOfficers(filters map[string]interface{}) ([]*mo
 			COALESCE(COUNT(CASE WHEN (l.principal_outstanding + l.interest_outstanding + l.fees_outstanding) > 2000 THEN 1 ELSE NULL END), 0) as active_loans_count
 		FROM officers o
 		LEFT JOIN loans l ON o.officer_id = l.officer_id
-		LEFT JOIN repayments r ON l.loan_id = r.loan_id AND r.is_reversed = false
+		LEFT JOIN loan_repayments lr ON l.loan_id = lr.loan_id
 		WHERE 1=1
 			AND o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT')
 	`
@@ -346,6 +358,19 @@ func (r *DashboardRepository) GetOfficers(filters map[string]interface{}) ([]*mo
 // GetOfficerByID retrieves a single officer by ID
 func (r *DashboardRepository) GetOfficerByID(officerID string) (*models.DashboardOfficerMetrics, error) {
 	query := `
+		WITH loan_repayments AS (
+			SELECT
+				l.loan_id,
+				l.officer_id,
+				l.loan_amount,
+				l.interest_rate,
+				l.fee_amount,
+				SUM(r.payment_amount) as total_repayments
+			FROM loans l
+			LEFT JOIN repayments r ON l.loan_id = r.loan_id AND r.is_reversed = false
+			WHERE l.officer_id = $1
+			GROUP BY l.loan_id, l.officer_id, l.loan_amount, l.interest_rate, l.fee_amount
+		)
 		SELECT
 			o.officer_id,
 			o.officer_name,
@@ -363,8 +388,8 @@ func (r *DashboardRepository) GetOfficerByID(officerID string) (*models.Dashboar
 			-- Calculate fees collected from repayments (proportional allocation)
 			COALESCE(SUM(
 				CASE
-					WHEN l.loan_amount * (1 + l.interest_rate) + l.fee_amount > 0 THEN
-						r.payment_amount * l.fee_amount / (l.loan_amount * (1 + l.interest_rate) + l.fee_amount)
+					WHEN lr.loan_amount * (1 + lr.interest_rate) + lr.fee_amount > 0 THEN
+						lr.total_repayments * lr.fee_amount / (lr.loan_amount * (1 + lr.interest_rate) + lr.fee_amount)
 					ELSE 0
 				END
 			), 0) as fees_collected,
@@ -372,8 +397,8 @@ func (r *DashboardRepository) GetOfficerByID(officerID string) (*models.Dashboar
 			-- Calculate interest collected from repayments (proportional allocation)
 			COALESCE(SUM(
 				CASE
-					WHEN l.loan_amount * (1 + l.interest_rate) + l.fee_amount > 0 THEN
-						r.payment_amount * (l.loan_amount * l.interest_rate) / (l.loan_amount * (1 + l.interest_rate) + l.fee_amount)
+					WHEN lr.loan_amount * (1 + lr.interest_rate) + lr.fee_amount > 0 THEN
+						lr.total_repayments * (lr.loan_amount * lr.interest_rate) / (lr.loan_amount * (1 + lr.interest_rate) + lr.fee_amount)
 					ELSE 0
 				END
 			), 0) as interest_collected,
@@ -387,7 +412,7 @@ func (r *DashboardRepository) GetOfficerByID(officerID string) (*models.Dashboar
 			false as had_float_gap
 		FROM officers o
 		LEFT JOIN loans l ON o.officer_id = l.officer_id
-		LEFT JOIN repayments r ON l.loan_id = r.loan_id AND r.is_reversed = false
+		LEFT JOIN loan_repayments lr ON l.loan_id = lr.loan_id
 		WHERE o.officer_id = $1
 			AND o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT')
 		GROUP BY o.officer_id, o.officer_name, o.region, o.branch, o.primary_channel, o.user_type, o.hire_date
