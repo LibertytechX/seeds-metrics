@@ -754,9 +754,9 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 			l.channel,
 			l.loan_amount,
 			l.repayment_amount,
-			l.disbursement_date,
-			l.first_payment_due_date,
-			l.maturity_date,
+			TO_CHAR(l.disbursement_date, 'YYYY-MM-DD') as disbursement_date,
+			TO_CHAR(l.first_payment_due_date, 'YYYY-MM-DD') as first_payment_due_date,
+			TO_CHAR(l.maturity_date, 'YYYY-MM-DD') as maturity_date,
 			l.loan_term_days,
 			l.current_dpd,
 			l.principal_outstanding,
@@ -874,7 +874,7 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 	loans := []*models.AllLoan{}
 	for rows.Next() {
 		loan := &models.AllLoan{}
-		var customerPhone, officerID, firstPaymentDueDate sql.NullString
+		var customerPhone, officerID, firstPaymentDueDate, maturityDate sql.NullString
 		var repaymentAmount, timelinessScore, repaymentHealth, repaymentDelayRate sql.NullFloat64
 		var daysSinceLastRepayment sql.NullInt64
 
@@ -891,7 +891,7 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 			&repaymentAmount,
 			&loan.DisbursementDate,
 			&firstPaymentDueDate,
-			&loan.MaturityDate,
+			&maturityDate,
 			&loan.LoanTermDays,
 			&loan.CurrentDPD,
 			&loan.PrincipalOutstanding,
@@ -924,6 +924,9 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 		}
 		if firstPaymentDueDate.Valid {
 			loan.FirstPaymentDueDate = &firstPaymentDueDate.String
+		}
+		if maturityDate.Valid {
+			loan.MaturityDate = maturityDate.String
 		}
 		if timelinessScore.Valid {
 			val := timelinessScore.Float64
