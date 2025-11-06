@@ -4,6 +4,7 @@ import { formatMetricTooltip } from '../utils/metricInfo';
 import { MetricHeader } from './Tooltip';
 import { Filter, Download } from 'lucide-react';
 import './DataTables.css';
+import './CreditHealthByBranch.css';
 
 const BandBadge = ({ band }) => {
   const colors = {
@@ -181,13 +182,13 @@ const CreditHealthTable = ({ officers, onFilterChange }) => {
   const activeFilterCount = Object.values(filters).filter(v => v !== '').length;
 
   return (
-    <div className="credit-health-container">
-      <div className="credit-health-header">
-        <div className="credit-health-title">
+    <div className="credit-health-branch">
+      <div className="branch-header">
+        <div className="branch-title">
           <h2>Credit Health Overview</h2>
-          <span className="officer-count">{officers.length} Officers</span>
+          <span className="branch-count">{officers.length} Officers</span>
         </div>
-        <div className="credit-health-actions">
+        <div className="branch-actions">
           <button
             className={`filter-toggle ${showFilters ? 'active' : ''}`}
             onClick={() => setShowFilters(!showFilters)}
