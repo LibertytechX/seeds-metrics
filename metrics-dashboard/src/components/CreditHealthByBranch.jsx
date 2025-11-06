@@ -94,7 +94,7 @@ const CreditHealthByBranch = ({ branches: initialBranches, onFilterChange }) => 
 
   // Apply sorting
   const sortedBranches = useMemo(() => {
-    const sorted = [...filteredBranches];
+    const sorted = [...branches];
     sorted.sort((a, b) => {
       let aVal = a[sortConfig.key];
       let bVal = b[sortConfig.key];
@@ -112,7 +112,7 @@ const CreditHealthByBranch = ({ branches: initialBranches, onFilterChange }) => 
       return 0;
     });
     return sorted;
-  }, [filteredBranches, sortConfig]);
+  }, [branches, sortConfig]);
 
   const handleSort = (key) => {
     setSortConfig(prev => ({
