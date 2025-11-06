@@ -70,6 +70,7 @@ type DashboardOfficerMetrics struct {
 	ID                int                `json:"id"`
 	OfficerID         string             `json:"officer_id"`
 	Name              string             `json:"name"`
+	Email             string             `json:"email,omitempty"`
 	Region            string             `json:"region"`
 	Branch            string             `json:"branch"`
 	Channel           string             `json:"channel"`

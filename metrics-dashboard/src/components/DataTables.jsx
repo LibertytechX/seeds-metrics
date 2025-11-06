@@ -111,6 +111,7 @@ const CreditHealthTable = ({ officers, onFilterChange }) => {
     region: '',
     channel: '',
     user_type: '',
+    officer_email: '',
   });
   const [filterOptions, setFilterOptions] = useState({
     branches: [],
@@ -171,6 +172,7 @@ const CreditHealthTable = ({ officers, onFilterChange }) => {
       region: '',
       channel: '',
       user_type: '',
+      officer_email: '',
     });
   };
 
@@ -200,6 +202,15 @@ const CreditHealthTable = ({ officers, onFilterChange }) => {
       {showFilters && (
         <div className="filter-panel">
           <div className="filter-row">
+            <div className="filter-group">
+              <label>Officer Email</label>
+              <input
+                type="text"
+                placeholder="Search by email..."
+                value={filters.officer_email}
+                onChange={(e) => handleFilterChange('officer_email', e.target.value)}
+              />
+            </div>
             <div className="filter-group">
               <label>Branch</label>
               <select

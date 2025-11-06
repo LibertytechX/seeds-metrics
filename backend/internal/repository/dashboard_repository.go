@@ -198,6 +198,7 @@ func (r *DashboardRepository) GetOfficers(filters map[string]interface{}) ([]*mo
 		SELECT
 			o.officer_id,
 			o.officer_name,
+			COALESCE(o.officer_email, '') as officer_email,
 			o.region,
 			o.branch,
 			COALESCE(o.primary_channel, '') as primary_channel,
@@ -282,7 +283,13 @@ func (r *DashboardRepository) GetOfficers(filters map[string]interface{}) ([]*mo
 		argCount++
 	}
 
-	query += " GROUP BY o.officer_id, o.officer_name, o.region, o.branch, o.primary_channel, o.user_type, o.hire_date"
+	if officerEmail, ok := filters["officer_email"].(string); ok && officerEmail != "" {
+		query += fmt.Sprintf(" AND o.officer_email ILIKE $%d", argCount)
+		args = append(args, "%"+officerEmail+"%")
+		argCount++
+	}
+
+	query += " GROUP BY o.officer_id, o.officer_name, o.officer_email, o.region, o.branch, o.primary_channel, o.user_type, o.hire_date"
 
 	// Apply sorting
 	sortBy := "o.officer_name"
@@ -321,6 +328,7 @@ func (r *DashboardRepository) GetOfficers(filters map[string]interface{}) ([]*mo
 		err := rows.Scan(
 			&officer.OfficerID,
 			&officer.Name,
+			&officer.Email,
 			&officer.Region,
 			&officer.Branch,
 			&officer.Channel,

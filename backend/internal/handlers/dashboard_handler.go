@@ -123,6 +123,8 @@ func (h *DashboardHandler) GetPortfolioMetrics(c *gin.Context) {
 // @Param branch query string false "Filter by branch"
 // @Param region query string false "Filter by region"
 // @Param channel query string false "Filter by channel"
+// @Param user_type query string false "Filter by user type"
+// @Param officer_email query string false "Filter by officer email (partial match)"
 // @Param sort_by query string false "Sort field (e.g., risk_score, total_portfolio)"
 // @Param sort_dir query string false "Sort direction (asc/desc)"
 // @Param page query int false "Page number" default(1)
@@ -148,6 +150,9 @@ func (h *DashboardHandler) GetOfficers(c *gin.Context) {
 	}
 	if userType := c.Query("user_type"); userType != "" {
 		filters["user_type"] = userType
+	}
+	if officerEmail := c.Query("officer_email"); officerEmail != "" {
+		filters["officer_email"] = officerEmail
 	}
 	if sortBy := c.Query("sort_by"); sortBy != "" {
 		filters["sort_by"] = sortBy

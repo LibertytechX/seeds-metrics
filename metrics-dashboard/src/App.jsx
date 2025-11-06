@@ -54,6 +54,7 @@ function App() {
     region: '',
     channel: '',
     user_type: '',
+    officer_email: '',
   });
 
   // State for real data from API
@@ -148,6 +149,7 @@ function App() {
         if (creditHealthFilters.region) queryParams.region = creditHealthFilters.region;
         if (creditHealthFilters.channel) queryParams.channel = creditHealthFilters.channel;
         if (creditHealthFilters.user_type) queryParams.user_type = creditHealthFilters.user_type;
+        if (creditHealthFilters.officer_email) queryParams.officer_email = creditHealthFilters.officer_email;
 
         const officersData = await apiService.fetchOfficers(queryParams);
         const transformedOfficers = officersData.map(o => apiService.transformOfficerData(o));
