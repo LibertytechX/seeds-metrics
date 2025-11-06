@@ -73,7 +73,7 @@ func (r *DashboardRepository) GetPortfolioLoanMetrics(filters map[string]interfa
 		FROM loans l
 		INNER JOIN officers o ON l.officer_id = o.officer_id
 		WHERE UPPER(l.status) = 'ACTIVE'
-			AND o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT')
+			AND (o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT') OR o.user_type IS NULL)
 	`
 
 	args := []interface{}{}
@@ -121,7 +121,7 @@ func (r *DashboardRepository) GetActualOverdue15d(filters map[string]interface{}
 			AND UPPER(l.status) = 'ACTIVE'
 			AND ls.due_date <= CURRENT_DATE
 			AND ls.payment_status IN ('Pending', 'Partial', 'Overdue')
-			AND o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT')
+			AND (o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT') OR o.user_type IS NULL)
 	`
 
 	args := []interface{}{}
@@ -159,7 +159,7 @@ func (r *DashboardRepository) GetActualOverdue15d(filters map[string]interface{}
 			INNER JOIN officers o ON l.officer_id = o.officer_id
 			WHERE l.current_dpd >= 15
 				AND UPPER(l.status) = 'ACTIVE'
-				AND o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT')
+				AND (o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT') OR o.user_type IS NULL)
 		`
 
 		fallbackArgs := []interface{}{}
@@ -438,7 +438,7 @@ func (r *DashboardRepository) GetOfficerByID(officerID string) (*models.Dashboar
 		LEFT JOIN loans l ON o.officer_id = l.officer_id
 		LEFT JOIN loan_repayments lr ON l.loan_id = lr.loan_id
 		WHERE o.officer_id = $1
-			AND o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT')
+			AND (o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT') OR o.user_type IS NULL)
 		GROUP BY o.officer_id, o.officer_name, o.region, o.branch, o.primary_channel, o.user_type, o.hire_date
 	`
 
@@ -1198,7 +1198,7 @@ func (r *DashboardRepository) GetFilterOptions(filterType string, filters map[st
 func (r *DashboardRepository) getBranches(filters map[string]interface{}) ([]string, error) {
 	query := `SELECT DISTINCT l.branch FROM loans l
 		INNER JOIN officers o ON l.officer_id = o.officer_id
-		WHERE o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT')`
+		WHERE (o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT') OR o.user_type IS NULL)`
 	args := []interface{}{}
 	argCount := 1
 
@@ -1231,7 +1231,7 @@ func (r *DashboardRepository) getBranches(filters map[string]interface{}) ([]str
 func (r *DashboardRepository) getRegions() ([]string, error) {
 	query := `SELECT DISTINCT l.region FROM loans l
 		INNER JOIN officers o ON l.officer_id = o.officer_id
-		WHERE o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT')
+		WHERE (o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT') OR o.user_type IS NULL)
 		ORDER BY l.region`
 
 	rows, err := r.db.Query(query)
@@ -1255,7 +1255,7 @@ func (r *DashboardRepository) getRegions() ([]string, error) {
 func (r *DashboardRepository) getChannels() ([]string, error) {
 	query := `SELECT DISTINCT l.channel FROM loans l
 		INNER JOIN officers o ON l.officer_id = o.officer_id
-		WHERE o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT')
+		WHERE (o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT') OR o.user_type IS NULL)
 		ORDER BY l.channel`
 
 	rows, err := r.db.Query(query)
@@ -1304,7 +1304,7 @@ func (r *DashboardRepository) getUserTypes() ([]string, error) {
 func (r *DashboardRepository) getOfficerOptions(filters map[string]interface{}) ([]*models.OfficerOption, error) {
 	query := `SELECT DISTINCT l.officer_id, l.officer_name, l.branch, l.region FROM loans l
 		INNER JOIN officers o ON l.officer_id = o.officer_id
-		WHERE o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT')`
+		WHERE (o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT') OR o.user_type IS NULL)`
 	args := []interface{}{}
 	argCount := 1
 
