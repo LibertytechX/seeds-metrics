@@ -3,6 +3,7 @@ package repository
 import (
 	"database/sql"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/seeds-metrics/analytics-backend/internal/models"
@@ -313,8 +314,13 @@ func (r *DashboardRepository) GetOfficers(filters map[string]interface{}) ([]*mo
 	}
 	query += fmt.Sprintf(" LIMIT %d OFFSET %d", limit, offset)
 
+	// Log the query for debugging
+	log.Printf("🔍 GetOfficers SQL Query: %s", query)
+	log.Printf("🔍 GetOfficers SQL Args: %v", args)
+
 	rows, err := r.db.Query(query, args...)
 	if err != nil {
+		log.Printf("❌ GetOfficers SQL Error: %v", err)
 		return nil, err
 	}
 	defer rows.Close()
