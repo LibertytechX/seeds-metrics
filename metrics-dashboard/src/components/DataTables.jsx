@@ -111,44 +111,40 @@ const CreditHealthTable = ({ officers, onFilterChange }) => {
     region: '',
     channel: '',
     user_type: '',
-    wave: '',
   });
   const [filterOptions, setFilterOptions] = useState({
     branches: [],
     regions: [],
     channels: [],
     userTypes: [],
-    waves: [],
   });
 
   // Fetch filter options from API
   useEffect(() => {
     const fetchFilterOptions = async () => {
       try {
-        const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8081/api/v1';
+        const API_BASE_URL = import.meta.env.VITE_API_URL || '/api/v1';
 
-        const [branchesRes, regionsRes, channelsRes, userTypesRes, wavesRes] = await Promise.all([
+        const [branchesRes, regionsRes, channelsRes, userTypesRes] = await Promise.all([
           fetch(`${API_BASE_URL}/filters/branches`),
           fetch(`${API_BASE_URL}/filters/regions`),
           fetch(`${API_BASE_URL}/filters/channels`),
           fetch(`${API_BASE_URL}/filters/user-types`),
-          fetch(`${API_BASE_URL}/filters/waves`),
         ]);
 
-        const [branchesData, regionsData, channelsData, userTypesData, wavesData] = await Promise.all([
+        const [branchesData, regionsData, channelsData, userTypesData] = await Promise.all([
           branchesRes.json(),
           regionsRes.json(),
           channelsRes.json(),
           userTypesRes.json(),
-          wavesRes.json(),
         ]);
 
         setFilterOptions({
           branches: branchesData.data?.branches || [],
           regions: regionsData.data?.regions || [],
           channels: channelsData.data?.channels || [],
-          userTypes: userTypesData.data?.user_types || [],
-          waves: wavesData.data?.waves || [],
+          userTypes: userTypesData.data?.['user-types'] || [],
+          waves: [],
         });
       } catch (error) {
         console.error('Error fetching filter options:', error);
@@ -175,7 +171,6 @@ const CreditHealthTable = ({ officers, onFilterChange }) => {
       region: '',
       channel: '',
       user_type: '',
-      wave: '',
     });
   };
 
@@ -250,18 +245,6 @@ const CreditHealthTable = ({ officers, onFilterChange }) => {
                 <option value="">All User Types</option>
                 {filterOptions.userTypes.map(userType => (
                   <option key={userType} value={userType}>{userType}</option>
-                ))}
-              </select>
-            </div>
-            <div className="filter-group">
-              <label>Wave</label>
-              <select
-                value={filters.wave}
-                onChange={(e) => handleFilterChange('wave', e.target.value)}
-              >
-                <option value="">All Waves</option>
-                {filterOptions.waves.map(wave => (
-                  <option key={wave} value={wave}>{wave}</option>
                 ))}
               </select>
             </div>
