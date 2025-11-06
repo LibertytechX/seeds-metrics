@@ -151,7 +151,9 @@ function App() {
         if (creditHealthFilters.user_type) queryParams.user_type = creditHealthFilters.user_type;
         if (creditHealthFilters.officer_email) queryParams.officer_email = creditHealthFilters.officer_email;
 
+        console.log('🔍 Fetching officers with filters:', queryParams);
         const officersData = await apiService.fetchOfficers(queryParams);
+        console.log(`✅ Fetched ${officersData.length} officers`);
         const transformedOfficers = officersData.map(o => apiService.transformOfficerData(o));
         setOfficers(transformedOfficers);
       } catch (err) {

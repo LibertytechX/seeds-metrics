@@ -284,7 +284,7 @@ func (r *DashboardRepository) GetOfficers(filters map[string]interface{}) ([]*mo
 	}
 
 	if officerEmail, ok := filters["officer_email"].(string); ok && officerEmail != "" {
-		query += fmt.Sprintf(" AND o.officer_email ILIKE $%d", argCount)
+		query += fmt.Sprintf(" AND (o.officer_email ILIKE $%d OR o.officer_name ILIKE $%d)", argCount, argCount)
 		args = append(args, "%"+officerEmail+"%")
 		argCount++
 	}

@@ -158,11 +158,13 @@ const CreditHealthTable = ({ officers, onFilterChange }) => {
   // Notify parent component when filters change
   useEffect(() => {
     if (onFilterChange) {
+      console.log('🔍 Credit Health filters changed:', filters);
       onFilterChange(filters);
     }
   }, [filters, onFilterChange]);
 
   const handleFilterChange = (filterKey, value) => {
+    console.log(`🔍 Filter change: ${filterKey} = "${value}"`);
     setFilters(prev => ({ ...prev, [filterKey]: value }));
   };
 
