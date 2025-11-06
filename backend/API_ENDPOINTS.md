@@ -187,7 +187,13 @@ http://localhost:8080
 **Description:** Get branch-level aggregated metrics
 
 **Query Parameters:**
+- `branch` (optional): Filter by branch name
 - `region` (optional): Filter by region
+- `channel` (optional): Filter by channel
+- `user_type` (optional): Filter by user type
+- `wave` (optional): Filter by wave/cohort
+- `sort_by` (optional): Sort field (default: branch)
+- `sort_dir` (optional): Sort direction - asc or desc (default: asc)
 
 **Response:**
 ```json

@@ -323,9 +323,25 @@ paths:
       - application/json
       description: Get list of branches with their portfolio metrics and PAR15 ratios
       parameters:
+      - description: Filter by branch
+        in: query
+        name: branch
+        type: string
       - description: Filter by region
         in: query
         name: region
+        type: string
+      - description: Filter by channel
+        in: query
+        name: channel
+        type: string
+      - description: Filter by user type
+        in: query
+        name: user_type
+        type: string
+      - description: Filter by wave
+        in: query
+        name: wave
         type: string
       - description: Sort field
         in: query

@@ -533,7 +533,11 @@ func (h *DashboardHandler) GetAllLoans(c *gin.Context) {
 // @Tags Branches
 // @Accept json
 // @Produce json
+// @Param branch query string false "Filter by branch"
 // @Param region query string false "Filter by region"
+// @Param channel query string false "Filter by channel"
+// @Param user_type query string false "Filter by user type"
+// @Param wave query string false "Filter by wave"
 // @Param sort_by query string false "Sort field"
 // @Param sort_dir query string false "Sort direction (asc/desc)"
 // @Success 200 {object} models.APIResponse
@@ -543,8 +547,17 @@ func (h *DashboardHandler) GetBranches(c *gin.Context) {
 	// Parse filters
 	filters := make(map[string]interface{})
 
+	if branch := c.Query("branch"); branch != "" {
+		filters["branch"] = branch
+	}
 	if region := c.Query("region"); region != "" {
 		filters["region"] = region
+	}
+	if channel := c.Query("channel"); channel != "" {
+		filters["channel"] = channel
+	}
+	if userType := c.Query("user_type"); userType != "" {
+		filters["user_type"] = userType
 	}
 	if wave := c.Query("wave"); wave != "" {
 		filters["wave"] = wave

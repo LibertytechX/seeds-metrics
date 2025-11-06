@@ -37,8 +37,32 @@
                 "parameters": [
                     {
                         "type": "string",
+                        "description": "Filter by branch",
+                        "name": "branch",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
                         "description": "Filter by region",
                         "name": "region",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by channel",
+                        "name": "channel",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by user type",
+                        "name": "user_type",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filter by wave",
+                        "name": "wave",
                         "in": "query"
                     },
                     {

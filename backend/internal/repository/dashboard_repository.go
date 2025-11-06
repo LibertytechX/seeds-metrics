@@ -1087,9 +1087,27 @@ func (r *DashboardRepository) GetBranches(filters map[string]interface{}) ([]*mo
 	argCount := 1
 
 	// Apply filters
+	if branch, ok := filters["branch"].(string); ok && branch != "" {
+		query += fmt.Sprintf(" AND l.branch = $%d", argCount)
+		args = append(args, branch)
+		argCount++
+	}
+
 	if region, ok := filters["region"].(string); ok && region != "" {
 		query += fmt.Sprintf(" AND l.region = $%d", argCount)
 		args = append(args, region)
+		argCount++
+	}
+
+	if channel, ok := filters["channel"].(string); ok && channel != "" {
+		query += fmt.Sprintf(" AND l.channel = $%d", argCount)
+		args = append(args, channel)
+		argCount++
+	}
+
+	if userType, ok := filters["user_type"].(string); ok && userType != "" {
+		query += fmt.Sprintf(" AND l.user_type = $%d", argCount)
+		args = append(args, userType)
 		argCount++
 	}
 
