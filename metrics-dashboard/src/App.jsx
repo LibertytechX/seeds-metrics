@@ -49,6 +49,13 @@ function App() {
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [allLoansFilter, setAllLoansFilter] = useState(null);
   const [agentPerformanceFilter, setAgentPerformanceFilter] = useState(null);
+  const [creditHealthFilters, setCreditHealthFilters] = useState({
+    branch: '',
+    region: '',
+    channel: '',
+    user_type: '',
+    wave: '',
+  });
 
   // State for real data from API
   const [portfolioMetrics, setPortfolioMetrics] = useState(mockPortfolioMetrics);
@@ -130,6 +137,31 @@ function App() {
     fetchData();
   }, [useRealData, filters.wave]);
 
+  // Fetch officers when Credit Health filters change
+  useEffect(() => {
+    const fetchFilteredOfficers = async () => {
+      if (!useRealData) return;
+
+      try {
+        // Build query params from Credit Health filters
+        const queryParams = { limit: 10000 };
+        if (creditHealthFilters.branch) queryParams.branch = creditHealthFilters.branch;
+        if (creditHealthFilters.region) queryParams.region = creditHealthFilters.region;
+        if (creditHealthFilters.channel) queryParams.channel = creditHealthFilters.channel;
+        if (creditHealthFilters.user_type) queryParams.user_type = creditHealthFilters.user_type;
+        if (creditHealthFilters.wave) queryParams.wave = creditHealthFilters.wave;
+
+        const officersData = await apiService.fetchOfficers(queryParams);
+        const transformedOfficers = officersData.map(o => apiService.transformOfficerData(o));
+        setOfficers(transformedOfficers);
+      } catch (err) {
+        console.error('❌ Error fetching filtered officers:', err);
+      }
+    };
+
+    fetchFilteredOfficers();
+  }, [creditHealthFilters, useRealData]);
+
   // Filter officers based on current filters
   const filteredOfficers = officers.filter((officer) => {
     if (filters.branch && officer.branch !== filters.branch) return false;
@@ -139,6 +171,10 @@ function App() {
 
   const handleFilterChange = (newFilters) => {
     setFilters(newFilters);
+  };
+
+  const handleCreditHealthFilterChange = (newFilters) => {
+    setCreditHealthFilters(newFilters);
   };
 
   const handleExport = (format) => {
@@ -402,7 +438,11 @@ function App() {
               initialFilter={allLoansFilter}
             />
           ) : (
-            <DataTables officers={filteredOfficers} activeTab={activeTab} />
+            <DataTables
+              officers={filteredOfficers}
+              activeTab={activeTab}
+              onFilterChange={handleCreditHealthFilterChange}
+            />
           )}
         </div>
       </div>
