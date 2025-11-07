@@ -30,14 +30,14 @@ func main() {
 
 	// Query loan 19808
 	query := `
-		SELECT 
+		SELECT
 			id as loan_id,
 			borrower_id,
 			date_disbursed,
 			start_date,
 			end_date,
 			status,
-			loan_amount,
+			amount,
 			tenor_in_days
 		FROM loans_ajoloan
 		WHERE id = 19808
@@ -72,4 +72,3 @@ func main() {
 	fmt.Printf("  Loan Amount: %.2f\n", loanAmount)
 	fmt.Printf("  Tenor (Days): %d\n", tenorInDays)
 }
-
