@@ -18,8 +18,8 @@ func NewLoanRepository(db *database.DB) *LoanRepository {
 	return &LoanRepository{db: db}
 }
 
-// Create inserts a new loan (ETL fields only)
-// Skips if loan_id already exists (ON CONFLICT DO NOTHING)
+// Create inserts a new loan or updates an existing one (ETL fields only)
+// Updates all fields if loan_id already exists (ON CONFLICT DO UPDATE)
 func (r *LoanRepository) Create(ctx context.Context, input *models.LoanInput) error {
 	query := `
 		INSERT INTO loans (
@@ -36,7 +36,30 @@ func (r *LoanRepository) Create(ctx context.Context, input *models.LoanInput) er
 			$11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, COALESCE($23, 'Wave 2'),
 			NOW(), NOW()
 		)
-		ON CONFLICT (loan_id) DO NOTHING
+		ON CONFLICT (loan_id) DO UPDATE SET
+			customer_id = EXCLUDED.customer_id,
+			customer_name = EXCLUDED.customer_name,
+			customer_phone = EXCLUDED.customer_phone,
+			officer_id = EXCLUDED.officer_id,
+			officer_name = EXCLUDED.officer_name,
+			officer_phone = EXCLUDED.officer_phone,
+			region = EXCLUDED.region,
+			branch = EXCLUDED.branch,
+			state = EXCLUDED.state,
+			loan_amount = EXCLUDED.loan_amount,
+			repayment_amount = EXCLUDED.repayment_amount,
+			disbursement_date = EXCLUDED.disbursement_date,
+			first_payment_due_date = EXCLUDED.first_payment_due_date,
+			maturity_date = EXCLUDED.maturity_date,
+			loan_term_days = EXCLUDED.loan_term_days,
+			interest_rate = EXCLUDED.interest_rate,
+			fee_amount = EXCLUDED.fee_amount,
+			channel = EXCLUDED.channel,
+			channel_partner = EXCLUDED.channel_partner,
+			status = EXCLUDED.status,
+			closed_date = EXCLUDED.closed_date,
+			wave = EXCLUDED.wave,
+			updated_at = NOW()
 	`
 
 	disbursementDate, err := time.Parse("2006-01-02", input.DisbursementDate)
