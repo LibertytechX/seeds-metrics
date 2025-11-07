@@ -184,7 +184,7 @@ func (r *DjangoRepository) GetCustomers(ctx context.Context, limit, offset int) 
 			created_at,
 			updated_at
 		FROM ajo_ajouser
-		WHERE onboarding_complete = TRUE
+		WHERE TRUE
 		ORDER BY created_at DESC
 		LIMIT $1 OFFSET $2
 	`
