@@ -63,8 +63,35 @@
   transition: all 0.2s;
 }
 
-.filter-toggle:hover,
-.export-button:hover,
+.filter-toggle {
+  color: #333;
+}
+
+.filter-toggle:hover {
+  background: #f5f5f5;
+  border-color: #bbb;
+}
+
+.export-button {
+  background: #2196f3;
+  color: white;
+  border-color: #2196f3;
+}
+
+.export-button:hover:not(:disabled) {
+  background: #1976d2;
+  border-color: #1976d2;
+}
+
+.export-button:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.export-button.loading {
+  background: #42a5f5;
+}
+
 .recalculate-button:hover:not(:disabled) {
   background: #f5f5f5;
   border-color: #bbb;
