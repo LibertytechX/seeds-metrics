@@ -14,28 +14,30 @@ type Loan struct {
 	// ========================================
 	// FROM ETL SOURCE (Main Backend)
 	// ========================================
-	CustomerID       string           `json:"customer_id" db:"customer_id"`
-	CustomerName     string           `json:"customer_name" db:"customer_name"`
-	CustomerPhone    *string          `json:"customer_phone,omitempty" db:"customer_phone"`
-	OfficerID        string           `json:"officer_id" db:"officer_id"`
-	OfficerName      string           `json:"officer_name" db:"officer_name"`
-	OfficerPhone     *string          `json:"officer_phone,omitempty" db:"officer_phone"`
-	Region           string           `json:"region" db:"region"`
-	Branch           string           `json:"branch" db:"branch"`
-	State            *string          `json:"state,omitempty" db:"state"`
-	LoanAmount       decimal.Decimal  `json:"loan_amount" db:"loan_amount"`
-	RepaymentAmount  *decimal.Decimal `json:"repayment_amount,omitempty" db:"repayment_amount"`
-	DisbursementDate time.Time        `json:"disbursement_date" db:"disbursement_date"`
-	MaturityDate     time.Time        `json:"maturity_date" db:"maturity_date"`
-	LoanTermDays     int              `json:"loan_term_days" db:"loan_term_days"`
-	InterestRate     *decimal.Decimal `json:"interest_rate,omitempty" db:"interest_rate"`
-	FeeAmount        *decimal.Decimal `json:"fee_amount,omitempty" db:"fee_amount"`
-	Channel          string           `json:"channel" db:"channel"`
-	ChannelPartner   *string          `json:"channel_partner,omitempty" db:"channel_partner"`
-	Status           string           `json:"status" db:"status"`
-	ClosedDate       *time.Time       `json:"closed_date,omitempty" db:"closed_date"`
-	TimelinessScore  *decimal.Decimal `json:"timeliness_score,omitempty" db:"timeliness_score"`
-	RepaymentHealth  *decimal.Decimal `json:"repayment_health,omitempty" db:"repayment_health"`
+	CustomerID        string           `json:"customer_id" db:"customer_id"`
+	CustomerName      string           `json:"customer_name" db:"customer_name"`
+	CustomerPhone     *string          `json:"customer_phone,omitempty" db:"customer_phone"`
+	OfficerID         string           `json:"officer_id" db:"officer_id"`
+	OfficerName       string           `json:"officer_name" db:"officer_name"`
+	OfficerPhone      *string          `json:"officer_phone,omitempty" db:"officer_phone"`
+	Region            string           `json:"region" db:"region"`
+	Branch            string           `json:"branch" db:"branch"`
+	State             *string          `json:"state,omitempty" db:"state"`
+	VerticalLeadName  *string          `json:"vertical_lead_name,omitempty" db:"vertical_lead_name"`
+	VerticalLeadEmail *string          `json:"vertical_lead_email,omitempty" db:"vertical_lead_email"`
+	LoanAmount        decimal.Decimal  `json:"loan_amount" db:"loan_amount"`
+	RepaymentAmount   *decimal.Decimal `json:"repayment_amount,omitempty" db:"repayment_amount"`
+	DisbursementDate  time.Time        `json:"disbursement_date" db:"disbursement_date"`
+	MaturityDate      time.Time        `json:"maturity_date" db:"maturity_date"`
+	LoanTermDays      int              `json:"loan_term_days" db:"loan_term_days"`
+	InterestRate      *decimal.Decimal `json:"interest_rate,omitempty" db:"interest_rate"`
+	FeeAmount         *decimal.Decimal `json:"fee_amount,omitempty" db:"fee_amount"`
+	Channel           string           `json:"channel" db:"channel"`
+	ChannelPartner    *string          `json:"channel_partner,omitempty" db:"channel_partner"`
+	Status            string           `json:"status" db:"status"`
+	ClosedDate        *time.Time       `json:"closed_date,omitempty" db:"closed_date"`
+	TimelinessScore   *decimal.Decimal `json:"timeliness_score,omitempty" db:"timeliness_score"`
+	RepaymentHealth   *decimal.Decimal `json:"repayment_health,omitempty" db:"repayment_health"`
 
 	// ========================================
 	// [COMPUTED] FROM REPAYMENTS
@@ -132,6 +134,8 @@ type AllLoan struct {
 	OfficerName                   string   `json:"officer_name"`
 	Region                        string   `json:"region"`
 	Branch                        string   `json:"branch"`
+	VerticalLeadName              *string  `json:"vertical_lead_name,omitempty"`
+	VerticalLeadEmail             *string  `json:"vertical_lead_email,omitempty"`
 	Channel                       string   `json:"channel"`
 	LoanAmount                    float64  `json:"loan_amount"`
 	RepaymentAmount               *float64 `json:"repayment_amount,omitempty"`
