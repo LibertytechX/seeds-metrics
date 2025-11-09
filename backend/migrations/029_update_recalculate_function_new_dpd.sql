@@ -89,32 +89,32 @@ BEGIN
             END as days_since_due,
             -- Loan age
             (CURRENT_DATE - lrd.disbursement_date)::INTEGER as loan_age,
-            
+
             -- ================================================================
             -- NEW DPD CALCULATION METHODOLOGY
             -- ================================================================
-            
+
             -- Step 1: Calculate real loan tenure (including weekends)
             CASE
                 WHEN lrd.first_payment_due_date IS NOT NULL AND lrd.maturity_date IS NOT NULL THEN
                     lrd.loan_term_days + count_weekend_days(lrd.first_payment_due_date, lrd.maturity_date)
                 ELSE lrd.loan_term_days
             END as real_loan_tenure_days,
-            
+
             -- Step 2: Calculate daily repayment amount
             CASE
                 WHEN lrd.loan_term_days > 0 AND lrd.repayment_amount > 0 THEN
                     lrd.repayment_amount / lrd.loan_term_days
                 ELSE 0
             END as daily_repayment_amount,
-            
+
             -- Step 3: Calculate repayment days paid
             CASE
                 WHEN lrd.loan_term_days > 0 AND lrd.repayment_amount > 0 THEN
                     lrd.total_repayments / (lrd.repayment_amount / lrd.loan_term_days)
                 ELSE 0
             END as repayment_days_paid,
-            
+
             -- Step 4: Calculate repayment days due today
             CASE
                 WHEN lrd.first_payment_due_date IS NOT NULL THEN
@@ -128,8 +128,15 @@ BEGIN
                     END
                 ELSE 0
             END as repayment_days_due_today,
-            
-            -- Step 5: Calculate DPD (missed repayment days)
+
+            -- Step 5: Calculate business days since disbursement
+            CASE
+                WHEN lrd.disbursement_date IS NOT NULL THEN
+                    count_business_days(lrd.disbursement_date, CURRENT_DATE)
+                ELSE 0
+            END as business_days_since_disbursement,
+
+            -- Step 6: Calculate DPD (missed repayment days)
             GREATEST(0,
                 CASE
                     WHEN lrd.first_payment_due_date IS NOT NULL AND lrd.loan_term_days > 0 AND lrd.repayment_amount > 0 THEN
@@ -144,9 +151,9 @@ BEGIN
                     ELSE 0
                 END
             ) as current_dpd,
-            
+
             lrd.max_dpd_ever,
-            
+
             -- Risk indicators
             -- FIMR: TRUE if NO repayment on or before first_payment_due_date AND due date has passed
             CASE
@@ -161,7 +168,7 @@ BEGIN
                 WHEN lrd.first_payment_date IS NULL AND lrd.first_payment_due_date >= CURRENT_DATE THEN FALSE
                 ELSE TRUE
             END as fimr_tagged,
-            
+
             -- Repayment delay rate
             CASE
                 WHEN (CURRENT_DATE - lrd.disbursement_date)::INTEGER > 0 AND
@@ -199,6 +206,7 @@ BEGIN
         real_loan_tenure_days = cf.real_loan_tenure_days,
         repayment_days_paid = cf.repayment_days_paid,
         repayment_days_due_today = cf.repayment_days_due_today,
+        business_days_since_disbursement = cf.business_days_since_disbursement,
         updated_at = CURRENT_TIMESTAMP
     FROM calculated_fields cf
     WHERE l.loan_id = cf.loan_id;
@@ -264,7 +272,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-COMMENT ON FUNCTION recalculate_all_loan_fields() IS 
+COMMENT ON FUNCTION recalculate_all_loan_fields() IS
 'Recalculates all computed fields for all loans using the new DPD methodology based on missed repayment days. Returns total loans processed, loans updated, and execution time.';
 
 COMMIT;
