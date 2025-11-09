@@ -140,6 +140,7 @@ func (h *DashboardHandler) GetOfficers(c *gin.Context) {
 		filters["branch"] = branch
 	}
 	if region := c.Query("region"); region != "" {
+		// Support comma-separated regions for multi-select
 		filters["region"] = region
 	}
 	if channel := c.Query("channel"); channel != "" {

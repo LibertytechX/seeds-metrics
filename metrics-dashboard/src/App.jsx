@@ -39,6 +39,7 @@ function App() {
   const [filters, setFilters] = useState({
     dateRange: 'week',
     branch: '',
+    regions: [], // Multi-select region filter
     wave: '',
     includeWatch: false,
     dqiCpToggle: true,
@@ -81,10 +82,13 @@ function App() {
 
         console.log('🔄 Fetching data from backend API...');
 
-        // Build query params for wave filter
+        // Build query params for wave and region filters
         const queryParams = {};
         if (filters.wave) {
           queryParams.wave = filters.wave;
+        }
+        if (filters.regions && filters.regions.length > 0) {
+          queryParams.region = filters.regions.join(',');
         }
 
         // Build query params for officers with high limit to fetch all
@@ -135,7 +139,7 @@ function App() {
     };
 
     fetchData();
-  }, [useRealData, filters.wave]);
+  }, [useRealData, filters.wave, filters.regions]);
 
   // Fetch officers when Credit Health filters change
   useEffect(() => {
@@ -167,6 +171,7 @@ function App() {
   // Filter officers based on current filters
   const filteredOfficers = officers.filter((officer) => {
     if (filters.branch && officer.branch !== filters.branch) return false;
+    if (filters.regions && filters.regions.length > 0 && !filters.regions.includes(officer.region)) return false;
     if (filters.showRedOnly && officer.riskScore >= 40) return false;
     return true;
   });

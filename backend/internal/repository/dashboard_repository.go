@@ -265,9 +265,22 @@ func (r *DashboardRepository) GetOfficers(filters map[string]interface{}) ([]*mo
 	}
 
 	if region, ok := filters["region"].(string); ok && region != "" {
-		query += fmt.Sprintf(" AND o.region = $%d", argCount)
-		args = append(args, region)
-		argCount++
+		// Support comma-separated regions for multi-select
+		regions := strings.Split(region, ",")
+		if len(regions) == 1 {
+			query += fmt.Sprintf(" AND o.region = $%d", argCount)
+			args = append(args, regions[0])
+			argCount++
+		} else {
+			// Build IN clause for multiple regions
+			placeholders := []string{}
+			for _, r := range regions {
+				placeholders = append(placeholders, fmt.Sprintf("$%d", argCount))
+				args = append(args, strings.TrimSpace(r))
+				argCount++
+			}
+			query += fmt.Sprintf(" AND o.region IN (%s)", strings.Join(placeholders, ", "))
+		}
 	}
 
 	if channel, ok := filters["channel"].(string); ok && channel != "" {
@@ -584,9 +597,22 @@ func (r *DashboardRepository) GetFIMRLoans(filters map[string]interface{}) ([]*m
 	}
 
 	if region, ok := filters["region"].(string); ok && region != "" {
-		query += fmt.Sprintf(" AND l.region = $%d", argCount)
-		args = append(args, region)
-		argCount++
+		// Support comma-separated regions for multi-select
+		regions := strings.Split(region, ",")
+		if len(regions) == 1 {
+			query += fmt.Sprintf(" AND l.region = $%d", argCount)
+			args = append(args, regions[0])
+			argCount++
+		} else {
+			// Build IN clause for multiple regions
+			placeholders := []string{}
+			for _, r := range regions {
+				placeholders = append(placeholders, fmt.Sprintf("$%d", argCount))
+				args = append(args, strings.TrimSpace(r))
+				argCount++
+			}
+			query += fmt.Sprintf(" AND l.region IN (%s)", strings.Join(placeholders, ", "))
+		}
 	}
 
 	if channel, ok := filters["channel"].(string); ok && channel != "" {
@@ -713,9 +739,22 @@ func (r *DashboardRepository) GetEarlyIndicatorLoans(filters map[string]interfac
 	}
 
 	if region, ok := filters["region"].(string); ok && region != "" {
-		query += fmt.Sprintf(" AND l.region = $%d", argCount)
-		args = append(args, region)
-		argCount++
+		// Support comma-separated regions for multi-select
+		regions := strings.Split(region, ",")
+		if len(regions) == 1 {
+			query += fmt.Sprintf(" AND l.region = $%d", argCount)
+			args = append(args, regions[0])
+			argCount++
+		} else {
+			// Build IN clause for multiple regions
+			placeholders := []string{}
+			for _, r := range regions {
+				placeholders = append(placeholders, fmt.Sprintf("$%d", argCount))
+				args = append(args, strings.TrimSpace(r))
+				argCount++
+			}
+			query += fmt.Sprintf(" AND l.region IN (%s)", strings.Join(placeholders, ", "))
+		}
 	}
 
 	if channel, ok := filters["channel"].(string); ok && channel != "" {
@@ -875,10 +914,25 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 	}
 
 	if region, ok := filters["region"].(string); ok && region != "" {
-		query += fmt.Sprintf(" AND l.region = $%d", argCount)
-		countQuery += fmt.Sprintf(" AND l.region = $%d", argCount)
-		args = append(args, region)
-		argCount++
+		// Support comma-separated regions for multi-select
+		regions := strings.Split(region, ",")
+		if len(regions) == 1 {
+			query += fmt.Sprintf(" AND l.region = $%d", argCount)
+			countQuery += fmt.Sprintf(" AND l.region = $%d", argCount)
+			args = append(args, regions[0])
+			argCount++
+		} else {
+			// Build IN clause for multiple regions
+			placeholders := []string{}
+			for _, r := range regions {
+				placeholders = append(placeholders, fmt.Sprintf("$%d", argCount))
+				args = append(args, strings.TrimSpace(r))
+				argCount++
+			}
+			inClause := fmt.Sprintf(" AND l.region IN (%s)", strings.Join(placeholders, ", "))
+			query += inClause
+			countQuery += inClause
+		}
 	}
 
 	if channel, ok := filters["channel"].(string); ok && channel != "" {
@@ -1208,9 +1262,22 @@ func (r *DashboardRepository) GetBranches(filters map[string]interface{}) ([]*mo
 	}
 
 	if region, ok := filters["region"].(string); ok && region != "" {
-		query += fmt.Sprintf(" AND l.region = $%d", argCount)
-		args = append(args, region)
-		argCount++
+		// Support comma-separated regions for multi-select
+		regions := strings.Split(region, ",")
+		if len(regions) == 1 {
+			query += fmt.Sprintf(" AND l.region = $%d", argCount)
+			args = append(args, regions[0])
+			argCount++
+		} else {
+			// Build IN clause for multiple regions
+			placeholders := []string{}
+			for _, r := range regions {
+				placeholders = append(placeholders, fmt.Sprintf("$%d", argCount))
+				args = append(args, strings.TrimSpace(r))
+				argCount++
+			}
+			query += fmt.Sprintf(" AND l.region IN (%s)", strings.Join(placeholders, ", "))
+		}
 	}
 
 	if channel, ok := filters["channel"].(string); ok && channel != "" {
@@ -1303,9 +1370,22 @@ func (r *DashboardRepository) getBranches(filters map[string]interface{}) ([]str
 	argCount := 1
 
 	if region, ok := filters["region"].(string); ok && region != "" {
-		query += fmt.Sprintf(" AND l.region = $%d", argCount)
-		args = append(args, region)
-		argCount++
+		// Support comma-separated regions for multi-select
+		regions := strings.Split(region, ",")
+		if len(regions) == 1 {
+			query += fmt.Sprintf(" AND l.region = $%d", argCount)
+			args = append(args, regions[0])
+			argCount++
+		} else {
+			// Build IN clause for multiple regions
+			placeholders := []string{}
+			for _, r := range regions {
+				placeholders = append(placeholders, fmt.Sprintf("$%d", argCount))
+				args = append(args, strings.TrimSpace(r))
+				argCount++
+			}
+			query += fmt.Sprintf(" AND l.region IN (%s)", strings.Join(placeholders, ", "))
+		}
 	}
 
 	query += " ORDER BY l.branch"
@@ -1415,9 +1495,22 @@ func (r *DashboardRepository) getOfficerOptions(filters map[string]interface{}) 
 	}
 
 	if region, ok := filters["region"].(string); ok && region != "" {
-		query += fmt.Sprintf(" AND l.region = $%d", argCount)
-		args = append(args, region)
-		argCount++
+		// Support comma-separated regions for multi-select
+		regions := strings.Split(region, ",")
+		if len(regions) == 1 {
+			query += fmt.Sprintf(" AND l.region = $%d", argCount)
+			args = append(args, regions[0])
+			argCount++
+		} else {
+			// Build IN clause for multiple regions
+			placeholders := []string{}
+			for _, r := range regions {
+				placeholders = append(placeholders, fmt.Sprintf("$%d", argCount))
+				args = append(args, strings.TrimSpace(r))
+				argCount++
+			}
+			query += fmt.Sprintf(" AND l.region IN (%s)", strings.Join(placeholders, ", "))
+		}
 	}
 
 	query += " ORDER BY l.officer_name"
