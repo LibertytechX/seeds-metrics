@@ -909,6 +909,13 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 		argCount++
 	}
 
+	if verticalLeadEmail, ok := filters["vertical_lead_email"].(string); ok && verticalLeadEmail != "" {
+		query += fmt.Sprintf(" AND l.vertical_lead_email = $%d", argCount)
+		countQuery += fmt.Sprintf(" AND l.vertical_lead_email = $%d", argCount)
+		args = append(args, verticalLeadEmail)
+		argCount++
+	}
+
 	// Get total count
 	var total int
 	err := r.db.QueryRow(countQuery, args...).Scan(&total)
