@@ -179,6 +179,73 @@
   background: white;
 }
 
+/* Multi-select dropdown styles for AllLoans */
+.filter-group.multi-select-wrapper {
+  position: relative;
+}
+
+.filter-group .multi-select-button {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 8px 12px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  background: white;
+  color: #333;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.filter-group .multi-select-button:hover {
+  background: #f5f5f5;
+  border-color: #bbb;
+}
+
+.filter-group .multi-select-dropdown {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  min-width: 200px;
+  max-height: 300px;
+  overflow-y: auto;
+  z-index: 1000;
+}
+
+.filter-group .multi-select-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  color: #1f2937;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+
+.filter-group .multi-select-option:hover {
+  background-color: #f3f4f6;
+}
+
+.filter-group .multi-select-option input[type="checkbox"] {
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+}
+
+.filter-group .multi-select-option span {
+  font-size: 14px;
+  user-select: none;
+}
+
 .filter-group input.phone-filter-input {
   font-family: inherit;
 }

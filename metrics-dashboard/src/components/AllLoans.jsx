@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Download, Filter, FileText, Eye, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { Download, Filter, FileText, Eye, RefreshCw, ChevronDown } from 'lucide-react';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import LoanRepaymentsModal from './LoanRepaymentsModal';
@@ -13,7 +13,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
   const [filters, setFilters] = useState({
     officer_id: initialFilter?.officer_id || '',
     branch: '',
-    region: '',
+    regions: [], // Multi-select region filter
     channel: '',
     status: '',
     customer_phone: '',
@@ -26,6 +26,8 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
   const [allRegions, setAllRegions] = useState([]);
   const [allChannels, setAllChannels] = useState([]);
   const [allVerticalLeads, setAllVerticalLeads] = useState([]);
+  const [isRegionDropdownOpen, setIsRegionDropdownOpen] = useState(false);
+  const regionDropdownRef = useRef(null);
   const [filterLabel, setFilterLabel] = useState(
     initialFilter?.officer_name ? `Officer: ${initialFilter.officer_name}` :
     initialFilter?.label ? initialFilter.label : ''
@@ -41,6 +43,17 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
   const [selectedLoan, setSelectedLoan] = useState(null);
   const [recalculating, setRecalculating] = useState(false);
   const [recalculateMessage, setRecalculateMessage] = useState('');
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (regionDropdownRef.current && !regionDropdownRef.current.contains(event.target)) {
+        setIsRegionDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   // Fetch filter options from API
   const fetchFilterOptions = async () => {
@@ -80,11 +93,16 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     try {
       console.log('🔍 AllLoans: fetchLoans called with filters:', filters);
 
-      // Exclude loan_type, rot_type, and delay_type from API params (client-side filtering)
+      // Exclude loan_type, rot_type, delay_type, and regions from API params (will handle regions separately)
       // Include customer_phone for server-side filtering
       const apiFilters = Object.fromEntries(
-        Object.entries(filters).filter(([k, v]) => v !== '' && k !== 'loan_type' && k !== 'rot_type' && k !== 'delay_type')
+        Object.entries(filters).filter(([k, v]) => v !== '' && k !== 'loan_type' && k !== 'rot_type' && k !== 'delay_type' && k !== 'regions')
       );
+
+      // Convert regions array to comma-separated string
+      if (filters.regions && filters.regions.length > 0) {
+        apiFilters.region = filters.regions.join(',');
+      }
 
       const params = new URLSearchParams({
         page: pagination.page,
@@ -192,9 +210,11 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       setFilters({
         officer_id: initialFilter.officer_id || '',
         branch: '',
-        region: '',
+        regions: [],
         channel: '',
         status: '',
+        customer_phone: '',
+        vertical_lead_email: '',
         loan_type: initialFilter.loan_type || '',
         rot_type: initialFilter.rot_type || '',
         delay_type: initialFilter.delay_type || '',
@@ -239,16 +259,27 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     setPagination(prev => ({ ...prev, page: 1 })); // Reset to first page
   };
 
+  const handleRegionToggle = (region) => {
+    const currentRegions = filters.regions || [];
+    const newRegions = currentRegions.includes(region)
+      ? currentRegions.filter(r => r !== region)
+      : [...currentRegions, region];
+    setFilters(prev => ({ ...prev, regions: newRegions }));
+    setPagination(prev => ({ ...prev, page: 1 })); // Reset to first page
+  };
+
   const clearFilters = () => {
     setFilters({
       officer_id: '',
       branch: '',
-      region: '',
+      regions: [],
       channel: '',
       status: '',
       customer_phone: '',
+      vertical_lead_email: '',
       loan_type: '',
       rot_type: '',
+      delay_type: '',
     });
     setFilterLabel('');
   };
@@ -504,16 +535,44 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       {showFilters && (
         <div className="filter-panel">
           <div className="filter-row">
-            <div className="filter-group">
-              <select
-                value={filters.region}
-                onChange={(e) => handleFilterChange('region', e.target.value)}
+            <div className="filter-group multi-select-wrapper" ref={regionDropdownRef}>
+              <button
+                className="multi-select-button"
+                onClick={() => setIsRegionDropdownOpen(!isRegionDropdownOpen)}
               >
-                <option value="">All Regions</option>
-                {filterOptions.regions.map(region => (
-                  <option key={region} value={region}>{region}</option>
-                ))}
-              </select>
+                <span>
+                  {filters.regions && filters.regions.length > 0
+                    ? `${filters.regions.length} Region${filters.regions.length > 1 ? 's' : ''} Selected`
+                    : 'All Regions'}
+                </span>
+                <ChevronDown size={16} />
+              </button>
+              {isRegionDropdownOpen && (
+                <div className="multi-select-dropdown">
+                  <div className="multi-select-option" onClick={() => setFilters(prev => ({ ...prev, regions: [] }))}>
+                    <input
+                      type="checkbox"
+                      checked={!filters.regions || filters.regions.length === 0}
+                      readOnly
+                    />
+                    <span>All Regions</span>
+                  </div>
+                  {filterOptions.regions.map(region => (
+                    <div
+                      key={region}
+                      className="multi-select-option"
+                      onClick={() => handleRegionToggle(region)}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={filters.regions && filters.regions.includes(region)}
+                        readOnly
+                      />
+                      <span>{region}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="filter-group">
               <select
