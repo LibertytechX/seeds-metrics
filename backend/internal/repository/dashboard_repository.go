@@ -416,6 +416,7 @@ func (r *DashboardRepository) GetOfficerByID(officerID string) (*models.Dashboar
 		SELECT
 			o.officer_id,
 			o.officer_name,
+			COALESCE(o.officer_email, '') as officer_email,
 			o.region,
 			o.branch,
 			COALESCE(o.primary_channel, '') as primary_channel,
@@ -479,6 +480,7 @@ func (r *DashboardRepository) GetOfficerByID(officerID string) (*models.Dashboar
 	err := r.db.QueryRow(query, officerID).Scan(
 		&officer.OfficerID,
 		&officer.Name,
+		&officer.Email,
 		&officer.Region,
 		&officer.Branch,
 		&officer.Channel,
