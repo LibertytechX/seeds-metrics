@@ -159,14 +159,20 @@
 }
 
 .filter-row {
-  display: flex;
+  display: grid;
   gap: 15px;
-  flex-wrap: wrap;
+  grid-template-columns: repeat(2, 1fr); /* 2 columns on small screens */
+}
+
+/* Responsive filter layout - 4 columns on wide screens */
+@media (min-width: 768px) {
+  .filter-row {
+    grid-template-columns: repeat(4, 1fr); /* 4 columns on wide screens */
+  }
 }
 
 .filter-group {
-  flex: 1;
-  min-width: 150px;
+  min-width: 0; /* Allow grid items to shrink below content size */
 }
 
 .filter-group select,

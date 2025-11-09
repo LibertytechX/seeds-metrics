@@ -1351,6 +1351,8 @@ func (r *DashboardRepository) GetFilterOptions(filterType string, filters map[st
 		return r.getBranches(filters)
 	case "regions":
 		return r.getRegions()
+	case "waves":
+		return r.getWaves()
 	case "channels":
 		return r.getChannels()
 	case "user-types":
@@ -1430,6 +1432,32 @@ func (r *DashboardRepository) getRegions() ([]string, error) {
 	}
 
 	return regions, nil
+}
+
+func (r *DashboardRepository) getWaves() ([]string, error) {
+	query := `SELECT DISTINCT l.wave FROM loans l
+		INNER JOIN officers o ON l.officer_id = o.officer_id
+		WHERE l.wave IS NOT NULL
+		AND l.wave != ''
+		AND (o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT') OR o.user_type IS NULL)
+		ORDER BY l.wave`
+
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	waves := []string{}
+	for rows.Next() {
+		var wave string
+		if err := rows.Scan(&wave); err != nil {
+			return nil, err
+		}
+		waves = append(waves, wave)
+	}
+
+	return waves, nil
 }
 
 func (r *DashboardRepository) getChannels() ([]string, error) {

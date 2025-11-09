@@ -14,6 +14,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     officer_id: initialFilter?.officer_id || '',
     branch: '',
     regions: [], // Multi-select region filter
+    wave: '', // Single-select wave filter
     channel: '',
     status: '',
     customer_phone: '',
@@ -25,6 +26,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
   const [allBranches, setAllBranches] = useState([]);
   const [allRegions, setAllRegions] = useState([]);
   const [allChannels, setAllChannels] = useState([]);
+  const [allWaves, setAllWaves] = useState([]);
   const [allVerticalLeads, setAllVerticalLeads] = useState([]);
   const [isRegionDropdownOpen, setIsRegionDropdownOpen] = useState(false);
   const regionDropdownRef = useRef(null);
@@ -60,17 +62,19 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     try {
       const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8081/api/v1';
 
-      // Fetch branches, regions, and channels from API
-      const [branchesRes, regionsRes, channelsRes] = await Promise.all([
+      // Fetch branches, regions, channels, and waves from API
+      const [branchesRes, regionsRes, channelsRes, wavesRes] = await Promise.all([
         fetch(`${API_BASE_URL}/filters/branches`),
         fetch(`${API_BASE_URL}/filters/regions`),
         fetch(`${API_BASE_URL}/filters/channels`),
+        fetch(`${API_BASE_URL}/filters/waves`),
       ]);
 
-      const [branchesData, regionsData, channelsData] = await Promise.all([
+      const [branchesData, regionsData, channelsData, wavesData] = await Promise.all([
         branchesRes.json(),
         regionsRes.json(),
         channelsRes.json(),
+        wavesRes.json(),
       ]);
 
       if (branchesData.status === 'success') {
@@ -81,6 +85,9 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       }
       if (channelsData.status === 'success') {
         setAllChannels(channelsData.data.channels || []);
+      }
+      if (wavesData.status === 'success') {
+        setAllWaves(wavesData.data.waves || []);
       }
     } catch (error) {
       console.error('Error fetching filter options:', error);
@@ -211,6 +218,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
         officer_id: initialFilter.officer_id || '',
         branch: '',
         regions: [],
+        wave: '',
         channel: '',
         status: '',
         customer_phone: '',
@@ -241,11 +249,12 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       officers: [...new Set(loans.map(l => l.officer_name))].filter(Boolean).sort(),
       branches: allBranches.length > 0 ? allBranches.sort() : [...new Set(loans.map(l => l.branch))].filter(Boolean).sort(),
       regions: allRegions.length > 0 ? allRegions.sort() : [...new Set(loans.map(l => l.region))].filter(Boolean).sort(),
+      waves: allWaves.length > 0 ? allWaves.sort() : [...new Set(loans.map(l => l.wave))].filter(Boolean).sort(),
       channels: allChannels.length > 0 ? allChannels.sort() : [...new Set(loans.map(l => l.channel))].filter(Boolean).sort(),
       statuses: [...new Set(loans.map(l => l.status))].filter(Boolean).sort(),
       verticalLeads: allVerticalLeads.length > 0 ? allVerticalLeads : [...new Set(loans.map(l => l.vertical_lead_email))].filter(Boolean).sort(),
     };
-  }, [loans, allBranches, allRegions, allChannels, allVerticalLeads]);
+  }, [loans, allBranches, allRegions, allWaves, allChannels, allVerticalLeads]);
 
   const handleSort = (key) => {
     setSortConfig(prev => ({
@@ -273,6 +282,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       officer_id: '',
       branch: '',
       regions: [],
+      wave: '',
       channel: '',
       status: '',
       customer_phone: '',
@@ -582,6 +592,17 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                 <option value="">All Branches</option>
                 {filterOptions.branches.map(branch => (
                   <option key={branch} value={branch}>{branch}</option>
+                ))}
+              </select>
+            </div>
+            <div className="filter-group">
+              <select
+                value={filters.wave}
+                onChange={(e) => handleFilterChange('wave', e.target.value)}
+              >
+                <option value="">All Waves</option>
+                {filterOptions.waves.map(wave => (
+                  <option key={wave} value={wave}>{wave}</option>
                 ))}
               </select>
             </div>
