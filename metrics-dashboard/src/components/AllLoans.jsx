@@ -17,6 +17,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     channel: '',
     status: '',
     customer_phone: '',
+    vertical_lead_email: '',
     loan_type: initialFilter?.loan_type || '', // 'active' or 'inactive'
     rot_type: initialFilter?.rot_type || '', // 'early' or 'late'
     delay_type: initialFilter?.delay_type || '', // 'risky' for high delay loans
@@ -24,6 +25,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
   const [allBranches, setAllBranches] = useState([]);
   const [allRegions, setAllRegions] = useState([]);
   const [allChannels, setAllChannels] = useState([]);
+  const [allVerticalLeads, setAllVerticalLeads] = useState([]);
   const [filterLabel, setFilterLabel] = useState(
     initialFilter?.officer_name ? `Officer: ${initialFilter.officer_name}` :
     initialFilter?.label ? initialFilter.label : ''
@@ -158,6 +160,14 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
 
         setLoans(fetchedLoans);
 
+        // Extract unique vertical leads from fetched loans
+        const uniqueVerticalLeads = [...new Set(
+          fetchedLoans
+            .map(loan => loan.vertical_lead_email)
+            .filter(email => email != null && email !== '')
+        )].sort();
+        setAllVerticalLeads(uniqueVerticalLeads);
+
         // Use backend total for pagination, not client-side filtered count
         // The backend total represents the actual number of records matching server-side filters
         // Client-side filtering (loan_type, rot_type, delay_type) is for display only
@@ -213,8 +223,9 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       regions: allRegions.length > 0 ? allRegions.sort() : [...new Set(loans.map(l => l.region))].filter(Boolean).sort(),
       channels: allChannels.length > 0 ? allChannels.sort() : [...new Set(loans.map(l => l.channel))].filter(Boolean).sort(),
       statuses: [...new Set(loans.map(l => l.status))].filter(Boolean).sort(),
+      verticalLeads: allVerticalLeads.length > 0 ? allVerticalLeads : [...new Set(loans.map(l => l.vertical_lead_email))].filter(Boolean).sort(),
     };
-  }, [loans, allBranches, allRegions, allChannels]);
+  }, [loans, allBranches, allRegions, allChannels, allVerticalLeads]);
 
   const handleSort = (key) => {
     setSortConfig(prev => ({
@@ -253,6 +264,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
   const handleExportCSV = () => {
     const headers = [
       'Loan ID', 'Customer Name', 'Customer Phone', 'Officer Name', 'Region', 'Branch',
+      'Vertical Lead Name', 'Vertical Lead Email',
       'Channel', 'Loan Amount', 'Repayment Amount', 'Disbursement Date', 'Loan Tenure', 'Maturity Date',
       'Daily Repayment Amount', 'Repayment Days Due Today', 'Repayment Days Paid', 'Business Days Since Disbursement',
       'Timeliness Score', 'Repayment Health', 'Repayment Delay Rate %', 'Wave', 'Days Since Last Repayment', 'Current DPD',
@@ -267,6 +279,8 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       loan.officer_name,
       loan.region,
       loan.branch,
+      loan.vertical_lead_name || 'N/A',
+      loan.vertical_lead_email || 'N/A',
       loan.channel,
       loan.loan_amount,
       loan.repayment_amount || 'N/A',
@@ -525,6 +539,17 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
             </div>
             <div className="filter-group">
               <select
+                value={filters.vertical_lead_email}
+                onChange={(e) => handleFilterChange('vertical_lead_email', e.target.value)}
+              >
+                <option value="">All Vertical Leads</option>
+                {filterOptions.verticalLeads.map(email => (
+                  <option key={email} value={email}>{email}</option>
+                ))}
+              </select>
+            </div>
+            <div className="filter-group">
+              <select
                 value={filters.status}
                 onChange={(e) => handleFilterChange('status', e.target.value)}
               >
@@ -583,6 +608,8 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                 <th onClick={() => handleSort('officer_name')}>Officer Name</th>
                 <th onClick={() => handleSort('region')}>Region</th>
                 <th onClick={() => handleSort('branch')}>Branch</th>
+                <th onClick={() => handleSort('vertical_lead_name')}>Vertical Lead Name</th>
+                <th onClick={() => handleSort('vertical_lead_email')}>Vertical Lead Email</th>
                 <th onClick={() => handleSort('channel')}>Channel</th>
                 <th onClick={() => handleSort('loan_amount')}>Loan Amount</th>
                 <th onClick={() => handleSort('repayment_amount')}>Repayment Amount</th>
@@ -616,6 +643,8 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                   <td>{loan.officer_name}</td>
                   <td>{loan.region}</td>
                   <td>{loan.branch}</td>
+                  <td>{loan.vertical_lead_name || 'N/A'}</td>
+                  <td>{loan.vertical_lead_email || 'N/A'}</td>
                   <td>{loan.channel}</td>
                   <td className="amount">{formatCurrency(loan.loan_amount)}</td>
                   <td className="amount">{loan.repayment_amount ? formatCurrency(loan.repayment_amount) : 'N/A'}</td>
