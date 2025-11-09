@@ -205,6 +205,10 @@ func (r *DashboardRepository) GetOfficers(filters map[string]interface{}) ([]*mo
 			COALESCE(o.primary_channel, '') as primary_channel,
 		o.user_type,
 			o.hire_date,
+			o.supervisor_email,
+			o.supervisor_name,
+			o.vertical_lead_email,
+			o.vertical_lead_name,
 			-- Raw metrics (to be aggregated from loans)
 			COALESCE(SUM(CASE WHEN l.fimr_tagged THEN 1 ELSE 0 END), 0) as first_miss,
 			COALESCE(COUNT(DISTINCT l.loan_id), 0) as disbursed,
@@ -331,6 +335,8 @@ func (r *DashboardRepository) GetOfficers(filters map[string]interface{}) ([]*mo
 			RawMetrics: &models.RawMetrics{},
 		}
 
+		var supervisorEmail, supervisorName, verticalLeadEmail, verticalLeadName sql.NullString
+
 		err := rows.Scan(
 			&officer.OfficerID,
 			&officer.Name,
@@ -340,6 +346,10 @@ func (r *DashboardRepository) GetOfficers(filters map[string]interface{}) ([]*mo
 			&officer.Channel,
 			&officer.UserType,
 			&officer.HireDate,
+			&supervisorEmail,
+			&supervisorName,
+			&verticalLeadEmail,
+			&verticalLeadName,
 			&officer.RawMetrics.FirstMiss,
 			&officer.RawMetrics.Disbursed,
 			&officer.RawMetrics.Dpd1to6Bal,
@@ -365,6 +375,20 @@ func (r *DashboardRepository) GetOfficers(filters map[string]interface{}) ([]*mo
 		)
 		if err != nil {
 			return nil, err
+		}
+
+		// Handle NULL values for supervisor and vertical lead fields
+		if supervisorEmail.Valid {
+			officer.SupervisorEmail = &supervisorEmail.String
+		}
+		if supervisorName.Valid {
+			officer.SupervisorName = &supervisorName.String
+		}
+		if verticalLeadEmail.Valid {
+			officer.VerticalLeadEmail = &verticalLeadEmail.String
+		}
+		if verticalLeadName.Valid {
+			officer.VerticalLeadName = &verticalLeadName.String
 		}
 
 		officers = append(officers, officer)
@@ -397,6 +421,10 @@ func (r *DashboardRepository) GetOfficerByID(officerID string) (*models.Dashboar
 			COALESCE(o.primary_channel, '') as primary_channel,
 			o.user_type,
 			o.hire_date,
+			o.supervisor_email,
+			o.supervisor_name,
+			o.vertical_lead_email,
+			o.vertical_lead_name,
 			COALESCE(SUM(CASE WHEN l.fimr_tagged THEN 1 ELSE 0 END), 0) as first_miss,
 			COALESCE(COUNT(DISTINCT l.loan_id), 0) as disbursed,
 			COALESCE(SUM(CASE WHEN l.current_dpd BETWEEN 1 AND 6 THEN l.principal_outstanding ELSE 0 END), 0) as dpd1to6_bal,
@@ -439,12 +467,14 @@ func (r *DashboardRepository) GetOfficerByID(officerID string) (*models.Dashboar
 		LEFT JOIN loan_repayments lr ON l.loan_id = lr.loan_id
 		WHERE o.officer_id = $1
 			AND (o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT') OR o.user_type IS NULL)
-		GROUP BY o.officer_id, o.officer_name, o.region, o.branch, o.primary_channel, o.user_type, o.hire_date
+		GROUP BY o.officer_id, o.officer_name, o.region, o.branch, o.primary_channel, o.user_type, o.hire_date, o.supervisor_email, o.supervisor_name, o.vertical_lead_email, o.vertical_lead_name
 	`
 
 	officer := &models.DashboardOfficerMetrics{
 		RawMetrics: &models.RawMetrics{},
 	}
+
+	var supervisorEmail, supervisorName, verticalLeadEmail, verticalLeadName sql.NullString
 
 	err := r.db.QueryRow(query, officerID).Scan(
 		&officer.OfficerID,
@@ -454,6 +484,10 @@ func (r *DashboardRepository) GetOfficerByID(officerID string) (*models.Dashboar
 		&officer.Channel,
 		&officer.UserType,
 		&officer.HireDate,
+		&supervisorEmail,
+		&supervisorName,
+		&verticalLeadEmail,
+		&verticalLeadName,
 		&officer.RawMetrics.FirstMiss,
 		&officer.RawMetrics.Disbursed,
 		&officer.RawMetrics.Dpd1to6Bal,
@@ -480,6 +514,20 @@ func (r *DashboardRepository) GetOfficerByID(officerID string) (*models.Dashboar
 
 	if err != nil {
 		return nil, err
+	}
+
+	// Handle NULL values for supervisor and vertical lead fields
+	if supervisorEmail.Valid {
+		officer.SupervisorEmail = &supervisorEmail.String
+	}
+	if supervisorName.Valid {
+		officer.SupervisorName = &supervisorName.String
+	}
+	if verticalLeadEmail.Valid {
+		officer.VerticalLeadEmail = &verticalLeadEmail.String
+	}
+	if verticalLeadName.Valid {
+		officer.VerticalLeadName = &verticalLeadName.String
 	}
 
 	return officer, nil

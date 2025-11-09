@@ -76,6 +76,10 @@ type DashboardOfficerMetrics struct {
 	Channel           string             `json:"channel"`
 	UserType          *string            `json:"user_type,omitempty"`
 	HireDate          *time.Time         `json:"hire_date,omitempty"`
+	SupervisorEmail   *string            `json:"supervisor_email,omitempty"`
+	SupervisorName    *string            `json:"supervisor_name,omitempty"`
+	VerticalLeadEmail *string            `json:"vertical_lead_email,omitempty"`
+	VerticalLeadName  *string            `json:"vertical_lead_name,omitempty"`
 	RawMetrics        *RawMetrics        `json:"rawMetrics"`
 	CalculatedMetrics *CalculatedMetrics `json:"calculatedMetrics"`
 	RiskBand          string             `json:"riskBand"`

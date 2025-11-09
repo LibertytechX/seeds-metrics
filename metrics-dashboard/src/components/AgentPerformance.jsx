@@ -16,6 +16,8 @@ const AgentPerformance = ({ agents, onViewPortfolio, onViewLowDelayLoans, initia
     endDate: '',
     delayRateMax: initialFilter?.delayRateMax || '',
     userTypes: [],
+    supervisorEmail: '',
+    verticalLeadEmail: '',
   });
   const [showFilters, setShowFilters] = useState(!!initialFilter);
   const [activeActionMenu, setActiveActionMenu] = useState(null);
@@ -59,6 +61,8 @@ const AgentPerformance = ({ agents, onViewPortfolio, onViewLowDelayLoans, initia
       regions: [...new Set(agents.map(a => a.region))].sort(),
       branches: [...new Set(agents.map(a => a.branch))].sort(),
       riskBands: [...new Set(agents.map(a => a.riskBand))].sort(),
+      supervisorEmails: [...new Set(agents.map(a => a.supervisorEmail).filter(Boolean))].sort(),
+      verticalLeadEmails: [...new Set(agents.map(a => a.verticalLeadEmail).filter(Boolean))].sort(),
     };
   }, [agents]);
 
@@ -71,6 +75,10 @@ const AgentPerformance = ({ agents, onViewPortfolio, onViewLowDelayLoans, initia
 
       // User type filter (multi-select)
       if (filters.userTypes.length > 0 && !filters.userTypes.includes(agent.userType)) return false;
+
+      // Supervisor and Vertical Lead filters
+      if (filters.supervisorEmail && agent.supervisorEmail !== filters.supervisorEmail) return false;
+      if (filters.verticalLeadEmail && agent.verticalLeadEmail !== filters.verticalLeadEmail) return false;
 
       // Date range filter (filter by lastAuditDate)
       if (filters.startDate && agent.lastAuditDate && agent.lastAuditDate < filters.startDate) return false;
@@ -232,7 +240,8 @@ const AgentPerformance = ({ agents, onViewPortfolio, onViewLowDelayLoans, initia
   const handleExport = () => {
     // Create CSV content
     const headers = [
-      'Officer Name', 'Region', 'Branch', 'Date Joined', 'Risk Score', 'Risk Band', 'Assignee',
+      'Officer Name', 'Region', 'Branch', 'Supervisor Email', 'Supervisor Name',
+      'Vertical Lead Email', 'Vertical Lead Name', 'Date Joined', 'Risk Score', 'Risk Band', 'Assignee',
       'Audit Status', 'Last Audit Date', 'AYR', 'DQI', 'FIMR', 'All-Time FIMR', 'D0-6 Slippage',
       'Roll', 'FRR', 'Portfolio Total', 'Overdue >15D', 'Active Loans', 'Channel',
       'Yield', 'PORR', 'Channel Purity', 'Rank',
@@ -243,6 +252,10 @@ const AgentPerformance = ({ agents, onViewPortfolio, onViewLowDelayLoans, initia
       agent.officerName,
       agent.region,
       agent.branch,
+      agent.supervisorEmail || 'N/A',
+      agent.supervisorName || 'N/A',
+      agent.verticalLeadEmail || 'N/A',
+      agent.verticalLeadName || 'N/A',
       agent.dateJoined ? formatDate(agent.dateJoined) : 'N/A',
       agent.riskScore,
       agent.riskBand,
@@ -406,6 +419,22 @@ const AgentPerformance = ({ agents, onViewPortfolio, onViewLowDelayLoans, initia
               />
             </div>
             <div className="filter-group">
+              <select value={filters.supervisorEmail} onChange={(e) => handleFilterChange('supervisorEmail', e.target.value)}>
+                <option value="">All Supervisors</option>
+                {filterOptions.supervisorEmails.map(email => (
+                  <option key={email} value={email}>{email}</option>
+                ))}
+              </select>
+            </div>
+            <div className="filter-group">
+              <select value={filters.verticalLeadEmail} onChange={(e) => handleFilterChange('verticalLeadEmail', e.target.value)}>
+                <option value="">All Vertical Leads</option>
+                {filterOptions.verticalLeadEmails.map(email => (
+                  <option key={email} value={email}>{email}</option>
+                ))}
+              </select>
+            </div>
+            <div className="filter-group">
               <select value={filters.delayRateMax} onChange={(e) => handleFilterChange('delayRateMax', e.target.value)}>
                 <option value="">All Delay Rates</option>
                 <option value="10">Delay Rate &lt; 10%</option>
@@ -492,6 +521,10 @@ const AgentPerformance = ({ agents, onViewPortfolio, onViewLowDelayLoans, initia
               <th onClick={() => handleSort('officerName')}>Officer Name</th>
               <th onClick={() => handleSort('region')}>Region</th>
               <th onClick={() => handleSort('branch')}>Branch</th>
+              <th onClick={() => handleSort('supervisorEmail')}>Supervisor Email</th>
+              <th onClick={() => handleSort('supervisorName')}>Supervisor Name</th>
+              <th onClick={() => handleSort('verticalLeadEmail')}>Vertical Lead Email</th>
+              <th onClick={() => handleSort('verticalLeadName')}>Vertical Lead Name</th>
               <th onClick={() => handleSort('dateJoined')}>Date Joined</th>
               <th onClick={() => handleSort('riskScore')}>Risk Score</th>
               <th onClick={() => handleSort('riskBand')}>Risk Band</th>
@@ -527,6 +560,10 @@ const AgentPerformance = ({ agents, onViewPortfolio, onViewLowDelayLoans, initia
                 <td className="officer-name">{agent.officerName}</td>
                 <td>{agent.region}</td>
                 <td>{agent.branch}</td>
+                <td className="email">{agent.supervisorEmail || <span className="no-data">N/A</span>}</td>
+                <td>{agent.supervisorName || <span className="no-data">N/A</span>}</td>
+                <td className="email">{agent.verticalLeadEmail || <span className="no-data">N/A</span>}</td>
+                <td>{agent.verticalLeadName || <span className="no-data">N/A</span>}</td>
                 <td className="date-joined">
                   {agent.dateJoined ? formatDate(agent.dateJoined) : <span className="no-data">N/A</span>}
                 </td>
