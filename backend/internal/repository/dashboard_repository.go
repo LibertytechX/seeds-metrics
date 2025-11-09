@@ -970,6 +970,21 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 		argCount++
 	}
 
+	// DPD range filter
+	if dpdMin, ok := filters["dpd_min"].(int); ok {
+		query += fmt.Sprintf(" AND l.current_dpd >= $%d", argCount)
+		countQuery += fmt.Sprintf(" AND l.current_dpd >= $%d", argCount)
+		args = append(args, dpdMin)
+		argCount++
+	}
+
+	if dpdMax, ok := filters["dpd_max"].(int); ok {
+		query += fmt.Sprintf(" AND l.current_dpd <= $%d", argCount)
+		countQuery += fmt.Sprintf(" AND l.current_dpd <= $%d", argCount)
+		args = append(args, dpdMax)
+		argCount++
+	}
+
 	// Get total count
 	var total int
 	err := r.db.QueryRow(countQuery, args...).Scan(&total)

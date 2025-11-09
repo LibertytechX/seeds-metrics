@@ -176,7 +176,8 @@
 }
 
 .filter-group select,
-.filter-group input.phone-filter-input {
+.filter-group input.phone-filter-input,
+.filter-group input.dpd-filter-input {
   width: 100%;
   padding: 8px 12px;
   border: 1px solid #ddd;
@@ -252,11 +253,13 @@
   user-select: none;
 }
 
-.filter-group input.phone-filter-input {
+.filter-group input.phone-filter-input,
+.filter-group input.dpd-filter-input {
   font-family: inherit;
 }
 
-.filter-group input.phone-filter-input::placeholder {
+.filter-group input.phone-filter-input::placeholder,
+.filter-group input.dpd-filter-input::placeholder {
   color: #999;
   font-style: italic;
 }

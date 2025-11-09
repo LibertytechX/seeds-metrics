@@ -22,6 +22,8 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     loan_type: initialFilter?.loan_type || '', // 'active' or 'inactive'
     rot_type: initialFilter?.rot_type || '', // 'early' or 'late'
     delay_type: initialFilter?.delay_type || '', // 'risky' for high delay loans
+    dpd_min: '', // DPD minimum value
+    dpd_max: '', // DPD maximum value
   });
   const [allBranches, setAllBranches] = useState([]);
   const [allRegions, setAllRegions] = useState([]);
@@ -45,6 +47,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
   const [selectedLoan, setSelectedLoan] = useState(null);
   const [recalculating, setRecalculating] = useState(false);
   const [recalculateMessage, setRecalculateMessage] = useState('');
+  const [exporting, setExporting] = useState(false);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -101,7 +104,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       console.log('🔍 AllLoans: fetchLoans called with filters:', filters);
 
       // Exclude loan_type, rot_type, delay_type, and regions from API params (will handle regions separately)
-      // Include customer_phone for server-side filtering
+      // Include customer_phone and DPD filters for server-side filtering
       const apiFilters = Object.fromEntries(
         Object.entries(filters).filter(([k, v]) => v !== '' && k !== 'loan_type' && k !== 'rot_type' && k !== 'delay_type' && k !== 'regions')
       );
@@ -226,6 +229,8 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
         loan_type: initialFilter.loan_type || '',
         rot_type: initialFilter.rot_type || '',
         delay_type: initialFilter.delay_type || '',
+        dpd_min: '',
+        dpd_max: '',
       });
       setFilterLabel(
         initialFilter.officer_name ? `Officer: ${initialFilter.officer_name}` :
@@ -290,6 +295,8 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       loan_type: '',
       rot_type: '',
       delay_type: '',
+      dpd_min: '',
+      dpd_max: '',
     });
     setFilterLabel('');
   };
@@ -362,6 +369,148 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+  };
+
+  // Export up to 3000 rows with current filters
+  const handleExportLargeCSV = async () => {
+    setExporting(true);
+    try {
+      console.log('🔍 Exporting loans with filters:', filters);
+
+      // Prepare API filters (same logic as fetchLoans)
+      const apiFilters = Object.fromEntries(
+        Object.entries(filters).filter(([k, v]) => v !== '' && k !== 'loan_type' && k !== 'rot_type' && k !== 'delay_type' && k !== 'regions')
+      );
+
+      // Convert regions array to comma-separated string
+      if (filters.regions && filters.regions.length > 0) {
+        apiFilters.region = filters.regions.join(',');
+      }
+
+      const params = new URLSearchParams({
+        page: 1,
+        limit: 3000, // Fetch up to 3000 rows
+        sort_by: sortConfig.key,
+        sort_dir: sortConfig.direction.toUpperCase(),
+        ...apiFilters,
+      });
+
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8081/api/v1';
+      const response = await fetch(`${API_BASE_URL}/loans?${params}`);
+      const data = await response.json();
+
+      if (data.status === 'success') {
+        let exportLoans = data.data.loans || [];
+        console.log(`📦 Fetched ${exportLoans.length} loans for export`);
+
+        // Apply client-side filtering for loan_type and rot_type (same as fetchLoans)
+        if (filters.loan_type === 'active') {
+          exportLoans = exportLoans.filter(loan =>
+            loan.total_outstanding > 2000 && loan.days_since_last_repayment < 6
+          );
+        } else if (filters.loan_type === 'inactive') {
+          exportLoans = exportLoans.filter(loan =>
+            loan.total_outstanding <= 2000 || loan.days_since_last_repayment > 5
+          );
+        } else if (filters.loan_type === 'overdue_15d') {
+          exportLoans = exportLoans.filter(loan =>
+            loan.current_dpd > 15
+          );
+        }
+
+        if (filters.rot_type === 'early') {
+          exportLoans = exportLoans.filter(loan => {
+            const loanAge = Math.floor((new Date() - new Date(loan.disbursement_date)) / (1000 * 60 * 60 * 24));
+            return loanAge < 7 && loan.current_dpd > 4;
+          });
+        } else if (filters.rot_type === 'late') {
+          exportLoans = exportLoans.filter(loan => {
+            const loanAge = Math.floor((new Date() - new Date(loan.disbursement_date)) / (1000 * 60 * 60 * 24));
+            return loanAge >= 7 && loan.current_dpd > 4;
+          });
+        }
+
+        if (filters.delay_type === 'risky') {
+          exportLoans = exportLoans.filter(loan => {
+            if (loan.status !== 'Active' || loan.total_outstanding <= 2000) {
+              return false;
+            }
+            if (loan.repayment_delay_rate != null) {
+              return loan.repayment_delay_rate < 60;
+            }
+            return false;
+          });
+        }
+
+        // Generate CSV
+        const headers = [
+          'Loan ID', 'Customer Name', 'Customer Phone', 'Officer Name', 'Region', 'Branch',
+          'Vertical Lead Name', 'Vertical Lead Email',
+          'Channel', 'Loan Amount', 'Repayment Amount', 'Disbursement Date', 'Loan Tenure', 'Maturity Date',
+          'Daily Repayment Amount', 'Repayment Days Due Today', 'Repayment Days Paid', 'Business Days Since Disbursement',
+          'Timeliness Score', 'Repayment Health', 'Repayment Delay Rate %', 'Wave', 'Days Since Last Repayment', 'Current DPD',
+          'Principal Outstanding', 'Interest Outstanding', 'Fees Outstanding', 'Total Outstanding',
+          'Actual Outstanding', 'Total Repayments', 'Status', 'FIMR Tagged'
+        ];
+
+        const rows = exportLoans.map(loan => [
+          loan.loan_id,
+          loan.customer_name,
+          loan.customer_phone || '',
+          loan.officer_name,
+          loan.region,
+          loan.branch,
+          loan.vertical_lead_name || 'N/A',
+          loan.vertical_lead_email || 'N/A',
+          loan.channel,
+          loan.loan_amount,
+          loan.repayment_amount || 'N/A',
+          loan.disbursement_date,
+          formatTenure(loan.loan_term_days),
+          loan.maturity_date,
+          loan.daily_repayment_amount != null ? loan.daily_repayment_amount.toFixed(2) : 'N/A',
+          loan.repayment_days_due_today != null ? loan.repayment_days_due_today : 'N/A',
+          loan.repayment_days_paid != null ? loan.repayment_days_paid.toFixed(2) : 'N/A',
+          loan.business_days_since_disbursement != null ? loan.business_days_since_disbursement : 'N/A',
+          loan.timeliness_score != null ? loan.timeliness_score.toFixed(2) : 'N/A',
+          loan.repayment_health != null ? loan.repayment_health.toFixed(2) : 'N/A',
+          loan.repayment_delay_rate != null ? loan.repayment_delay_rate.toFixed(2) : 'N/A',
+          loan.wave || 'N/A',
+          loan.days_since_last_repayment != null ? loan.days_since_last_repayment : 'N/A',
+          loan.current_dpd,
+          loan.principal_outstanding,
+          loan.interest_outstanding,
+          loan.fees_outstanding,
+          loan.total_outstanding,
+          loan.actual_outstanding || 0,
+          loan.total_repayments || 0,
+          loan.status,
+          loan.fimr_tagged ? 'Yes' : 'No',
+        ]);
+
+        const csvContent = [
+          headers.join(','),
+          ...rows.map(row => row.map(cell => `"${cell}"`).join(','))
+        ].join('\n');
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const link = document.createElement('a');
+        const url = URL.createObjectURL(blob);
+        link.setAttribute('href', url);
+        link.setAttribute('download', `All_Loans_Export_${new Date().toISOString().split('T')[0]}.csv`);
+        link.style.visibility = 'hidden';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+
+        console.log(`✅ Exported ${exportLoans.length} loans to CSV`);
+      }
+    } catch (error) {
+      console.error('Error exporting loans:', error);
+      alert('Failed to export loans. Please try again.');
+    } finally {
+      setExporting(false);
+    }
   };
 
   const handleExportPDF = () => {
@@ -525,9 +674,18 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
             <RefreshCw size={16} className={recalculating ? 'spinning' : ''} />
             {recalculating ? 'Recalculating...' : 'Refresh Fields'}
           </button>
+          <button
+            className={`export-button ${exporting ? 'loading' : ''}`}
+            onClick={handleExportLargeCSV}
+            disabled={exporting}
+            title="Export up to 3000 rows with current filters"
+          >
+            <Download size={16} />
+            {exporting ? 'Exporting...' : 'Export (3000 rows)'}
+          </button>
           <button className="export-button" onClick={handleExportCSV}>
             <Download size={16} />
-            Export CSV
+            Export Current Page
           </button>
           <button className="export-button" onClick={handleExportPDF}>
             <FileText size={16} />
@@ -646,6 +804,26 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                 value={filters.customer_phone}
                 onChange={(e) => handleFilterChange('customer_phone', e.target.value)}
                 className="phone-filter-input"
+              />
+            </div>
+            <div className="filter-group">
+              <input
+                type="number"
+                placeholder="DPD Min (e.g., 0)"
+                value={filters.dpd_min}
+                onChange={(e) => handleFilterChange('dpd_min', e.target.value)}
+                className="dpd-filter-input"
+                min="0"
+              />
+            </div>
+            <div className="filter-group">
+              <input
+                type="number"
+                placeholder="DPD Max (e.g., 30)"
+                value={filters.dpd_max}
+                onChange={(e) => handleFilterChange('dpd_max', e.target.value)}
+                className="dpd-filter-input"
+                min="0"
               />
             </div>
             <div className="filter-group">

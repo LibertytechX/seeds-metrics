@@ -495,6 +495,16 @@ func (h *DashboardHandler) GetAllLoans(c *gin.Context) {
 	if verticalLeadEmail := c.Query("vertical_lead_email"); verticalLeadEmail != "" {
 		filters["vertical_lead_email"] = verticalLeadEmail
 	}
+	if dpdMin := c.Query("dpd_min"); dpdMin != "" {
+		if min, err := strconv.Atoi(dpdMin); err == nil {
+			filters["dpd_min"] = min
+		}
+	}
+	if dpdMax := c.Query("dpd_max"); dpdMax != "" {
+		if max, err := strconv.Atoi(dpdMax); err == nil {
+			filters["dpd_max"] = max
+		}
+	}
 	if sortBy := c.Query("sort_by"); sortBy != "" {
 		filters["sort_by"] = sortBy
 	}
