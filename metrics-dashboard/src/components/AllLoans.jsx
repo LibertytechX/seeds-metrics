@@ -16,6 +16,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     region: '',
     channel: '',
     status: '',
+    customer_phone: '',
     loan_type: initialFilter?.loan_type || '', // 'active' or 'inactive'
     rot_type: initialFilter?.rot_type || '', // 'early' or 'late'
     delay_type: initialFilter?.delay_type || '', // 'risky' for high delay loans
@@ -78,6 +79,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       console.log('🔍 AllLoans: fetchLoans called with filters:', filters);
 
       // Exclude loan_type, rot_type, and delay_type from API params (client-side filtering)
+      // Include customer_phone for server-side filtering
       const apiFilters = Object.fromEntries(
         Object.entries(filters).filter(([k, v]) => v !== '' && k !== 'loan_type' && k !== 'rot_type' && k !== 'delay_type')
       );
@@ -233,6 +235,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       region: '',
       channel: '',
       status: '',
+      customer_phone: '',
       loan_type: '',
       rot_type: '',
     });
@@ -521,6 +524,15 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                   <option key={status} value={status}>{status}</option>
                 ))}
               </select>
+            </div>
+            <div className="filter-group">
+              <input
+                type="text"
+                placeholder="Search by phone number..."
+                value={filters.customer_phone}
+                onChange={(e) => handleFilterChange('customer_phone', e.target.value)}
+                className="phone-filter-input"
+              />
             </div>
             <div className="filter-group">
               <button className="clear-filters" onClick={clearFilters}>Clear All</button>

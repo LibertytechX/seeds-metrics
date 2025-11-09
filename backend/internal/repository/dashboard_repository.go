@@ -846,6 +846,13 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 		argCount++
 	}
 
+	if customerPhone, ok := filters["customer_phone"].(string); ok && customerPhone != "" {
+		query += fmt.Sprintf(" AND l.customer_phone LIKE $%d", argCount)
+		countQuery += fmt.Sprintf(" AND l.customer_phone LIKE $%d", argCount)
+		args = append(args, "%"+customerPhone+"%")
+		argCount++
+	}
+
 	// Get total count
 	var total int
 	err := r.db.QueryRow(countQuery, args...).Scan(&total)

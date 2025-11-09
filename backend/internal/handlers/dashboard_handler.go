@@ -458,6 +458,7 @@ func (h *DashboardHandler) GetEarlyIndicatorSummary(c *gin.Context) {
 // @Param region query string false "Filter by region"
 // @Param channel query string false "Filter by channel"
 // @Param status query string false "Filter by status"
+// @Param customer_phone query string false "Filter by customer phone (partial match)"
 // @Param sort_by query string false "Sort field"
 // @Param sort_dir query string false "Sort direction (asc/desc)"
 // @Param page query int false "Page number" default(1)
@@ -486,6 +487,9 @@ func (h *DashboardHandler) GetAllLoans(c *gin.Context) {
 	}
 	if wave := c.Query("wave"); wave != "" {
 		filters["wave"] = wave
+	}
+	if customerPhone := c.Query("customer_phone"); customerPhone != "" {
+		filters["customer_phone"] = customerPhone
 	}
 	if sortBy := c.Query("sort_by"); sortBy != "" {
 		filters["sort_by"] = sortBy
