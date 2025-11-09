@@ -491,6 +491,9 @@ func (h *DashboardHandler) GetAllLoans(c *gin.Context) {
 	if customerPhone := c.Query("customer_phone"); customerPhone != "" {
 		filters["customer_phone"] = customerPhone
 	}
+	if verticalLeadEmail := c.Query("vertical_lead_email"); verticalLeadEmail != "" {
+		filters["vertical_lead_email"] = verticalLeadEmail
+	}
 	if sortBy := c.Query("sort_by"); sortBy != "" {
 		filters["sort_by"] = sortBy
 	}
