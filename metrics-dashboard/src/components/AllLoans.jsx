@@ -371,11 +371,23 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     document.body.removeChild(link);
   };
 
-  // Export up to 3000 rows with current filters
+  // Export all filtered rows (no limit)
   const handleExportLargeCSV = async () => {
+    // First, check the total count and confirm if it's very large
+    const totalCount = pagination.total;
+
+    if (totalCount > 10000) {
+      const confirmExport = window.confirm(
+        `You are about to export ${totalCount.toLocaleString()} loans. This may take some time.\n\nDo you want to continue?`
+      );
+      if (!confirmExport) {
+        return;
+      }
+    }
+
     setExporting(true);
     try {
-      console.log('🔍 Exporting loans with filters:', filters);
+      console.log('🔍 Exporting all filtered loans. Total count:', totalCount);
 
       // Prepare API filters (same logic as fetchLoans)
       const apiFilters = Object.fromEntries(
@@ -389,7 +401,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
 
       const params = new URLSearchParams({
         page: 1,
-        limit: 3000, // Fetch up to 3000 rows
+        limit: 999999, // Very high limit to fetch all results
         sort_by: sortConfig.key,
         sort_dir: sortConfig.direction.toUpperCase(),
         ...apiFilters,
@@ -504,10 +516,15 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
         document.body.removeChild(link);
 
         console.log(`✅ Exported ${exportLoans.length} loans to CSV`);
+
+        // Show success message
+        alert(`✅ Successfully exported ${exportLoans.length.toLocaleString()} loans to CSV!`);
+      } else {
+        throw new Error(data.message || 'Failed to fetch loans');
       }
     } catch (error) {
       console.error('Error exporting loans:', error);
-      alert('Failed to export loans. Please try again.');
+      alert(`❌ Failed to export loans: ${error.message}\n\nPlease try again or contact support if the issue persists.`);
     } finally {
       setExporting(false);
     }
@@ -678,10 +695,10 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
             className={`export-button ${exporting ? 'loading' : ''}`}
             onClick={handleExportLargeCSV}
             disabled={exporting}
-            title="Export up to 3000 rows with current filters"
+            title={`Export all ${pagination.total.toLocaleString()} filtered loans to CSV`}
           >
             <Download size={16} />
-            {exporting ? 'Exporting...' : 'Export (3000 rows)'}
+            {exporting ? `Exporting ${pagination.total.toLocaleString()} loans...` : `Export All Filtered (${pagination.total.toLocaleString()})`}
           </button>
           <button className="export-button" onClick={handleExportCSV}>
             <Download size={16} />
