@@ -785,7 +785,11 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 			l.repayment_health,
 			l.days_since_last_repayment,
 			l.repayment_delay_rate,
-			l.wave
+			l.wave,
+			l.daily_repayment_amount,
+			l.repayment_days_due_today,
+			l.repayment_days_paid,
+			l.business_days_since_disbursement
 		FROM loans l
 		JOIN officers o ON l.officer_id = o.officer_id
 		WHERE 1=1
@@ -897,7 +901,8 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 		loan := &models.AllLoan{}
 		var customerPhone, officerID, firstPaymentDueDate, maturityDate sql.NullString
 		var repaymentAmount, timelinessScore, repaymentHealth, repaymentDelayRate sql.NullFloat64
-		var daysSinceLastRepayment sql.NullInt64
+		var dailyRepaymentAmount, repaymentDaysPaid sql.NullFloat64
+		var daysSinceLastRepayment, repaymentDaysDueToday, businessDaysSinceDisbursement sql.NullInt64
 
 		err := rows.Scan(
 			&loan.LoanID,
@@ -928,6 +933,10 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 			&daysSinceLastRepayment,
 			&repaymentDelayRate,
 			&loan.Wave,
+			&dailyRepaymentAmount,
+			&repaymentDaysDueToday,
+			&repaymentDaysPaid,
+			&businessDaysSinceDisbursement,
 		)
 		if err != nil {
 			return nil, 0, err
@@ -964,6 +973,22 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 		if repaymentDelayRate.Valid {
 			val := repaymentDelayRate.Float64
 			loan.RepaymentDelayRate = &val
+		}
+		if dailyRepaymentAmount.Valid {
+			val := dailyRepaymentAmount.Float64
+			loan.DailyRepaymentAmount = &val
+		}
+		if repaymentDaysDueToday.Valid {
+			val := int(repaymentDaysDueToday.Int64)
+			loan.RepaymentDaysDueToday = &val
+		}
+		if repaymentDaysPaid.Valid {
+			val := repaymentDaysPaid.Float64
+			loan.RepaymentDaysPaid = &val
+		}
+		if businessDaysSinceDisbursement.Valid {
+			val := int(businessDaysSinceDisbursement.Int64)
+			loan.BusinessDaysSinceDisbursement = &val
 		}
 
 		loans = append(loans, loan)

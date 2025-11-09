@@ -125,34 +125,38 @@ type LoanDrilldown struct {
 
 // AllLoan represents a comprehensive loan record for the All Loans view
 type AllLoan struct {
-	LoanID                 string   `json:"loan_id"`
-	CustomerName           string   `json:"customer_name"`
-	CustomerPhone          string   `json:"customer_phone"`
-	OfficerID              string   `json:"officer_id"`
-	OfficerName            string   `json:"officer_name"`
-	Region                 string   `json:"region"`
-	Branch                 string   `json:"branch"`
-	Channel                string   `json:"channel"`
-	LoanAmount             float64  `json:"loan_amount"`
-	RepaymentAmount        *float64 `json:"repayment_amount,omitempty"`
-	DisbursementDate       string   `json:"disbursement_date"`
-	FirstPaymentDueDate    *string  `json:"first_payment_due_date,omitempty"`
-	MaturityDate           string   `json:"maturity_date"`
-	LoanTermDays           int      `json:"loan_term_days"`
-	CurrentDPD             int      `json:"current_dpd"`
-	PrincipalOutstanding   float64  `json:"principal_outstanding"`
-	InterestOutstanding    float64  `json:"interest_outstanding"`
-	FeesOutstanding        float64  `json:"fees_outstanding"`
-	TotalOutstanding       float64  `json:"total_outstanding"`
-	ActualOutstanding      float64  `json:"actual_outstanding"`
-	TotalRepayments        float64  `json:"total_repayments"`
-	Status                 string   `json:"status"`
-	FIMRTagged             *bool    `json:"fimr_tagged,omitempty"`
-	TimelinessScore        *float64 `json:"timeliness_score"`
-	RepaymentHealth        *float64 `json:"repayment_health"`
-	DaysSinceLastRepayment *int     `json:"days_since_last_repayment"`
-	RepaymentDelayRate     *float64 `json:"repayment_delay_rate"`
-	Wave                   string   `json:"wave"`
+	LoanID                        string   `json:"loan_id"`
+	CustomerName                  string   `json:"customer_name"`
+	CustomerPhone                 string   `json:"customer_phone"`
+	OfficerID                     string   `json:"officer_id"`
+	OfficerName                   string   `json:"officer_name"`
+	Region                        string   `json:"region"`
+	Branch                        string   `json:"branch"`
+	Channel                       string   `json:"channel"`
+	LoanAmount                    float64  `json:"loan_amount"`
+	RepaymentAmount               *float64 `json:"repayment_amount,omitempty"`
+	DisbursementDate              string   `json:"disbursement_date"`
+	FirstPaymentDueDate           *string  `json:"first_payment_due_date,omitempty"`
+	MaturityDate                  string   `json:"maturity_date"`
+	LoanTermDays                  int      `json:"loan_term_days"`
+	CurrentDPD                    int      `json:"current_dpd"`
+	PrincipalOutstanding          float64  `json:"principal_outstanding"`
+	InterestOutstanding           float64  `json:"interest_outstanding"`
+	FeesOutstanding               float64  `json:"fees_outstanding"`
+	TotalOutstanding              float64  `json:"total_outstanding"`
+	ActualOutstanding             float64  `json:"actual_outstanding"`
+	TotalRepayments               float64  `json:"total_repayments"`
+	Status                        string   `json:"status"`
+	FIMRTagged                    *bool    `json:"fimr_tagged,omitempty"`
+	TimelinessScore               *float64 `json:"timeliness_score"`
+	RepaymentHealth               *float64 `json:"repayment_health"`
+	DaysSinceLastRepayment        *int     `json:"days_since_last_repayment"`
+	RepaymentDelayRate            *float64 `json:"repayment_delay_rate"`
+	Wave                          string   `json:"wave"`
+	DailyRepaymentAmount          *float64 `json:"daily_repayment_amount,omitempty"`
+	RepaymentDaysDueToday         *int     `json:"repayment_days_due_today,omitempty"`
+	RepaymentDaysPaid             *float64 `json:"repayment_days_paid,omitempty"`
+	BusinessDaysSinceDisbursement *int     `json:"business_days_since_disbursement,omitempty"`
 }
 
 // TopRiskLoan represents a high-risk loan for audit purposes

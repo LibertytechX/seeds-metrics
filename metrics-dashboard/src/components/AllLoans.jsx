@@ -254,6 +254,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     const headers = [
       'Loan ID', 'Customer Name', 'Customer Phone', 'Officer Name', 'Region', 'Branch',
       'Channel', 'Loan Amount', 'Repayment Amount', 'Disbursement Date', 'Loan Tenure', 'Maturity Date',
+      'Daily Repayment Amount', 'Repayment Days Due Today', 'Repayment Days Paid', 'Business Days Since Disbursement',
       'Timeliness Score', 'Repayment Health', 'Repayment Delay Rate %', 'Wave', 'Days Since Last Repayment', 'Current DPD',
       'Principal Outstanding', 'Interest Outstanding', 'Fees Outstanding', 'Total Outstanding',
       'Actual Outstanding', 'Total Repayments', 'Status', 'FIMR Tagged'
@@ -272,6 +273,10 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       loan.disbursement_date,
       formatTenure(loan.loan_term_days),
       loan.maturity_date,
+      loan.daily_repayment_amount != null ? loan.daily_repayment_amount.toFixed(2) : 'N/A',
+      loan.repayment_days_due_today != null ? loan.repayment_days_due_today : 'N/A',
+      loan.repayment_days_paid != null ? loan.repayment_days_paid.toFixed(2) : 'N/A',
+      loan.business_days_since_disbursement != null ? loan.business_days_since_disbursement : 'N/A',
       loan.timeliness_score != null ? loan.timeliness_score.toFixed(2) : 'N/A',
       loan.repayment_health != null ? loan.repayment_health.toFixed(2) : 'N/A',
       loan.repayment_delay_rate != null ? loan.repayment_delay_rate.toFixed(2) : 'N/A',
@@ -323,6 +328,10 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       loan.repayment_amount ? `₦${(loan.repayment_amount / 1000000).toFixed(2)}M` : 'N/A',
       loan.disbursement_date,
       formatTenure(loan.loan_term_days),
+      loan.daily_repayment_amount != null ? `₦${(loan.daily_repayment_amount / 1000).toFixed(1)}K` : 'N/A',
+      loan.repayment_days_due_today != null ? loan.repayment_days_due_today : 'N/A',
+      loan.repayment_days_paid != null ? loan.repayment_days_paid.toFixed(1) : 'N/A',
+      loan.business_days_since_disbursement != null ? loan.business_days_since_disbursement : 'N/A',
       loan.timeliness_score != null ? loan.timeliness_score.toFixed(1) : 'N/A',
       loan.repayment_health != null ? loan.repayment_health.toFixed(1) : 'N/A',
       loan.repayment_delay_rate != null ? loan.repayment_delay_rate.toFixed(1) + '%' : 'N/A',
@@ -337,9 +346,9 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
 
     doc.autoTable({
       startY: 32,
-      head: [['Loan ID', 'Customer', 'Phone', 'Officer', 'Branch', 'Amount', 'Repay. Amt', 'Disbursed', 'Tenure', 'T.Score', 'R.Health', 'Delay %', 'Wave', 'Days Since', 'DPD', 'Total Out.', 'Actual Out.', 'Status', 'FIMR']],
+      head: [['Loan ID', 'Customer', 'Phone', 'Officer', 'Branch', 'Amount', 'Repay. Amt', 'Disbursed', 'Tenure', 'Daily Repay', 'Days Due', 'Days Paid', 'Biz Days', 'T.Score', 'R.Health', 'Delay %', 'Wave', 'Days Since', 'DPD', 'Total Out.', 'Actual Out.', 'Status', 'FIMR']],
       body: tableData,
-      styles: { fontSize: 6 },
+      styles: { fontSize: 5 },
       headStyles: { fillColor: [41, 128, 185] },
     });
 
@@ -580,6 +589,10 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                 <th onClick={() => handleSort('disbursement_date')}>Disbursement Date</th>
                 <th onClick={() => handleSort('first_payment_due_date')}>First Payment Due</th>
                 <th onClick={() => handleSort('loan_term_days')}>Loan Tenure</th>
+                <th onClick={() => handleSort('daily_repayment_amount')}>Daily Repayment Amount</th>
+                <th onClick={() => handleSort('repayment_days_due_today')}>Repayment Days Due Today</th>
+                <th onClick={() => handleSort('repayment_days_paid')}>Repayment Days Paid</th>
+                <th onClick={() => handleSort('business_days_since_disbursement')}>Business Days Since Disbursement</th>
                 <th onClick={() => handleSort('timeliness_score')}>Timeliness Score</th>
                 <th onClick={() => handleSort('repayment_health')}>Repayment Health</th>
                 <th onClick={() => handleSort('repayment_delay_rate')}>Repayment Delay Rate %</th>
@@ -609,6 +622,10 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                   <td>{formatDate(loan.disbursement_date)}</td>
                   <td>{loan.first_payment_due_date ? formatDate(loan.first_payment_due_date) : 'N/A'}</td>
                   <td className="tenure">{formatTenure(loan.loan_term_days)}</td>
+                  <td className="amount">{loan.daily_repayment_amount != null ? formatCurrency(loan.daily_repayment_amount) : 'N/A'}</td>
+                  <td className="days-since">{loan.repayment_days_due_today != null ? loan.repayment_days_due_today + ' days' : 'N/A'}</td>
+                  <td className="days-since">{loan.repayment_days_paid != null ? loan.repayment_days_paid.toFixed(2) + ' days' : 'N/A'}</td>
+                  <td className="days-since">{loan.business_days_since_disbursement != null ? loan.business_days_since_disbursement + ' days' : 'N/A'}</td>
                   <td className="score">{loan.timeliness_score != null ? loan.timeliness_score.toFixed(2) : 'N/A'}</td>
                   <td className="score">{loan.repayment_health != null ? loan.repayment_health.toFixed(2) : 'N/A'}</td>
                   <td className="delay-rate" style={{
