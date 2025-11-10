@@ -1374,6 +1374,8 @@ func (r *DashboardRepository) GetFilterOptions(filterType string, filters map[st
 		return r.getUserTypes()
 	case "officers":
 		return r.getOfficerOptions(filters)
+	case "statuses":
+		return r.getStatuses()
 	default:
 		return nil, fmt.Errorf("unknown filter type: %s", filterType)
 	}
@@ -1522,6 +1524,32 @@ func (r *DashboardRepository) getUserTypes() ([]string, error) {
 	}
 
 	return userTypes, nil
+}
+
+func (r *DashboardRepository) getStatuses() ([]string, error) {
+	query := `SELECT DISTINCT l.status FROM loans l
+		INNER JOIN officers o ON l.officer_id = o.officer_id
+		WHERE l.status IS NOT NULL
+		AND l.status != ''
+		AND (o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT') OR o.user_type IS NULL)
+		ORDER BY l.status`
+
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	statuses := []string{}
+	for rows.Next() {
+		var status string
+		if err := rows.Scan(&status); err != nil {
+			return nil, err
+		}
+		statuses = append(statuses, status)
+	}
+
+	return statuses, nil
 }
 
 func (r *DashboardRepository) getOfficerOptions(filters map[string]interface{}) ([]*models.OfficerOption, error) {

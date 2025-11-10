@@ -29,6 +29,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
   const [allRegions, setAllRegions] = useState([]);
   const [allChannels, setAllChannels] = useState([]);
   const [allWaves, setAllWaves] = useState([]);
+  const [allStatuses, setAllStatuses] = useState([]);
   const [allVerticalLeads, setAllVerticalLeads] = useState([]);
   const [isRegionDropdownOpen, setIsRegionDropdownOpen] = useState(false);
   const regionDropdownRef = useRef(null);
@@ -65,19 +66,21 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     try {
       const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8081/api/v1';
 
-      // Fetch branches, regions, channels, and waves from API
-      const [branchesRes, regionsRes, channelsRes, wavesRes] = await Promise.all([
+      // Fetch branches, regions, channels, waves, and statuses from API
+      const [branchesRes, regionsRes, channelsRes, wavesRes, statusesRes] = await Promise.all([
         fetch(`${API_BASE_URL}/filters/branches`),
         fetch(`${API_BASE_URL}/filters/regions`),
         fetch(`${API_BASE_URL}/filters/channels`),
         fetch(`${API_BASE_URL}/filters/waves`),
+        fetch(`${API_BASE_URL}/filters/statuses`),
       ]);
 
-      const [branchesData, regionsData, channelsData, wavesData] = await Promise.all([
+      const [branchesData, regionsData, channelsData, wavesData, statusesData] = await Promise.all([
         branchesRes.json(),
         regionsRes.json(),
         channelsRes.json(),
         wavesRes.json(),
+        statusesRes.json(),
       ]);
 
       if (branchesData.status === 'success') {
@@ -91,6 +94,9 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       }
       if (wavesData.status === 'success') {
         setAllWaves(wavesData.data.waves || []);
+      }
+      if (statusesData.status === 'success') {
+        setAllStatuses(statusesData.data.statuses || []);
       }
     } catch (error) {
       console.error('Error fetching filter options:', error);
@@ -256,10 +262,10 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       regions: allRegions.length > 0 ? allRegions.sort() : [...new Set(loans.map(l => l.region))].filter(Boolean).sort(),
       waves: allWaves.length > 0 ? allWaves.sort() : [...new Set(loans.map(l => l.wave))].filter(Boolean).sort(),
       channels: allChannels.length > 0 ? allChannels.sort() : [...new Set(loans.map(l => l.channel))].filter(Boolean).sort(),
-      statuses: [...new Set(loans.map(l => l.status))].filter(Boolean).sort(),
+      statuses: allStatuses.length > 0 ? allStatuses.sort() : [...new Set(loans.map(l => l.status))].filter(Boolean).sort(),
       verticalLeads: allVerticalLeads.length > 0 ? allVerticalLeads : [...new Set(loans.map(l => l.vertical_lead_email))].filter(Boolean).sort(),
     };
-  }, [loans, allBranches, allRegions, allWaves, allChannels, allVerticalLeads]);
+  }, [loans, allBranches, allRegions, allWaves, allChannels, allStatuses, allVerticalLeads]);
 
   const handleSort = (key) => {
     setSortConfig(prev => ({
