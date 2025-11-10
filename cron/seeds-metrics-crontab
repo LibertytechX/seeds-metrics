@@ -1,0 +1,27 @@
+# Seeds Metrics Data Synchronization Cron Jobs
+# Managed by: Seeds Metrics Team
+# Last Updated: 2025-11-10
+# All times in UTC
+# Installation: crontab /home/seeds-metrics-backend/cron/seeds-metrics-crontab
+
+# Job 1: Incremental Repayments Sync (Every 6 hours at 00:00, 06:00, 12:00, 18:00 UTC)
+# Expected duration: ~6 minutes
+# Purpose: Keep repayments data up to date with Django
+0 */6 * * * cd /home/seeds-metrics-backend/backend && source .env && /usr/local/go/bin/go run scripts/sync_repayments_incremental.go >> /var/log/seeds-metrics-repayments-sync.log 2>&1
+
+# Job 2: Recalculate Computed Fields (Every 6 hours at 00:10, 06:10, 12:10, 18:10 UTC)
+# Expected duration: < 1 minute
+# Purpose: Recalculate all loan metrics after new repayments are synced
+# Dependency: Runs 10 minutes after Job 1 to ensure repayments are synced first
+10 */6 * * * curl -X POST https://metrics.seedsandpennies.com/api/v1/loans/recalculate-fields >> /var/log/seeds-metrics-recalculate.log 2>&1
+
+# Job 3: Update Loans with Vertical Lead Data (Daily at 03:00 UTC)
+# Expected duration: < 1 minute
+# Purpose: Propagate officer hierarchy changes to loans
+0 3 * * * cd /home/seeds-metrics-backend/backend && source .env && psql "host=$DB_HOST port=$DB_PORT dbname=$DB_NAME user=$DB_USER password=$DB_PASSWORD sslmode=require" -c "UPDATE loans l SET vertical_lead_name = o.vertical_lead_name, vertical_lead_email = o.vertical_lead_email, region = o.region FROM officers o WHERE l.officer_id = o.officer_id;" >> /var/log/seeds-metrics-vertical-update.log 2>&1
+
+# Job 4: Full Data Sync (Weekly on Sunday at 01:00 UTC)
+# Expected duration: ~63 minutes
+# Purpose: Full sync of officers, customers, loans, and repayments from Django
+0 1 * * 0 cd /home/seeds-metrics-backend/backend && /usr/local/go/bin/go run scripts/sync_from_django.go >> /var/log/seeds-metrics-full-sync.log 2>&1
+
