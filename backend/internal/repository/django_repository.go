@@ -366,9 +366,26 @@ func (r *DjangoRepository) GetLoans(ctx context.Context, limit, offset int) ([]m
 			l.start_date as first_payment_due_date,
 			l.end_date as maturity_date,
 			CASE
+				-- Completed/Closed loans
 				WHEN l.status = 'COMPLETED' THEN 'Closed'
+				WHEN l.status = 'CLOSED' THEN 'Closed'
+
+				-- Active/Open loans (loans in progress)
+				WHEN l.status = 'OPEN' THEN 'Active'
+				WHEN l.status = 'OPEN_TO_SUPERVISOR' THEN 'Active'
+				WHEN l.status = 'APPROVED' THEN 'Active'
 				WHEN l.status = 'ACTIVE' THEN 'Active'
+
+				-- Defaulted/Past Due loans
+				WHEN l.status = 'PAST_MATURITY' THEN 'Defaulted'
 				WHEN l.status = 'DEFAULTED' THEN 'Defaulted'
+
+				-- Rejected/Cancelled loans (loans that were not disbursed or were declined)
+				WHEN l.status = 'DECLINED_BY_SUPERVISOR' THEN 'Rejected'
+				WHEN l.status = 'REJECTED' THEN 'Rejected'
+				WHEN l.status = 'NOT_TAKEN' THEN 'Cancelled'
+
+				-- Default fallback
 				ELSE 'Active'
 			END as status,
 			l.created_at,
