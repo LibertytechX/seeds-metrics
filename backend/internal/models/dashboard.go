@@ -37,6 +37,10 @@ type PortfolioMetrics struct {
 	AvgDaysPastDue        float64 `json:"avgDaysPastDue"`
 	AvgTimelinessScore    float64 `json:"avgTimelinessScore"`
 	AvgRepaymentDelayRate float64 `json:"avgRepaymentDelayRate"`
+
+	// Total DPD Loans (current_dpd > 0 AND status in Active/Defaulted)
+	TotalDPDLoansCount        int     `json:"totalDPDLoansCount"`
+	TotalDPDActualOutstanding float64 `json:"totalDPDActualOutstanding"`
 }
 
 type TopOfficer struct {

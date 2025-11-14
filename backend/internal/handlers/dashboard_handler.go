@@ -108,6 +108,19 @@ func (h *DashboardHandler) GetPortfolioMetrics(c *gin.Context) {
 	}
 	portfolio.ActualOverdue15d = actualOverdue15d
 
+	// Get total DPD loans count and actual outstanding
+	totalDPDLoansCount, totalDPDActualOutstanding, err := h.dashboardRepo.GetTotalDPDLoans(filters)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.APIResponse{
+			Status:  "error",
+			Message: "Failed to retrieve total DPD loans",
+			Error:   newAPIError("TOTAL_DPD_LOANS_ERROR", err.Error()),
+		})
+		return
+	}
+	portfolio.TotalDPDLoansCount = totalDPDLoansCount
+	portfolio.TotalDPDActualOutstanding = totalDPDActualOutstanding
+
 	c.JSON(http.StatusOK, models.APIResponse{
 		Status: "success",
 		Data:   portfolio,

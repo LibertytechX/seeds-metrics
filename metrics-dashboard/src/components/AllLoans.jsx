@@ -4,6 +4,7 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import LoanRepaymentsModal from './LoanRepaymentsModal';
 import Pagination from './Pagination';
+import SearchableSelect from './SearchableSelect';
 import './AllLoans.css';
 
 const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
@@ -772,32 +773,30 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
               )}
             </div>
             <div className="filter-group">
-              <select
-                value={filters.officer_id}
-                onChange={(e) => handleFilterChange('officer_id', e.target.value)}
-              >
-                <option value="">All Loan Officers</option>
-                {filterOptions.officers.map(officer => {
+              <SearchableSelect
+                options={filterOptions.officers}
+                selectedValue={filters.officer_id}
+                onChange={(value) => handleFilterChange('officer_id', value)}
+                placeholder="All Loan Officers"
+                getOptionLabel={(officer) => {
                   // Handle both API response format (object) and fallback format (string)
                   if (typeof officer === 'object') {
-                    const displayName = officer.email
+                    return officer.email
                       ? `${officer.name} (${officer.email})`
                       : officer.name;
-                    return (
-                      <option key={officer.officer_id} value={officer.officer_id}>
-                        {displayName}
-                      </option>
-                    );
                   } else {
-                    // Fallback for string format (from current loans)
-                    return (
-                      <option key={officer} value={officer}>
-                        {officer}
-                      </option>
-                    );
+                    return officer;
                   }
-                })}
-              </select>
+                }}
+                getOptionValue={(officer) => {
+                  // Handle both API response format (object) and fallback format (string)
+                  if (typeof officer === 'object') {
+                    return officer.officer_id;
+                  } else {
+                    return officer;
+                  }
+                }}
+              />
             </div>
             <div className="filter-group">
               <select

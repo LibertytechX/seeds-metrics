@@ -181,6 +181,59 @@ func (r *DashboardRepository) GetActualOverdue15d(filters map[string]interface{}
 	return actualOverdue15d, nil
 }
 
+// GetTotalDPDLoans calculates the total count and actual_outstanding for loans with current_dpd > 0
+// and status in ('Active', 'Defaulted')
+func (r *DashboardRepository) GetTotalDPDLoans(filters map[string]interface{}) (int, float64, error) {
+	query := `
+		SELECT
+			COUNT(*) as total_dpd_loans_count,
+			COALESCE(SUM(l.actual_outstanding), 0) as total_dpd_actual_outstanding
+		FROM loans l
+		INNER JOIN officers o ON l.officer_id = o.officer_id
+		WHERE l.current_dpd > 0
+			AND UPPER(l.status) IN ('ACTIVE', 'DEFAULTED')
+			AND (o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT') OR o.user_type IS NULL)
+	`
+
+	args := []interface{}{}
+	argCount := 1
+
+	// Apply wave filter
+	if wave, ok := filters["wave"].(string); ok && wave != "" {
+		query += fmt.Sprintf(" AND l.wave = $%d", argCount)
+		args = append(args, wave)
+		argCount++
+	}
+
+	// Apply region filter (multi-select support)
+	if region, ok := filters["region"].(string); ok && region != "" {
+		regions := strings.Split(region, ",")
+		if len(regions) == 1 {
+			query += fmt.Sprintf(" AND l.region = $%d", argCount)
+			args = append(args, regions[0])
+			argCount++
+		} else {
+			// Build IN clause for multiple regions
+			placeholders := []string{}
+			for _, r := range regions {
+				placeholders = append(placeholders, fmt.Sprintf("$%d", argCount))
+				args = append(args, strings.TrimSpace(r))
+				argCount++
+			}
+			query += fmt.Sprintf(" AND l.region IN (%s)", strings.Join(placeholders, ", "))
+		}
+	}
+
+	var count int
+	var actualOutstanding float64
+	err := r.db.QueryRow(query, args...).Scan(&count, &actualOutstanding)
+	if err != nil {
+		return 0, 0, err
+	}
+
+	return count, actualOutstanding, nil
+}
+
 // GetOfficers retrieves all officers with their raw metrics
 func (r *DashboardRepository) GetOfficers(filters map[string]interface{}) ([]*models.DashboardOfficerMetrics, error) {
 	query := `

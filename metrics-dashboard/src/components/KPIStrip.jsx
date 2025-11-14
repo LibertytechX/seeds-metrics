@@ -121,9 +121,14 @@ export const KPIStrip = ({ portfolioMetrics, onViewOverdueLoans, onViewActiveLoa
       />
 
       <KPICard
-        title="Average AYR"
-        value={formatPercentage(portfolioMetrics.avgAYR || 0)}
-        unit="⚖️ Efficient"
+        title="Total DPD Loans"
+        value={
+          <div style={{ fontSize: '0.75em', lineHeight: '1.3' }}>
+            <div><strong>Count:</strong> {portfolioMetrics.totalDPDLoansCount || 0} loans</div>
+            <div><strong>Actual Outstanding:</strong> {formatCurrency(portfolioMetrics.totalDPDActualOutstanding || 0)}</div>
+          </div>
+        }
+        icon="⏰"
       />
       <KPICard
         title="Risk Score (Avg)"
