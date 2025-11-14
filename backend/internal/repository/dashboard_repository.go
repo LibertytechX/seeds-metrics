@@ -1553,7 +1553,7 @@ func (r *DashboardRepository) getStatuses() ([]string, error) {
 }
 
 func (r *DashboardRepository) getOfficerOptions(filters map[string]interface{}) ([]*models.OfficerOption, error) {
-	query := `SELECT DISTINCT l.officer_id, l.officer_name, l.branch, l.region FROM loans l
+	query := `SELECT DISTINCT l.officer_id, l.officer_name, o.officer_email, l.branch, l.region FROM loans l
 		INNER JOIN officers o ON l.officer_id = o.officer_id
 		WHERE (o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT') OR o.user_type IS NULL)`
 	args := []interface{}{}
@@ -1595,7 +1595,7 @@ func (r *DashboardRepository) getOfficerOptions(filters map[string]interface{}) 
 	officers := []*models.OfficerOption{}
 	for rows.Next() {
 		officer := &models.OfficerOption{}
-		if err := rows.Scan(&officer.OfficerID, &officer.Name, &officer.Branch, &officer.Region); err != nil {
+		if err := rows.Scan(&officer.OfficerID, &officer.Name, &officer.Email, &officer.Branch, &officer.Region); err != nil {
 			return nil, err
 		}
 		officers = append(officers, officer)

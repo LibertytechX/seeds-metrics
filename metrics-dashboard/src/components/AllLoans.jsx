@@ -31,6 +31,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
   const [allWaves, setAllWaves] = useState([]);
   const [allStatuses, setAllStatuses] = useState([]);
   const [allVerticalLeads, setAllVerticalLeads] = useState([]);
+  const [allOfficers, setAllOfficers] = useState([]);
   const [isRegionDropdownOpen, setIsRegionDropdownOpen] = useState(false);
   const regionDropdownRef = useRef(null);
   const [filterLabel, setFilterLabel] = useState(
@@ -66,21 +67,23 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     try {
       const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8081/api/v1';
 
-      // Fetch branches, regions, channels, waves, and statuses from API
-      const [branchesRes, regionsRes, channelsRes, wavesRes, statusesRes] = await Promise.all([
+      // Fetch branches, regions, channels, waves, statuses, and officers from API
+      const [branchesRes, regionsRes, channelsRes, wavesRes, statusesRes, officersRes] = await Promise.all([
         fetch(`${API_BASE_URL}/filters/branches`),
         fetch(`${API_BASE_URL}/filters/regions`),
         fetch(`${API_BASE_URL}/filters/channels`),
         fetch(`${API_BASE_URL}/filters/waves`),
         fetch(`${API_BASE_URL}/filters/statuses`),
+        fetch(`${API_BASE_URL}/filters/officers`),
       ]);
 
-      const [branchesData, regionsData, channelsData, wavesData, statusesData] = await Promise.all([
+      const [branchesData, regionsData, channelsData, wavesData, statusesData, officersData] = await Promise.all([
         branchesRes.json(),
         regionsRes.json(),
         channelsRes.json(),
         wavesRes.json(),
         statusesRes.json(),
+        officersRes.json(),
       ]);
 
       if (branchesData.status === 'success') {
@@ -97,6 +100,9 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       }
       if (statusesData.status === 'success') {
         setAllStatuses(statusesData.data.statuses || []);
+      }
+      if (officersData.status === 'success') {
+        setAllOfficers(officersData.data.officers || []);
       }
     } catch (error) {
       console.error('Error fetching filter options:', error);
@@ -257,7 +263,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
   // Get unique values for filter dropdowns
   const filterOptions = useMemo(() => {
     return {
-      officers: [...new Set(loans.map(l => l.officer_name))].filter(Boolean).sort(),
+      officers: allOfficers.length > 0 ? allOfficers : [...new Set(loans.map(l => l.officer_name))].filter(Boolean).sort(),
       branches: allBranches.length > 0 ? allBranches.sort() : [...new Set(loans.map(l => l.branch))].filter(Boolean).sort(),
       regions: allRegions.length > 0 ? allRegions.sort() : [...new Set(loans.map(l => l.region))].filter(Boolean).sort(),
       waves: allWaves.length > 0 ? allWaves.sort() : [...new Set(loans.map(l => l.wave))].filter(Boolean).sort(),
@@ -265,7 +271,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       statuses: allStatuses.length > 0 ? allStatuses.sort() : [...new Set(loans.map(l => l.status))].filter(Boolean).sort(),
       verticalLeads: allVerticalLeads.length > 0 ? allVerticalLeads : [...new Set(loans.map(l => l.vertical_lead_email))].filter(Boolean).sort(),
     };
-  }, [loans, allBranches, allRegions, allWaves, allChannels, allStatuses, allVerticalLeads]);
+  }, [loans, allBranches, allRegions, allWaves, allChannels, allStatuses, allVerticalLeads, allOfficers]);
 
   const handleSort = (key) => {
     setSortConfig(prev => ({
@@ -764,6 +770,34 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                   ))}
                 </div>
               )}
+            </div>
+            <div className="filter-group">
+              <select
+                value={filters.officer_id}
+                onChange={(e) => handleFilterChange('officer_id', e.target.value)}
+              >
+                <option value="">All Loan Officers</option>
+                {filterOptions.officers.map(officer => {
+                  // Handle both API response format (object) and fallback format (string)
+                  if (typeof officer === 'object') {
+                    const displayName = officer.email
+                      ? `${officer.name} (${officer.email})`
+                      : officer.name;
+                    return (
+                      <option key={officer.officer_id} value={officer.officer_id}>
+                        {displayName}
+                      </option>
+                    );
+                  } else {
+                    // Fallback for string format (from current loans)
+                    return (
+                      <option key={officer} value={officer}>
+                        {officer}
+                      </option>
+                    );
+                  }
+                })}
+              </select>
             </div>
             <div className="filter-group">
               <select

@@ -237,10 +237,11 @@ type FilterOptions struct {
 }
 
 type OfficerOption struct {
-	OfficerID string `json:"officer_id"`
-	Name      string `json:"name"`
-	Branch    string `json:"branch"`
-	Region    string `json:"region"`
+	OfficerID string  `json:"officer_id"`
+	Name      string  `json:"name"`
+	Email     *string `json:"email,omitempty"`
+	Branch    string  `json:"branch"`
+	Region    string  `json:"region"`
 }
 
 // LoanDetail represents detailed loan information
