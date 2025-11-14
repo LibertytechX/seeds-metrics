@@ -17,7 +17,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     regions: [], // Multi-select region filter
     wave: '', // Single-select wave filter
     channel: '',
-    status: '',
+    statuses: [], // Multi-select status filter
     customer_phone: '',
     vertical_lead_email: '',
     loan_type: initialFilter?.loan_type || '', // 'active' or 'inactive'
@@ -35,6 +35,8 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
   const [allOfficers, setAllOfficers] = useState([]);
   const [isRegionDropdownOpen, setIsRegionDropdownOpen] = useState(false);
   const regionDropdownRef = useRef(null);
+  const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
+  const statusDropdownRef = useRef(null);
   const [filterLabel, setFilterLabel] = useState(
     initialFilter?.officer_name ? `Officer: ${initialFilter.officer_name}` :
     initialFilter?.label ? initialFilter.label : ''
@@ -57,6 +59,9 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     const handleClickOutside = (event) => {
       if (regionDropdownRef.current && !regionDropdownRef.current.contains(event.target)) {
         setIsRegionDropdownOpen(false);
+      }
+      if (statusDropdownRef.current && !statusDropdownRef.current.contains(event.target)) {
+        setIsStatusDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -116,15 +121,20 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     try {
       console.log('🔍 AllLoans: fetchLoans called with filters:', filters);
 
-      // Exclude loan_type, rot_type, delay_type, and regions from API params (will handle regions separately)
+      // Exclude loan_type, rot_type, delay_type, regions, and statuses from API params (will handle regions and statuses separately)
       // Include customer_phone and DPD filters for server-side filtering
       const apiFilters = Object.fromEntries(
-        Object.entries(filters).filter(([k, v]) => v !== '' && k !== 'loan_type' && k !== 'rot_type' && k !== 'delay_type' && k !== 'regions')
+        Object.entries(filters).filter(([k, v]) => v !== '' && k !== 'loan_type' && k !== 'rot_type' && k !== 'delay_type' && k !== 'regions' && k !== 'statuses')
       );
 
       // Convert regions array to comma-separated string
       if (filters.regions && filters.regions.length > 0) {
         apiFilters.region = filters.regions.join(',');
+      }
+
+      // Convert statuses array to comma-separated string
+      if (filters.statuses && filters.statuses.length > 0) {
+        apiFilters.status = filters.statuses.join(',');
       }
 
       const params = new URLSearchParams({
@@ -236,7 +246,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
         regions: [],
         wave: '',
         channel: '',
-        status: '',
+        statuses: [],
         customer_phone: '',
         vertical_lead_email: '',
         loan_type: initialFilter.loan_type || '',
@@ -292,6 +302,15 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       ? currentRegions.filter(r => r !== region)
       : [...currentRegions, region];
     setFilters(prev => ({ ...prev, regions: newRegions }));
+    setPagination(prev => ({ ...prev, page: 1 })); // Reset to first page
+  };
+
+  const handleStatusToggle = (status) => {
+    const currentStatuses = filters.statuses || [];
+    const newStatuses = currentStatuses.includes(status)
+      ? currentStatuses.filter(s => s !== status)
+      : [...currentStatuses, status];
+    setFilters(prev => ({ ...prev, statuses: newStatuses }));
     setPagination(prev => ({ ...prev, page: 1 })); // Reset to first page
   };
 
@@ -404,12 +423,17 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
 
       // Prepare API filters (same logic as fetchLoans)
       const apiFilters = Object.fromEntries(
-        Object.entries(filters).filter(([k, v]) => v !== '' && k !== 'loan_type' && k !== 'rot_type' && k !== 'delay_type' && k !== 'regions')
+        Object.entries(filters).filter(([k, v]) => v !== '' && k !== 'loan_type' && k !== 'rot_type' && k !== 'delay_type' && k !== 'regions' && k !== 'statuses')
       );
 
       // Convert regions array to comma-separated string
       if (filters.regions && filters.regions.length > 0) {
         apiFilters.region = filters.regions.join(',');
+      }
+
+      // Convert statuses array to comma-separated string
+      if (filters.statuses && filters.statuses.length > 0) {
+        apiFilters.status = filters.statuses.join(',');
       }
 
       const params = new URLSearchParams({
@@ -842,16 +866,44 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                 ))}
               </select>
             </div>
-            <div className="filter-group">
-              <select
-                value={filters.status}
-                onChange={(e) => handleFilterChange('status', e.target.value)}
+            <div className="filter-group multi-select-wrapper" ref={statusDropdownRef}>
+              <button
+                className="multi-select-button"
+                onClick={() => setIsStatusDropdownOpen(!isStatusDropdownOpen)}
               >
-                <option value="">All Statuses</option>
-                {filterOptions.statuses.map(status => (
-                  <option key={status} value={status}>{status}</option>
-                ))}
-              </select>
+                <span>
+                  {filters.statuses && filters.statuses.length > 0
+                    ? `${filters.statuses.length} Status${filters.statuses.length > 1 ? 'es' : ''} Selected`
+                    : 'All Statuses'}
+                </span>
+                <ChevronDown size={16} />
+              </button>
+              {isStatusDropdownOpen && (
+                <div className="multi-select-dropdown">
+                  <div className="multi-select-option" onClick={() => setFilters(prev => ({ ...prev, statuses: [] }))}>
+                    <input
+                      type="checkbox"
+                      checked={!filters.statuses || filters.statuses.length === 0}
+                      readOnly
+                    />
+                    <span>All Statuses</span>
+                  </div>
+                  {filterOptions.statuses.map(status => (
+                    <div
+                      key={status}
+                      className="multi-select-option"
+                      onClick={() => handleStatusToggle(status)}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={filters.statuses && filters.statuses.includes(status)}
+                        readOnly
+                      />
+                      <span>{status}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="filter-group">
               <input
