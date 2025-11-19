@@ -46,29 +46,29 @@ func (r *DashboardRepository) GetPortfolioLoanMetrics(filters map[string]interfa
 	query := `
 		SELECT
 			-- Active vs Inactive Loans
-			COUNT(CASE WHEN (principal_outstanding + interest_outstanding + fees_outstanding) > 2000
+			COUNT(CASE WHEN total_outstanding > 2000
 				AND days_since_last_repayment < 6 THEN 1 END) as active_loans_count,
-			COALESCE(SUM(CASE WHEN (principal_outstanding + interest_outstanding + fees_outstanding) > 2000
+			COALESCE(SUM(CASE WHEN total_outstanding > 2000
 				AND days_since_last_repayment < 6
-				THEN (principal_outstanding + interest_outstanding + fees_outstanding) END), 0) as active_loans_volume,
-			COUNT(CASE WHEN (principal_outstanding + interest_outstanding + fees_outstanding) <= 2000
+				THEN total_outstanding END), 0) as active_loans_volume,
+			COUNT(CASE WHEN total_outstanding <= 2000
 				OR days_since_last_repayment > 5 THEN 1 END) as inactive_loans_count,
-			COALESCE(SUM(CASE WHEN (principal_outstanding + interest_outstanding + fees_outstanding) <= 2000
+			COALESCE(SUM(CASE WHEN total_outstanding <= 2000
 				OR days_since_last_repayment > 5
-				THEN (principal_outstanding + interest_outstanding + fees_outstanding) END), 0) as inactive_loans_volume,
+				THEN total_outstanding END), 0) as inactive_loans_volume,
 
 			-- ROT (Risk of Termination) Analysis
 			COUNT(CASE WHEN (CURRENT_DATE - disbursement_date::date) < 7 AND current_dpd > 4 THEN 1 END) as early_rot_count,
 			COALESCE(SUM(CASE WHEN (CURRENT_DATE - disbursement_date::date) < 7 AND current_dpd > 4
-				THEN (principal_outstanding + interest_outstanding + fees_outstanding) END), 0) as early_rot_volume,
+				THEN total_outstanding END), 0) as early_rot_volume,
 			COUNT(CASE WHEN (CURRENT_DATE - disbursement_date::date) >= 7 AND current_dpd > 4 THEN 1 END) as late_rot_count,
 			COALESCE(SUM(CASE WHEN (CURRENT_DATE - disbursement_date::date) >= 7 AND current_dpd > 4
-				THEN (principal_outstanding + interest_outstanding + fees_outstanding) END), 0) as late_rot_volume,
+				THEN total_outstanding END), 0) as late_rot_volume,
 
 			-- Portfolio Repayment Behavior Metrics (only active loans)
-			COALESCE(AVG(CASE WHEN (principal_outstanding + interest_outstanding + fees_outstanding) > 2000
+			COALESCE(AVG(CASE WHEN total_outstanding > 2000
 				THEN current_dpd END), 0) as avg_days_past_due,
-			COALESCE(AVG(CASE WHEN (principal_outstanding + interest_outstanding + fees_outstanding) > 2000
+			COALESCE(AVG(CASE WHEN total_outstanding > 2000
 				THEN timeliness_score END), 0) as avg_timeliness_score
 		FROM loans l
 		INNER JOIN officers o ON l.officer_id = o.officer_id
@@ -762,7 +762,7 @@ func (r *DashboardRepository) GetEarlyIndicatorLoans(filters map[string]interfac
 			l.current_dpd,
 			'Current' as previous_dpd_status,
 			0 as days_in_current_status,
-			l.principal_outstanding + l.interest_outstanding + l.fees_outstanding as amount_due,
+			l.total_outstanding as amount_due,
 			l.total_principal_paid + l.total_interest_paid + l.total_fees_paid as amount_paid,
 			l.principal_outstanding as outstanding_balance,
 			l.channel,
@@ -920,7 +920,7 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 			l.principal_outstanding,
 			l.interest_outstanding,
 			l.fees_outstanding,
-			l.principal_outstanding + l.interest_outstanding + l.fees_outstanding as total_outstanding,
+			l.total_outstanding,
 			l.actual_outstanding,
 			l.total_repayments,
 			l.status,
@@ -1240,7 +1240,7 @@ func (r *DashboardRepository) GetTopRiskLoans(officerID string, limit int) ([]*m
 			TO_CHAR(l.disbursement_date, 'YYYY-MM-DD') as disbursement_date,
 			l.current_dpd,
 			l.max_dpd_ever,
-			(l.principal_outstanding + l.interest_outstanding + l.fees_outstanding)::float as total_outstanding,
+			l.total_outstanding::float as total_outstanding,
 			l.principal_outstanding::float as principal_outstanding,
 			l.interest_outstanding::float as interest_outstanding,
 			l.fees_outstanding::float as fees_outstanding,
@@ -1262,11 +1262,11 @@ func (r *DashboardRepository) GetTopRiskLoans(officerID string, limit int) ([]*m
 				END) +
 				-- Outstanding balance weight (30%): Higher balance = higher risk
 				(CASE
-					WHEN (l.principal_outstanding + l.interest_outstanding + l.fees_outstanding) >= 5000000 THEN 30
-					WHEN (l.principal_outstanding + l.interest_outstanding + l.fees_outstanding) >= 3000000 THEN 25
-					WHEN (l.principal_outstanding + l.interest_outstanding + l.fees_outstanding) >= 2000000 THEN 20
-					WHEN (l.principal_outstanding + l.interest_outstanding + l.fees_outstanding) >= 1000000 THEN 15
-					WHEN (l.principal_outstanding + l.interest_outstanding + l.fees_outstanding) >= 500000 THEN 10
+					WHEN l.total_outstanding >= 5000000 THEN 30
+					WHEN l.total_outstanding >= 3000000 THEN 25
+					WHEN l.total_outstanding >= 2000000 THEN 20
+					WHEN l.total_outstanding >= 1000000 THEN 15
+					WHEN l.total_outstanding >= 500000 THEN 10
 					ELSE 5
 				END) +
 				-- FIMR weight (15%): FIMR tagged = higher risk
@@ -1289,7 +1289,7 @@ func (r *DashboardRepository) GetTopRiskLoans(officerID string, limit int) ([]*m
 		FROM loans l
 		WHERE l.officer_id = $1
 			AND l.status = 'Active'
-			AND (l.current_dpd > 0 OR l.fimr_tagged = true OR (l.principal_outstanding + l.interest_outstanding + l.fees_outstanding) > 0)
+			AND (l.current_dpd > 0 OR l.fimr_tagged = true OR l.total_outstanding > 0)
 		ORDER BY risk_score DESC, l.current_dpd DESC, total_outstanding DESC
 		LIMIT $2
 	`
