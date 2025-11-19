@@ -72,19 +72,23 @@ BEGIN
             (lrd.loan_amount - lrd.total_principal_paid) +
             ((lrd.loan_amount * lrd.interest_rate * lrd.loan_term_days / 365) - lrd.total_interest_paid) +
             (COALESCE(lrd.fee_amount, 0) - lrd.total_fees_paid) as total_outstanding,
-            -- Actual outstanding (overdue amount based on time elapsed)
+            -- Actual outstanding (overdue amount based on time elapsed - BUSINESS DAYS)
+            -- Formula: ((total_expected_repayment / loan_term_business_days) * days_elapsed_business_days) - total_repayments
             GREATEST(0,
                 CASE
-                    WHEN lrd.loan_term_days > 0 THEN
+                    WHEN lrd.loan_term_days > 0 AND lrd.disbursement_date IS NOT NULL THEN
                         (
                             -- Total expected repayment (principal + interest + fees)
                             (lrd.loan_amount +
                              (lrd.loan_amount * lrd.interest_rate * lrd.loan_term_days / 365) +
                              COALESCE(lrd.fee_amount, 0))
-                            / lrd.loan_term_days
+                            / lrd.loan_term_days  -- loan_term_days is already business days only
                         ) *
-                        -- Days elapsed (capped at loan tenure, minimum 0)
-                        LEAST(GREATEST((CURRENT_DATE - lrd.disbursement_date)::INTEGER, 0), lrd.loan_term_days)
+                        -- Days elapsed in business days (capped at loan tenure, minimum 0)
+                        LEAST(
+                            count_business_days(lrd.disbursement_date, CURRENT_DATE),
+                            lrd.loan_term_days
+                        )
                         - lrd.total_repayments
                     ELSE 0
                 END

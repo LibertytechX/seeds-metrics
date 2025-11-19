@@ -1,9 +1,13 @@
 -- ============================================================================
--- Migration 031: Fix actual_outstanding field in recalculate_all_loan_fields()
+-- Migration 032: Fix actual_outstanding to use business days instead of calendar days
 -- ============================================================================
 -- Description: Updates the recalculate_all_loan_fields() stored procedure to
---              include the actual_outstanding field calculation and update.
---              This field was missing from the previous version (migration 029).
+--              calculate actual_outstanding using business days for both:
+--              1. Loan term (business days only, excluding weekends)
+--              2. Days elapsed (business days only, excluding weekends)
+--
+--              This ensures the calculation matches the business logic where
+--              repayments are expected on business days only.
 --
 -- Author: Seeds Metrics Team
 -- Date: 2025-11-19
@@ -72,8 +76,12 @@ BEGIN
             (lrd.loan_amount - lrd.total_principal_paid) +
             ((lrd.loan_amount * lrd.interest_rate * lrd.loan_term_days / 365) - lrd.total_interest_paid) +
             (COALESCE(lrd.fee_amount, 0) - lrd.total_fees_paid) as total_outstanding,
-            -- Actual outstanding (overdue amount based on time elapsed - BUSINESS DAYS)
+            
+            -- ================================================================
+            -- ACTUAL OUTSTANDING - CORRECTED TO USE BUSINESS DAYS
+            -- ================================================================
             -- Formula: ((total_expected_repayment / loan_term_business_days) * days_elapsed_business_days) - total_repayments
+            -- This represents the overdue amount based on business days only
             GREATEST(0,
                 CASE
                     WHEN lrd.loan_term_days > 0 AND lrd.disbursement_date IS NOT NULL THEN
@@ -93,6 +101,7 @@ BEGIN
                     ELSE 0
                 END
             ) as actual_outstanding,
+            
             -- First payment tracking
             lrd.first_payment_date,
             lrd.first_payment_due_date,
@@ -295,7 +304,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION recalculate_all_loan_fields() IS
-'Recalculates all computed fields for all loans using the new DPD methodology based on missed repayment days. Includes actual_outstanding field. Returns total loans processed, loans updated, and execution time.';
+'Recalculates all computed fields for all loans using the new DPD methodology. The actual_outstanding field now correctly uses business days for both loan term and days elapsed. Returns total loans processed, loans updated, and execution time.';
 
 COMMIT;
 
