@@ -1,12 +1,12 @@
 -- ============================================================================
--- Migration 029: Update recalculate_all_loan_fields() with New DPD Logic
+-- Migration 031: Fix actual_outstanding field in recalculate_all_loan_fields()
 -- ============================================================================
 -- Description: Updates the recalculate_all_loan_fields() stored procedure to
---              use the new DPD calculation methodology based on missed
---              repayment days instead of days since last payment.
+--              include the actual_outstanding field calculation and update.
+--              This field was missing from the previous version (migration 029).
 --
 -- Author: Seeds Metrics Team
--- Date: 2025-11-09
+-- Date: 2025-11-19
 -- ============================================================================
 
 BEGIN;
@@ -291,7 +291,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION recalculate_all_loan_fields() IS
-'Recalculates all computed fields for all loans using the new DPD methodology based on missed repayment days. Returns total loans processed, loans updated, and execution time.';
+'Recalculates all computed fields for all loans using the new DPD methodology based on missed repayment days. Includes actual_outstanding field. Returns total loans processed, loans updated, and execution time.';
 
 COMMIT;
 
