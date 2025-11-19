@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 
@@ -840,29 +841,31 @@ func (h *DashboardHandler) GetLoanRepayments(c *gin.Context) {
 
 // RecalculateAllLoanFields handles POST /api/v1/loans/recalculate-fields
 // @Summary Recalculate all loan computed fields
-// @Description Manually trigger recalculation of all computed fields (actual_outstanding, total_outstanding, current_dpd, etc.) for all loans
+// @Description Manually trigger recalculation of all computed fields (actual_outstanding, total_outstanding, current_dpd, etc.) for all loans. This operation runs asynchronously.
 // @Tags Loans
 // @Accept json
 // @Produce json
-// @Success 200 {object} models.APIResponse
+// @Success 202 {object} models.APIResponse
 // @Failure 500 {object} models.APIResponse
 // @Router /loans/recalculate-fields [post]
 func (h *DashboardHandler) RecalculateAllLoanFields(c *gin.Context) {
-	// Trigger recalculation for all loans
-	rowsAffected, err := h.dashboardRepo.RecalculateAllLoanFields()
-	if err != nil {
-		c.JSON(http.StatusInternalServerError, models.APIResponse{
-			Status: "error",
-			Error:  newAPIError("DATABASE_ERROR", "Failed to recalculate loan fields"),
-		})
-		return
-	}
+	// Run recalculation asynchronously to avoid timeout
+	go func() {
+		log.Println("🔄 Starting loan fields recalculation...")
+		rowsAffected, err := h.dashboardRepo.RecalculateAllLoanFields()
+		if err != nil {
+			log.Printf("❌ Failed to recalculate loan fields: %v", err)
+			return
+		}
+		log.Printf("✅ Successfully recalculated %d loans", rowsAffected)
+	}()
 
-	c.JSON(http.StatusOK, models.APIResponse{
+	// Return immediately with 202 Accepted
+	c.JSON(http.StatusAccepted, models.APIResponse{
 		Status:  "success",
-		Message: "Successfully recalculated computed fields for all loans",
+		Message: "Loan field recalculation started. This process will run in the background and may take several minutes to complete.",
 		Data: map[string]interface{}{
-			"loans_updated": rowsAffected,
+			"status": "processing",
 		},
 	})
 }

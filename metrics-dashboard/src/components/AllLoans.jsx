@@ -659,15 +659,20 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
 
       const result = await response.json();
 
-      if (response.ok && result.status === 'success') {
-        setRecalculateMessage(`✓ Successfully recalculated fields for ${result.data.loans_updated} loans`);
-        // Refresh the loans table after successful recalculation
-        await fetchLoans();
+      // Handle 202 Accepted (async processing) or 200 OK (immediate success)
+      if ((response.status === 202 || response.ok) && result.status === 'success') {
+        setRecalculateMessage(`✓ ${result.message || 'Recalculation started successfully'}`);
 
-        // Clear success message after 5 seconds
+        // If it's async (202), don't refresh immediately
+        if (response.status !== 202) {
+          // Refresh the loans table after successful recalculation
+          await fetchLoans();
+        }
+
+        // Clear success message after 10 seconds
         setTimeout(() => {
           setRecalculateMessage('');
-        }, 5000);
+        }, 10000);
       } else {
         setRecalculateMessage(`✗ Error: ${result.error?.message || 'Failed to recalculate fields'}`);
 
