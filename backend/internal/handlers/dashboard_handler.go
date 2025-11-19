@@ -500,6 +500,9 @@ func (h *DashboardHandler) GetAllLoans(c *gin.Context) {
 	if status := c.Query("status"); status != "" {
 		filters["status"] = status
 	}
+	if performanceStatus := c.Query("performance_status"); performanceStatus != "" {
+		filters["performance_status"] = performanceStatus
+	}
 	if wave := c.Query("wave"); wave != "" {
 		filters["wave"] = wave
 	}

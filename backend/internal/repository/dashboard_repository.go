@@ -997,10 +997,47 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 	}
 
 	if status, ok := filters["status"].(string); ok && status != "" {
-		query += fmt.Sprintf(" AND l.status = $%d", argCount)
-		countQuery += fmt.Sprintf(" AND l.status = $%d", argCount)
-		args = append(args, status)
-		argCount++
+		// Support comma-separated statuses for multi-select
+		statuses := strings.Split(status, ",")
+		if len(statuses) == 1 {
+			query += fmt.Sprintf(" AND l.status = $%d", argCount)
+			countQuery += fmt.Sprintf(" AND l.status = $%d", argCount)
+			args = append(args, statuses[0])
+			argCount++
+		} else {
+			// Build IN clause for multiple statuses
+			placeholders := []string{}
+			for _, s := range statuses {
+				placeholders = append(placeholders, fmt.Sprintf("$%d", argCount))
+				args = append(args, strings.TrimSpace(s))
+				argCount++
+			}
+			inClause := fmt.Sprintf(" AND l.status IN (%s)", strings.Join(placeholders, ", "))
+			query += inClause
+			countQuery += inClause
+		}
+	}
+
+	if performanceStatus, ok := filters["performance_status"].(string); ok && performanceStatus != "" {
+		// Support comma-separated performance statuses for multi-select
+		performanceStatuses := strings.Split(performanceStatus, ",")
+		if len(performanceStatuses) == 1 {
+			query += fmt.Sprintf(" AND l.performance_status = $%d", argCount)
+			countQuery += fmt.Sprintf(" AND l.performance_status = $%d", argCount)
+			args = append(args, performanceStatuses[0])
+			argCount++
+		} else {
+			// Build IN clause for multiple performance statuses
+			placeholders := []string{}
+			for _, ps := range performanceStatuses {
+				placeholders = append(placeholders, fmt.Sprintf("$%d", argCount))
+				args = append(args, strings.TrimSpace(ps))
+				argCount++
+			}
+			inClause := fmt.Sprintf(" AND l.performance_status IN (%s)", strings.Join(placeholders, ", "))
+			query += inClause
+			countQuery += inClause
+		}
 	}
 
 	if wave, ok := filters["wave"].(string); ok && wave != "" {
