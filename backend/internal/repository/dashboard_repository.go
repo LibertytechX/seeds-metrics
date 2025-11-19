@@ -924,6 +924,7 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 			l.actual_outstanding,
 			l.total_repayments,
 			l.status,
+			l.performance_status,
 			l.fimr_tagged,
 			l.timeliness_score,
 			l.repayment_health,
@@ -1081,7 +1082,7 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 	for rows.Next() {
 		loan := &models.AllLoan{}
 		var customerPhone, officerID, firstPaymentDueDate, maturityDate sql.NullString
-		var verticalLeadName, verticalLeadEmail sql.NullString
+		var verticalLeadName, verticalLeadEmail, performanceStatus sql.NullString
 		var repaymentAmount, timelinessScore, repaymentHealth, repaymentDelayRate sql.NullFloat64
 		var dailyRepaymentAmount, repaymentDaysPaid sql.NullFloat64
 		var daysSinceLastRepayment, repaymentDaysDueToday, businessDaysSinceDisbursement sql.NullInt64
@@ -1111,6 +1112,7 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 			&loan.ActualOutstanding,
 			&loan.TotalRepayments,
 			&loan.Status,
+			&performanceStatus,
 			&loan.FIMRTagged,
 			&timelinessScore,
 			&repaymentHealth,
@@ -1137,6 +1139,9 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 		}
 		if verticalLeadEmail.Valid {
 			loan.VerticalLeadEmail = &verticalLeadEmail.String
+		}
+		if performanceStatus.Valid {
+			loan.PerformanceStatus = &performanceStatus.String
 		}
 		if repaymentAmount.Valid {
 			val := repaymentAmount.Float64

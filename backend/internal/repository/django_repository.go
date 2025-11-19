@@ -388,6 +388,7 @@ func (r *DjangoRepository) GetLoans(ctx context.Context, limit, offset int) ([]m
 				-- Default fallback
 				ELSE 'Active'
 			END as status,
+			l.performance_status,
 			l.created_at,
 			l.updated_at
 		FROM loans_ajoloan l
@@ -407,7 +408,7 @@ func (r *DjangoRepository) GetLoans(ctx context.Context, limit, offset int) ([]m
 	var loans []map[string]interface{}
 	for rows.Next() {
 		var loanID, customerID, customerName, officerID, officerName, branch, region, status string
-		var customerPhone, officerPhone sql.NullString
+		var customerPhone, officerPhone, performanceStatus sql.NullString
 		var loanAmount, repaymentAmount, interestRate, feeAmount float64
 		var loanTermDays int
 		var disbursementDate, firstPaymentDueDate, maturityDate sql.NullTime
@@ -432,6 +433,7 @@ func (r *DjangoRepository) GetLoans(ctx context.Context, limit, offset int) ([]m
 			&firstPaymentDueDate,
 			&maturityDate,
 			&status,
+			&performanceStatus,
 			&createdAt,
 			&updatedAt,
 		)
@@ -463,6 +465,9 @@ func (r *DjangoRepository) GetLoans(ctx context.Context, limit, offset int) ([]m
 		}
 		if officerPhone.Valid {
 			loan["officer_phone"] = officerPhone.String
+		}
+		if performanceStatus.Valid {
+			loan["performance_status"] = performanceStatus.String
 		}
 		if disbursementDate.Valid {
 			loan["disbursement_date"] = disbursementDate.Time.Format("2006-01-02")

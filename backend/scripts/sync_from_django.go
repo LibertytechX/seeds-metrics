@@ -244,6 +244,9 @@ func syncLoans(ctx context.Context, djangoRepo *repository.DjangoRepository, loa
 			if officerPhone, ok := loanData["officer_phone"].(string); ok && officerPhone != "" {
 				input.OfficerPhone = &officerPhone
 			}
+			if performanceStatus, ok := loanData["performance_status"].(string); ok && performanceStatus != "" {
+				input.PerformanceStatus = &performanceStatus
+			}
 			if firstPaymentDueDate != "" {
 				input.FirstPaymentDueDate = &firstPaymentDueDate
 			}
