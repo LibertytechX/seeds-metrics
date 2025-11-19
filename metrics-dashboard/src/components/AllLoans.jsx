@@ -18,6 +18,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     wave: '', // Single-select wave filter
     channel: '',
     statuses: [], // Multi-select status filter
+    performance_statuses: [], // Multi-select performance status filter
     customer_phone: '',
     vertical_lead_email: '',
     loan_type: initialFilter?.loan_type || '', // 'active' or 'inactive'
@@ -31,12 +32,15 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
   const [allChannels, setAllChannels] = useState([]);
   const [allWaves, setAllWaves] = useState([]);
   const [allStatuses, setAllStatuses] = useState([]);
+  const [allPerformanceStatuses, setAllPerformanceStatuses] = useState([]);
   const [allVerticalLeads, setAllVerticalLeads] = useState([]);
   const [allOfficers, setAllOfficers] = useState([]);
   const [isRegionDropdownOpen, setIsRegionDropdownOpen] = useState(false);
   const regionDropdownRef = useRef(null);
   const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
   const statusDropdownRef = useRef(null);
+  const [isPerformanceStatusDropdownOpen, setIsPerformanceStatusDropdownOpen] = useState(false);
+  const performanceStatusDropdownRef = useRef(null);
   const [filterLabel, setFilterLabel] = useState(
     initialFilter?.officer_name ? `Officer: ${initialFilter.officer_name}` :
     initialFilter?.label ? initialFilter.label : ''
@@ -62,6 +66,9 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       }
       if (statusDropdownRef.current && !statusDropdownRef.current.contains(event.target)) {
         setIsStatusDropdownOpen(false);
+      }
+      if (performanceStatusDropdownRef.current && !performanceStatusDropdownRef.current.contains(event.target)) {
+        setIsPerformanceStatusDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -121,10 +128,10 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     try {
       console.log('🔍 AllLoans: fetchLoans called with filters:', filters);
 
-      // Exclude loan_type, rot_type, delay_type, regions, and statuses from API params (will handle regions and statuses separately)
+      // Exclude loan_type, rot_type, delay_type, regions, statuses, and performance_statuses from API params (will handle arrays separately)
       // Include customer_phone and DPD filters for server-side filtering
       const apiFilters = Object.fromEntries(
-        Object.entries(filters).filter(([k, v]) => v !== '' && k !== 'loan_type' && k !== 'rot_type' && k !== 'delay_type' && k !== 'regions' && k !== 'statuses')
+        Object.entries(filters).filter(([k, v]) => v !== '' && k !== 'loan_type' && k !== 'rot_type' && k !== 'delay_type' && k !== 'regions' && k !== 'statuses' && k !== 'performance_statuses')
       );
 
       // Convert regions array to comma-separated string
@@ -135,6 +142,11 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       // Convert statuses array to comma-separated string
       if (filters.statuses && filters.statuses.length > 0) {
         apiFilters.status = filters.statuses.join(',');
+      }
+
+      // Convert performance_statuses array to comma-separated string
+      if (filters.performance_statuses && filters.performance_statuses.length > 0) {
+        apiFilters.performance_status = filters.performance_statuses.join(',');
       }
 
       const params = new URLSearchParams({
@@ -247,6 +259,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
         wave: '',
         channel: '',
         statuses: [],
+        performance_statuses: [],
         customer_phone: '',
         vertical_lead_email: '',
         loan_type: initialFilter.loan_type || '',
@@ -273,6 +286,9 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
 
   // Get unique values for filter dropdowns
   const filterOptions = useMemo(() => {
+    // Define performance status options
+    const performanceStatusOptions = ['PERFORMING', 'DEFAULTED', 'LOST', 'PAST_MATURITY', 'OWED_BALANCE'];
+
     return {
       officers: allOfficers.length > 0 ? allOfficers : [...new Set(loans.map(l => l.officer_name))].filter(Boolean).sort(),
       branches: allBranches.length > 0 ? allBranches.sort() : [...new Set(loans.map(l => l.branch))].filter(Boolean).sort(),
@@ -280,9 +296,10 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       waves: allWaves.length > 0 ? allWaves.sort() : [...new Set(loans.map(l => l.wave))].filter(Boolean).sort(),
       channels: allChannels.length > 0 ? allChannels.sort() : [...new Set(loans.map(l => l.channel))].filter(Boolean).sort(),
       statuses: allStatuses.length > 0 ? allStatuses.sort() : [...new Set(loans.map(l => l.status))].filter(Boolean).sort(),
+      performanceStatuses: performanceStatusOptions,
       verticalLeads: allVerticalLeads.length > 0 ? allVerticalLeads : [...new Set(loans.map(l => l.vertical_lead_email))].filter(Boolean).sort(),
     };
-  }, [loans, allBranches, allRegions, allWaves, allChannels, allStatuses, allVerticalLeads, allOfficers]);
+  }, [loans, allBranches, allRegions, allWaves, allChannels, allStatuses, allPerformanceStatuses, allVerticalLeads, allOfficers]);
 
   const handleSort = (key) => {
     setSortConfig(prev => ({
@@ -314,6 +331,15 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     setPagination(prev => ({ ...prev, page: 1 })); // Reset to first page
   };
 
+  const handlePerformanceStatusToggle = (performanceStatus) => {
+    const currentPerformanceStatuses = filters.performance_statuses || [];
+    const newPerformanceStatuses = currentPerformanceStatuses.includes(performanceStatus)
+      ? currentPerformanceStatuses.filter(ps => ps !== performanceStatus)
+      : [...currentPerformanceStatuses, performanceStatus];
+    setFilters(prev => ({ ...prev, performance_statuses: newPerformanceStatuses }));
+    setPagination(prev => ({ ...prev, page: 1 })); // Reset to first page
+  };
+
   const clearFilters = () => {
     setFilters({
       officer_id: '',
@@ -321,7 +347,8 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       regions: [],
       wave: '',
       channel: '',
-      status: '',
+      statuses: [],
+      performance_statuses: [],
       customer_phone: '',
       vertical_lead_email: '',
       loan_type: '',
@@ -423,7 +450,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
 
       // Prepare API filters (same logic as fetchLoans)
       const apiFilters = Object.fromEntries(
-        Object.entries(filters).filter(([k, v]) => v !== '' && k !== 'loan_type' && k !== 'rot_type' && k !== 'delay_type' && k !== 'regions' && k !== 'statuses')
+        Object.entries(filters).filter(([k, v]) => v !== '' && k !== 'loan_type' && k !== 'rot_type' && k !== 'delay_type' && k !== 'regions' && k !== 'statuses' && k !== 'performance_statuses')
       );
 
       // Convert regions array to comma-separated string
@@ -434,6 +461,11 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       // Convert statuses array to comma-separated string
       if (filters.statuses && filters.statuses.length > 0) {
         apiFilters.status = filters.statuses.join(',');
+      }
+
+      // Convert performance_statuses array to comma-separated string
+      if (filters.performance_statuses && filters.performance_statuses.length > 0) {
+        apiFilters.performance_status = filters.performance_statuses.join(',');
       }
 
       const params = new URLSearchParams({
@@ -910,6 +942,45 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                 </div>
               )}
             </div>
+            <div className="filter-group multi-select-wrapper" ref={performanceStatusDropdownRef}>
+              <button
+                className="multi-select-button"
+                onClick={() => setIsPerformanceStatusDropdownOpen(!isPerformanceStatusDropdownOpen)}
+              >
+                <span>
+                  {filters.performance_statuses && filters.performance_statuses.length > 0
+                    ? `${filters.performance_statuses.length} Performance Status${filters.performance_statuses.length > 1 ? 'es' : ''} Selected`
+                    : 'All Performance Statuses'}
+                </span>
+                <ChevronDown size={16} />
+              </button>
+              {isPerformanceStatusDropdownOpen && (
+                <div className="multi-select-dropdown">
+                  <div className="multi-select-option" onClick={() => setFilters(prev => ({ ...prev, performance_statuses: [] }))}>
+                    <input
+                      type="checkbox"
+                      checked={!filters.performance_statuses || filters.performance_statuses.length === 0}
+                      readOnly
+                    />
+                    <span>All Performance Statuses</span>
+                  </div>
+                  {filterOptions.performanceStatuses.map(performanceStatus => (
+                    <div
+                      key={performanceStatus}
+                      className="multi-select-option"
+                      onClick={() => handlePerformanceStatusToggle(performanceStatus)}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={filters.performance_statuses && filters.performance_statuses.includes(performanceStatus)}
+                        readOnly
+                      />
+                      <span>{performanceStatus}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
             <div className="filter-group">
               <input
                 type="text"
@@ -1001,6 +1072,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                 <th onClick={() => handleSort('actual_outstanding')}>Actual Outstanding</th>
               <th onClick={() => handleSort('total_repayments')}>Total Repayments</th>
                 <th onClick={() => handleSort('status')}>Status</th>
+                <th onClick={() => handleSort('performance_status')}>Performance Status</th>
                 <th>FIMR Tagged</th>
                 <th>Actions</th>
               </tr>
@@ -1052,6 +1124,15 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                     <span className={`status-badge status-${loan.status.toLowerCase()}`}>
                       {loan.status}
                     </span>
+                  </td>
+                  <td>
+                    {loan.performance_status ? (
+                      <span className={`status-badge performance-status-${loan.performance_status.toLowerCase().replace('_', '-')}`}>
+                        {loan.performance_status}
+                      </span>
+                    ) : (
+                      <span className="status-badge status-unknown">N/A</span>
+                    )}
                   </td>
                   <td className="fimr-tagged">
                     {loan.fimr_tagged ? (
