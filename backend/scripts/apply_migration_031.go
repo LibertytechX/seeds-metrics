@@ -27,7 +27,7 @@ func main() {
 	log.Println("✅ Connected to SeedsMetrics database")
 
 	// Read migration file
-	migrationSQL, err := os.ReadFile("../migrations/031_fix_actual_outstanding_in_recalculate.sql")
+	migrationSQL, err := os.ReadFile("migrations/031_fix_actual_outstanding_in_recalculate.sql")
 	if err != nil {
 		log.Fatalf("Failed to read migration file: %v", err)
 	}
@@ -41,7 +41,7 @@ func main() {
 
 	log.Println("✅ Migration 031 applied successfully!")
 	log.Println("📊 The recalculate_all_loan_fields() function now includes actual_outstanding field updates")
-	
+
 	// Test the function
 	log.Println("\n🧪 Testing the updated function...")
 	var totalLoans, loansUpdated, executionTime int
@@ -54,7 +54,6 @@ func main() {
 	log.Printf("   - Total loans processed: %d", totalLoans)
 	log.Printf("   - Loans updated: %d", loansUpdated)
 	log.Printf("   - Execution time: %d ms", executionTime)
-	
+
 	fmt.Println("\n🎉 Migration completed and tested successfully!")
 }
-
