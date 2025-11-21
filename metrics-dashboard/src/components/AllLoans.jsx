@@ -1044,6 +1044,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
           <table className="all-loans-table">
             <thead>
               <tr>
+                <th>Actions</th>
                 <th onClick={() => handleSort('loan_id')}>Loan ID</th>
                 <th onClick={() => handleSort('customer_name')}>Customer Name</th>
                 <th onClick={() => handleSort('customer_phone')}>Customer Phone</th>
@@ -1054,6 +1055,9 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                 <th onClick={() => handleSort('vertical_lead_email')}>Vertical Lead Email</th>
                 <th onClick={() => handleSort('channel')}>Channel</th>
                 <th onClick={() => handleSort('loan_amount')}>Loan Amount</th>
+                <th onClick={() => handleSort('current_dpd')}>Current DPD</th>
+                <th onClick={() => handleSort('days_since_last_repayment')}>Days Since Last Repayment</th>
+                <th onClick={() => handleSort('repayment_delay_rate')}>Repayment Delay Rate %</th>
                 <th onClick={() => handleSort('repayment_amount')}>Repayment Amount</th>
                 <th onClick={() => handleSort('disbursement_date')}>Disbursement Date</th>
                 <th onClick={() => handleSort('first_payment_due_date')}>First Payment Due</th>
@@ -1064,22 +1068,28 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                 <th onClick={() => handleSort('business_days_since_disbursement')}>Business Days Since Disbursement</th>
                 <th onClick={() => handleSort('timeliness_score')}>Timeliness Score</th>
                 <th onClick={() => handleSort('repayment_health')}>Repayment Health</th>
-                <th onClick={() => handleSort('repayment_delay_rate')}>Repayment Delay Rate %</th>
                 <th onClick={() => handleSort('wave')}>Wave</th>
-                <th onClick={() => handleSort('days_since_last_repayment')}>Days Since Last Repayment</th>
-                <th onClick={() => handleSort('current_dpd')}>Current DPD</th>
                 <th onClick={() => handleSort('total_outstanding')}>Total Outstanding</th>
                 <th onClick={() => handleSort('actual_outstanding')}>Actual Outstanding</th>
-              <th onClick={() => handleSort('total_repayments')}>Total Repayments</th>
+                <th onClick={() => handleSort('total_repayments')}>Total Repayments</th>
                 <th onClick={() => handleSort('status')}>Status</th>
                 <th onClick={() => handleSort('performance_status')}>Performance Status</th>
                 <th>FIMR Tagged</th>
-                <th>Actions</th>
               </tr>
             </thead>
             <tbody>
               {loans.map((loan) => (
                 <tr key={loan.loan_id}>
+                  <td className="action-cell">
+                    <button
+                      className="view-repayments-btn"
+                      onClick={() => handleViewRepayments(loan)}
+                      title="View Repayment History"
+                    >
+                      <Eye size={16} />
+                      Repayments
+                    </button>
+                  </td>
                   <td className="loan-id">{loan.loan_id}</td>
                   <td>{loan.customer_name}</td>
                   <td>{loan.customer_phone || 'N/A'}</td>
@@ -1090,16 +1100,8 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                   <td>{loan.vertical_lead_email || 'N/A'}</td>
                   <td>{loan.channel}</td>
                   <td className="amount">{formatCurrency(loan.loan_amount)}</td>
-                  <td className="amount">{loan.repayment_amount ? formatCurrency(loan.repayment_amount) : 'N/A'}</td>
-                  <td>{formatDate(loan.disbursement_date)}</td>
-                  <td>{loan.first_payment_due_date ? formatDate(loan.first_payment_due_date) : 'N/A'}</td>
-                  <td className="tenure">{formatTenure(loan.loan_term_days)}</td>
-                  <td className="amount">{loan.daily_repayment_amount != null ? formatCurrency(loan.daily_repayment_amount) : 'N/A'}</td>
-                  <td className="days-since">{loan.repayment_days_due_today != null ? loan.repayment_days_due_today + ' days' : 'N/A'}</td>
-                  <td className="days-since">{loan.repayment_days_paid != null ? loan.repayment_days_paid.toFixed(2) + ' days' : 'N/A'}</td>
-                  <td className="days-since">{loan.business_days_since_disbursement != null ? loan.business_days_since_disbursement + ' days' : 'N/A'}</td>
-                  <td className="score">{loan.timeliness_score != null ? loan.timeliness_score.toFixed(2) : 'N/A'}</td>
-                  <td className="score">{loan.repayment_health != null ? loan.repayment_health.toFixed(2) : 'N/A'}</td>
+                  <td className="dpd">{loan.current_dpd}</td>
+                  <td className="days-since">{loan.days_since_last_repayment != null ? loan.days_since_last_repayment : 'N/A'}</td>
                   <td className="delay-rate" style={{
                     color: loan.repayment_delay_rate != null
                       ? (loan.repayment_delay_rate >= 60 ? '#2e7d32'
@@ -1110,13 +1112,21 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                   }}>
                     {loan.repayment_delay_rate != null ? loan.repayment_delay_rate.toFixed(2) + '%' : 'N/A'}
                   </td>
+                  <td className="amount">{loan.repayment_amount ? formatCurrency(loan.repayment_amount) : 'N/A'}</td>
+                  <td>{formatDate(loan.disbursement_date)}</td>
+                  <td>{loan.first_payment_due_date ? formatDate(loan.first_payment_due_date) : 'N/A'}</td>
+                  <td className="tenure">{formatTenure(loan.loan_term_days)}</td>
+                  <td className="amount">{loan.daily_repayment_amount != null ? formatCurrency(loan.daily_repayment_amount) : 'N/A'}</td>
+                  <td className="days-since">{loan.repayment_days_due_today != null ? loan.repayment_days_due_today + ' days' : 'N/A'}</td>
+                  <td className="days-since">{loan.repayment_days_paid != null ? loan.repayment_days_paid.toFixed(2) + ' days' : 'N/A'}</td>
+                  <td className="days-since">{loan.business_days_since_disbursement != null ? loan.business_days_since_disbursement + ' days' : 'N/A'}</td>
+                  <td className="score">{loan.timeliness_score != null ? loan.timeliness_score.toFixed(2) : 'N/A'}</td>
+                  <td className="score">{loan.repayment_health != null ? loan.repayment_health.toFixed(2) : 'N/A'}</td>
                   <td className="wave">
                     <span className={`wave-badge wave-${loan.wave?.replace(' ', '-').toLowerCase()}`}>
                       {loan.wave || 'N/A'}
                     </span>
                   </td>
-                  <td className="days-since">{loan.days_since_last_repayment != null ? loan.days_since_last_repayment : 'N/A'}</td>
-                  <td className="dpd">{loan.current_dpd}</td>
                   <td className="amount">{formatCurrency(loan.total_outstanding)}</td>
                   <td className="amount">{formatCurrency(loan.actual_outstanding || 0)}</td>
                   <td className="amount">{formatCurrency(loan.total_repayments || 0)}</td>
@@ -1140,16 +1150,6 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                     ) : (
                       <span className="badge-no">No</span>
                     )}
-                  </td>
-                  <td className="action-cell">
-                    <button
-                      className="view-repayments-btn"
-                      onClick={() => handleViewRepayments(loan)}
-                      title="View Repayment History"
-                    >
-                      <Eye size={16} />
-                      Repayments
-                    </button>
                   </td>
                 </tr>
               ))}
