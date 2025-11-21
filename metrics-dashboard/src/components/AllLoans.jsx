@@ -57,6 +57,8 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
   const [recalculating, setRecalculating] = useState(false);
   const [recalculateMessage, setRecalculateMessage] = useState('');
   const [exporting, setExporting] = useState(false);
+  const [refreshingLoans, setRefreshingLoans] = useState(new Set()); // Track which loans are being refreshed
+  const [refreshMessage, setRefreshMessage] = useState(''); // Success/error message for refresh
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -676,6 +678,57 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     setRepaymentsModalOpen(true);
   };
 
+  const handleRefreshRepayments = async (loan) => {
+    const loanId = loan.loan_id;
+
+    // Add loan to refreshing set
+    setRefreshingLoans(prev => new Set(prev).add(loanId));
+    setRefreshMessage('');
+
+    try {
+      const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8081/api/v1';
+      const response = await fetch(`${API_BASE_URL}/loans/${loanId}/sync-repayments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.message || 'Failed to sync repayments');
+      }
+
+      // Update the loan in the loans array with the updated data
+      if (data.data && data.data.updated_loan) {
+        setLoans(prevLoans =>
+          prevLoans.map(l =>
+            l.loan_id === loanId ? data.data.updated_loan : l
+          )
+        );
+      }
+
+      setRefreshMessage(`✅ Successfully synced ${data.data.total_synced} repayment(s) for loan ${loanId}`);
+
+      // Clear message after 5 seconds
+      setTimeout(() => setRefreshMessage(''), 5000);
+    } catch (error) {
+      console.error('Error syncing repayments:', error);
+      setRefreshMessage(`❌ Failed to sync repayments: ${error.message}`);
+
+      // Clear error message after 5 seconds
+      setTimeout(() => setRefreshMessage(''), 5000);
+    } finally {
+      // Remove loan from refreshing set
+      setRefreshingLoans(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(loanId);
+        return newSet;
+      });
+    }
+  };
+
   const handleRecalculateFields = async () => {
     setRecalculating(true);
     setRecalculateMessage('');
@@ -788,6 +841,12 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       {recalculateMessage && (
         <div className={`recalculate-message ${recalculateMessage.startsWith('✓') ? 'success' : 'error'}`}>
           {recalculateMessage}
+        </div>
+      )}
+
+      {refreshMessage && (
+        <div className={`recalculate-message ${refreshMessage.startsWith('✅') ? 'success' : 'error'}`}>
+          {refreshMessage}
         </div>
       )}
 
@@ -1081,14 +1140,24 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
               {loans.map((loan) => (
                 <tr key={loan.loan_id}>
                   <td className="action-cell">
-                    <button
-                      className="view-repayments-btn"
-                      onClick={() => handleViewRepayments(loan)}
-                      title="View Repayment History"
-                    >
-                      <Eye size={16} />
-                      Repayments
-                    </button>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <button
+                        className="view-repayments-btn"
+                        onClick={() => handleViewRepayments(loan)}
+                        title="View Repayment History"
+                      >
+                        <Eye size={16} />
+                        Repayments
+                      </button>
+                      <button
+                        className={`refresh-repayments-btn ${refreshingLoans.has(loan.loan_id) ? 'refreshing' : ''}`}
+                        onClick={() => handleRefreshRepayments(loan)}
+                        disabled={refreshingLoans.has(loan.loan_id)}
+                        title="Refresh repayments from source database"
+                      >
+                        <RefreshCw size={16} className={refreshingLoans.has(loan.loan_id) ? 'spinning' : ''} />
+                      </button>
+                    </div>
                   </td>
                   <td className="loan-id">{loan.loan_id}</td>
                   <td>{loan.customer_name}</td>

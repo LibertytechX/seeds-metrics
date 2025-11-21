@@ -550,3 +550,52 @@
 .view-repayments-btn:active {
   transform: translateY(0);
 }
+
+/* Refresh Repayments Button */
+.refresh-repayments-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  background: #10b981;
+  color: white;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s;
+  min-width: 36px;
+  min-height: 36px;
+}
+
+.refresh-repayments-btn:hover:not(:disabled) {
+  background: #059669;
+  transform: translateY(-1px);
+  box-shadow: 0 2px 8px rgba(16, 185, 129, 0.3);
+}
+
+.refresh-repayments-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.refresh-repayments-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.refresh-repayments-btn.refreshing {
+  background: #6b7280;
+}
+
+/* Spinning animation for refresh icon */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.spinning {
+  animation: spin 1s linear infinite;
+}

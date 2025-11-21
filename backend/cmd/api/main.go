@@ -78,12 +78,13 @@ func main() {
 
 	// Initialize services
 	metricsService := services.NewMetricsService()
+	syncService := services.NewSyncService(djangoDB.DB, db)
 
 	// Initialize handlers
 	etlHandler := handlers.NewETLHandler(loanRepo, repaymentRepo, officerRepo)
 	customerHandler := handlers.NewCustomerHandler(customerRepo)
 	healthHandler := handlers.NewHealthHandler(db, djangoRepo)
-	dashboardHandler := handlers.NewDashboardHandler(dashboardRepo, repaymentRepo, metricsService)
+	dashboardHandler := handlers.NewDashboardHandler(dashboardRepo, repaymentRepo, metricsService, syncService)
 
 	// Setup router
 	router := setupRouter(cfg, etlHandler, customerHandler, healthHandler, dashboardHandler)
@@ -177,6 +178,7 @@ func setupRouter(cfg *config.Config, etlHandler *handlers.ETLHandler, customerHa
 			loans.GET("", dashboardHandler.GetAllLoans)
 			loans.GET("/:loan_id/repayments", dashboardHandler.GetLoanRepayments)
 			loans.POST("/recalculate-fields", dashboardHandler.RecalculateAllLoanFields)
+			loans.POST("/:loan_id/sync-repayments", dashboardHandler.SyncLoanRepayments)
 		}
 
 		// Filter endpoints

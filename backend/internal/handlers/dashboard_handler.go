@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"log"
 	"net/http"
 	"strconv"
@@ -16,14 +17,16 @@ type DashboardHandler struct {
 	dashboardRepo  *repository.DashboardRepository
 	repaymentRepo  *repository.RepaymentRepository
 	metricsService *services.MetricsService
+	syncService    *services.SyncService
 }
 
 // NewDashboardHandler creates a new dashboard handler
-func NewDashboardHandler(dashboardRepo *repository.DashboardRepository, repaymentRepo *repository.RepaymentRepository, metricsService *services.MetricsService) *DashboardHandler {
+func NewDashboardHandler(dashboardRepo *repository.DashboardRepository, repaymentRepo *repository.RepaymentRepository, metricsService *services.MetricsService, syncService *services.SyncService) *DashboardHandler {
 	return &DashboardHandler{
 		dashboardRepo:  dashboardRepo,
 		repaymentRepo:  repaymentRepo,
 		metricsService: metricsService,
+		syncService:    syncService,
 	}
 }
 
@@ -869,6 +872,68 @@ func (h *DashboardHandler) RecalculateAllLoanFields(c *gin.Context) {
 		Message: "Loan field recalculation started. This process will run in the background and may take several minutes to complete.",
 		Data: map[string]interface{}{
 			"status": "processing",
+		},
+	})
+}
+
+// SyncLoanRepayments handles POST /api/v1/loans/:loan_id/sync-repayments
+// @Summary Sync repayments for a specific loan
+// @Description Syncs repayment data for a single loan from Django source database to SeedsMetrics
+// @Tags Loans
+// @Accept json
+// @Produce json
+// @Param loan_id path string true "Loan ID"
+// @Success 200 {object} models.APIResponse
+// @Failure 400 {object} models.APIResponse
+// @Failure 404 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
+// @Router /loans/{loan_id}/sync-repayments [post]
+func (h *DashboardHandler) SyncLoanRepayments(c *gin.Context) {
+	loanID := c.Param("loan_id")
+
+	if loanID == "" {
+		c.JSON(http.StatusBadRequest, models.APIResponse{
+			Status:  "error",
+			Message: "Loan ID is required",
+			Error:   newAPIError("INVALID_REQUEST", "loan_id parameter is missing"),
+		})
+		return
+	}
+
+	log.Printf("🔄 API: Starting repayment sync for loan %s", loanID)
+
+	// Call sync service
+	result, err := h.syncService.SyncLoanRepayments(c.Request.Context(), loanID)
+	if err != nil {
+		// Check if it's a "not found" error
+		if err.Error() == "loan "+loanID+" not found" {
+			c.JSON(http.StatusNotFound, models.APIResponse{
+				Status:  "error",
+				Message: fmt.Sprintf("Loan %s not found", loanID),
+				Error:   newAPIError("LOAN_NOT_FOUND", err.Error()),
+			})
+			return
+		}
+
+		log.Printf("❌ Failed to sync repayments for loan %s: %v", loanID, err)
+		c.JSON(http.StatusInternalServerError, models.APIResponse{
+			Status:  "error",
+			Message: "Failed to sync repayments",
+			Error:   newAPIError("SYNC_ERROR", err.Error()),
+		})
+		return
+	}
+
+	log.Printf("✅ Successfully synced repayments for loan %s: %d synced, %d errors", loanID, result.TotalSynced, result.TotalErrors)
+
+	c.JSON(http.StatusOK, models.APIResponse{
+		Status:  "success",
+		Message: result.Message,
+		Data: map[string]interface{}{
+			"loan_id":      result.LoanID,
+			"total_synced": result.TotalSynced,
+			"total_errors": result.TotalErrors,
+			"updated_loan": result.UpdatedLoan,
 		},
 	})
 }

@@ -549,6 +549,66 @@ func (r *DjangoRepository) GetRepayments(ctx context.Context, limit, offset int)
 	return repayments, nil
 }
 
+// GetRepaymentsByLoanID retrieves repayments for a specific loan from Django database
+func (r *DjangoRepository) GetRepaymentsByLoanID(ctx context.Context, loanID string) ([]map[string]interface{}, error) {
+	query := `
+		SELECT
+			r.id::VARCHAR(50) as repayment_id,
+			r.ajo_loan_id::VARCHAR(50) as loan_id,
+			r.paid_date as payment_date,
+			r.repayment_amount as payment_amount,
+			COALESCE(r.repayment_type, 'TRANSFER') as payment_method,
+			r.created_at,
+			r.updated_at
+		FROM loans_ajoloanrepayment r
+		WHERE r.ajo_loan_id = $1::BIGINT
+			AND r.paid_date IS NOT NULL
+		ORDER BY r.paid_date DESC
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, loanID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query repayments for loan %s: %w", loanID, err)
+	}
+	defer rows.Close()
+
+	var repayments []map[string]interface{}
+	for rows.Next() {
+		repayment := make(map[string]interface{})
+		var repaymentID, loanIDStr, paymentMethod string
+		var paymentDate, createdAt, updatedAt time.Time
+		var paymentAmount float64
+
+		if err := rows.Scan(
+			&repaymentID,
+			&loanIDStr,
+			&paymentDate,
+			&paymentAmount,
+			&paymentMethod,
+			&createdAt,
+			&updatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan repayment: %w", err)
+		}
+
+		repayment["repayment_id"] = repaymentID
+		repayment["loan_id"] = loanIDStr
+		repayment["payment_date"] = paymentDate.Format("2006-01-02")
+		repayment["payment_amount"] = paymentAmount
+		repayment["payment_method"] = paymentMethod
+		repayment["created_at"] = createdAt
+		repayment["updated_at"] = updatedAt
+
+		repayments = append(repayments, repayment)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating repayments: %w", err)
+	}
+
+	return repayments, nil
+}
+
 // HealthCheck verifies the Django database connection is healthy
 func (r *DjangoRepository) HealthCheck(ctx context.Context) error {
 	query := `SELECT 1`
