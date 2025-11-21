@@ -1356,7 +1356,8 @@ func (r *DashboardRepository) GetBranches(filters map[string]interface{}) ([]*mo
 				ELSE 0
 			END as par15_ratio,
 			COUNT(DISTINCT l.loan_id) as active_loans,
-			COUNT(DISTINCT l.officer_id) as total_officers
+			COUNT(DISTINCT l.officer_id) as total_officers,
+			COALESCE(AVG(l.repayment_delay_rate), 0) as avg_repayment_delay_rate
 		FROM loans l
 		WHERE 1=1
 	`
@@ -1438,6 +1439,7 @@ func (r *DashboardRepository) GetBranches(filters map[string]interface{}) ([]*mo
 			&branch.Par15Ratio,
 			&branch.ActiveLoans,
 			&branch.TotalOfficers,
+			&branch.AvgRepaymentDelayRate,
 		)
 		if err != nil {
 			return nil, err

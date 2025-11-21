@@ -225,6 +225,7 @@ class ApiService {
       fimr: branch.fimr,
       activeLoans: branch.active_loans,
       totalOfficers: branch.total_officers,
+      avgRepaymentDelayRate: branch.avg_repayment_delay_rate,
     };
   }
 }

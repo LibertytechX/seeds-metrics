@@ -151,7 +151,7 @@ const CreditHealthByBranch = ({ branches: initialBranches, onFilterChange }) => 
     // Create CSV content
     const headers = [
       'Branch', 'Region', 'Portfolio Total', 'Overdue >15D', 'PAR15 Ratio',
-      'AYR', 'DQI', 'FIMR', 'Active Loans', 'Total Officers'
+      'AYR', 'DQI', 'FIMR', 'Avg Repayment Delay Rate %', 'Active Loans', 'Total Officers'
     ];
 
     const rows = sortedBranches.map(branch => [
@@ -163,6 +163,7 @@ const CreditHealthByBranch = ({ branches: initialBranches, onFilterChange }) => 
       branch.ayr,
       branch.dqi,
       branch.fimr,
+      branch.avgRepaymentDelayRate,
       branch.activeLoans,
       branch.totalOfficers,
     ]);
@@ -316,6 +317,7 @@ const CreditHealthByBranch = ({ branches: initialBranches, onFilterChange }) => 
                 <th onClick={() => handleSort('ayr')}>AYR</th>
                 <th onClick={() => handleSort('dqi')}>DQI</th>
                 <th onClick={() => handleSort('fimr')}>FIMR</th>
+                <th onClick={() => handleSort('avgRepaymentDelayRate')}>Avg Repayment Delay Rate</th>
                 <th onClick={() => handleSort('activeLoans')}>Active Loans</th>
                 <th onClick={() => handleSort('totalOfficers')}>Total Officers</th>
               </tr>
@@ -323,7 +325,7 @@ const CreditHealthByBranch = ({ branches: initialBranches, onFilterChange }) => 
             <tbody>
               {sortedBranches.length === 0 ? (
                 <tr>
-                  <td colSpan="10" className="no-data">No branches found matching the selected filters</td>
+                  <td colSpan="11" className="no-data">No branches found matching the selected filters</td>
                 </tr>
               ) : (
                 sortedBranches.map((branch, index) => (
@@ -336,6 +338,7 @@ const CreditHealthByBranch = ({ branches: initialBranches, onFilterChange }) => 
                     <td className="metric">{formatPercent(branch.ayr)}</td>
                     <td className="metric">{formatDecimal(branch.dqi, 0)}</td>
                     <td className="metric">{formatPercent(branch.fimr)}</td>
+                    <td className="metric">{formatPercent(branch.avgRepaymentDelayRate / 100)}</td>
                     <td className="count">{branch.activeLoans}</td>
                     <td className="count">{branch.totalOfficers}</td>
                   </tr>

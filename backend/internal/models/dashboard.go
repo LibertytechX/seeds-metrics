@@ -186,16 +186,17 @@ type EarlyIndicatorLoan struct {
 
 // DashboardBranchMetrics represents branch-level aggregated metrics for dashboard
 type DashboardBranchMetrics struct {
-	Branch         string  `json:"branch"`
-	Region         string  `json:"region"`
-	PortfolioTotal float64 `json:"portfolio_total"`
-	Overdue15d     float64 `json:"overdue_15d"`
-	Par15Ratio     float64 `json:"par15_ratio"`
-	AYR            float64 `json:"ayr"`
-	DQI            int     `json:"dqi"`
-	FIMR           float64 `json:"fimr"`
-	ActiveLoans    int     `json:"active_loans"`
-	TotalOfficers  int     `json:"total_officers"`
+	Branch                string  `json:"branch"`
+	Region                string  `json:"region"`
+	PortfolioTotal        float64 `json:"portfolio_total"`
+	Overdue15d            float64 `json:"overdue_15d"`
+	Par15Ratio            float64 `json:"par15_ratio"`
+	AYR                   float64 `json:"ayr"`
+	DQI                   int     `json:"dqi"`
+	FIMR                  float64 `json:"fimr"`
+	ActiveLoans           int     `json:"active_loans"`
+	TotalOfficers         int     `json:"total_officers"`
+	AvgRepaymentDelayRate float64 `json:"avg_repayment_delay_rate"`
 }
 
 // TeamMember represents a team member for audit assignment
