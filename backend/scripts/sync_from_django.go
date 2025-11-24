@@ -247,6 +247,12 @@ func syncLoans(ctx context.Context, djangoRepo *repository.DjangoRepository, loa
 			if performanceStatus, ok := loanData["performance_status"].(string); ok && performanceStatus != "" {
 				input.PerformanceStatus = &performanceStatus
 			}
+			if loanType, ok := loanData["loan_type"].(string); ok && loanType != "" {
+				input.LoanType = &loanType
+			}
+			if verificationStatus, ok := loanData["verification_status"].(string); ok && verificationStatus != "" {
+				input.VerificationStatus = &verificationStatus
+			}
 			if firstPaymentDueDate != "" {
 				input.FirstPaymentDueDate = &firstPaymentDueDate
 			}

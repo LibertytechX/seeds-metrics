@@ -30,10 +30,12 @@ func (r *LoanRepository) Create(ctx context.Context, input *models.LoanInput) er
 			interest_rate, fee_amount,
 			channel, channel_partner,
 			status, performance_status, closed_date, wave,
+			loan_type, verification_status,
 			created_at, updated_at
 		) VALUES (
 			$1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
 			$11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, COALESCE($24, 'Wave 2'),
+			$25, $26,
 			NOW(), NOW()
 		)
 		ON CONFLICT (loan_id) DO UPDATE SET
@@ -60,6 +62,8 @@ func (r *LoanRepository) Create(ctx context.Context, input *models.LoanInput) er
 			performance_status = EXCLUDED.performance_status,
 			closed_date = EXCLUDED.closed_date,
 			wave = EXCLUDED.wave,
+			loan_type = EXCLUDED.loan_type,
+			verification_status = EXCLUDED.verification_status,
 			updated_at = NOW()
 	`
 
@@ -99,6 +103,7 @@ func (r *LoanRepository) Create(ctx context.Context, input *models.LoanInput) er
 		input.InterestRate, input.FeeAmount,
 		input.Channel, input.ChannelPartner,
 		input.Status, input.PerformanceStatus, closedDate, input.Wave,
+		input.LoanType, input.VerificationStatus,
 	)
 
 	return err

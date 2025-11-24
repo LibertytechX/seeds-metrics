@@ -26,6 +26,8 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     delay_type: initialFilter?.delay_type || '', // 'risky' for high delay loans
     dpd_min: '', // DPD minimum value
     dpd_max: '', // DPD maximum value
+    django_loan_type: '', // Loan type from Django (AJO, BNPL, PROSPER, DMO)
+    django_verification_status: '', // Verification status from Django
   });
   const [allBranches, setAllBranches] = useState([]);
   const [allRegions, setAllRegions] = useState([]);
@@ -35,6 +37,8 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
   const [allPerformanceStatuses, setAllPerformanceStatuses] = useState([]);
   const [allVerticalLeads, setAllVerticalLeads] = useState([]);
   const [allOfficers, setAllOfficers] = useState([]);
+  const [allLoanTypes, setAllLoanTypes] = useState([]);
+  const [allVerificationStatuses, setAllVerificationStatuses] = useState([]);
   const [isRegionDropdownOpen, setIsRegionDropdownOpen] = useState(false);
   const regionDropdownRef = useRef(null);
   const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
@@ -59,6 +63,14 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
   const [exporting, setExporting] = useState(false);
   const [refreshingLoans, setRefreshingLoans] = useState(new Set()); // Track which loans are being refreshed
   const [refreshMessage, setRefreshMessage] = useState(''); // Success/error message for refresh
+  const [summaryMetrics, setSummaryMetrics] = useState({
+    totalLoans: 0,
+    totalPortfolioAmount: 0,
+    atRiskLoans: { count: 0, amount: 0, actualOutstanding: 0, percentage: 0 },
+    totalAmountInDPD: 0,
+    criticalLoans: { count: 0, percentage: 0 },
+    repaymentDelayCategories: { excellent: 0, okay: 0, critical: 0 }
+  });
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -132,9 +144,21 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
 
       // Exclude loan_type, rot_type, delay_type, regions, statuses, and performance_statuses from API params (will handle arrays separately)
       // Include customer_phone and DPD filters for server-side filtering
+      // Rename django_loan_type and django_verification_status to loan_type and verification_status for API
       const apiFilters = Object.fromEntries(
-        Object.entries(filters).filter(([k, v]) => v !== '' && k !== 'loan_type' && k !== 'rot_type' && k !== 'delay_type' && k !== 'regions' && k !== 'statuses' && k !== 'performance_statuses')
+        Object.entries(filters)
+          .filter(([k, v]) => v !== '' && k !== 'loan_type' && k !== 'rot_type' && k !== 'delay_type' && k !== 'regions' && k !== 'statuses' && k !== 'performance_statuses' && k !== 'django_loan_type' && k !== 'django_verification_status')
       );
+
+      // Add django_loan_type as loan_type for API
+      if (filters.django_loan_type) {
+        apiFilters.loan_type = filters.django_loan_type;
+      }
+
+      // Add django_verification_status as verification_status for API
+      if (filters.django_verification_status) {
+        apiFilters.verification_status = filters.django_verification_status;
+      }
 
       // Convert regions array to comma-separated string
       if (filters.regions && filters.regions.length > 0) {
@@ -233,6 +257,22 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
         )].sort();
         setAllVerticalLeads(uniqueVerticalLeads);
 
+        // Extract unique loan types from fetched loans
+        const uniqueLoanTypes = [...new Set(
+          fetchedLoans
+            .map(loan => loan.loan_type)
+            .filter(type => type != null && type !== '')
+        )].sort();
+        setAllLoanTypes(uniqueLoanTypes);
+
+        // Extract unique verification statuses from fetched loans
+        const uniqueVerificationStatuses = [...new Set(
+          fetchedLoans
+            .map(loan => loan.verification_status)
+            .filter(status => status != null && status !== '')
+        )].sort();
+        setAllVerificationStatuses(uniqueVerificationStatuses);
+
         // Use backend total for pagination, not client-side filtered count
         // The backend total represents the actual number of records matching server-side filters
         // Client-side filtering (loan_type, rot_type, delay_type) is for display only
@@ -242,12 +282,65 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
           total: data.data.total, // Use backend total, not fetchedLoans.length
           pages: data.data.pages, // Use backend calculated pages
         });
+
+        // Calculate summary metrics from fetched loans
+        calculateSummaryMetrics(fetchedLoans, data.data.total);
       }
     } catch (error) {
       console.error('Error fetching loans:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Calculate summary metrics from loans data
+  const calculateSummaryMetrics = (loansData, totalCount) => {
+    const totalPortfolioAmount = loansData.reduce((sum, loan) => sum + (loan.loan_amount || 0), 0);
+
+    const atRiskLoans = loansData.filter(loan => loan.current_dpd > 14);
+    const atRiskCount = atRiskLoans.length;
+    const atRiskAmount = atRiskLoans.reduce((sum, loan) => sum + (loan.loan_amount || 0), 0);
+    const atRiskActualOutstanding = atRiskLoans.reduce((sum, loan) => sum + (loan.actual_outstanding || 0), 0);
+    const atRiskPercentage = totalCount > 0 ? (atRiskCount / totalCount) * 100 : 0;
+
+    const totalAmountInDPD = loansData
+      .filter(loan => loan.current_dpd > 0)
+      .reduce((sum, loan) => sum + (loan.actual_outstanding || 0), 0);
+
+    const criticalLoans = loansData.filter(loan => loan.current_dpd > 21);
+    const criticalCount = criticalLoans.length;
+    const criticalPercentage = totalCount > 0 ? (criticalCount / totalCount) * 100 : 0;
+
+    const excellentCount = loansData.filter(loan =>
+      loan.repayment_delay_rate != null && loan.repayment_delay_rate >= 80
+    ).length;
+    const okayCount = loansData.filter(loan =>
+      loan.repayment_delay_rate != null && loan.repayment_delay_rate >= 40 && loan.repayment_delay_rate < 80
+    ).length;
+    const criticalDelayCount = loansData.filter(loan =>
+      loan.repayment_delay_rate != null && loan.repayment_delay_rate < 40
+    ).length;
+
+    setSummaryMetrics({
+      totalLoans: totalCount,
+      totalPortfolioAmount,
+      atRiskLoans: {
+        count: atRiskCount,
+        amount: atRiskAmount,
+        actualOutstanding: atRiskActualOutstanding,
+        percentage: atRiskPercentage
+      },
+      totalAmountInDPD,
+      criticalLoans: {
+        count: criticalCount,
+        percentage: criticalPercentage
+      },
+      repaymentDelayCategories: {
+        excellent: excellentCount,
+        okay: okayCount,
+        critical: criticalDelayCount
+      }
+    });
   };
 
   // Update filters when initialFilter prop changes
@@ -269,6 +362,8 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
         delay_type: initialFilter.delay_type || '',
         dpd_min: '',
         dpd_max: '',
+        django_loan_type: '',
+        django_verification_status: '',
       });
       setFilterLabel(
         initialFilter.officer_name ? `Officer: ${initialFilter.officer_name}` :
@@ -358,6 +453,8 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       delay_type: '',
       dpd_min: '',
       dpd_max: '',
+      django_loan_type: '',
+      django_verification_status: '',
     });
     setFilterLabel('');
   };
@@ -850,6 +947,38 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
         </div>
       )}
 
+      {/* Summary Metrics Section */}
+      <div className="summary-metrics">
+        <div className="summary-card">
+          <div className="summary-label">Total Portfolio Amount</div>
+          <div className="summary-value">₦{(summaryMetrics.totalPortfolioAmount / 1000000).toFixed(2)}M</div>
+        </div>
+        <div className="summary-card at-risk">
+          <div className="summary-label">At Risk Loans (DPD &gt; 14)</div>
+          <div className="summary-value">{summaryMetrics.atRiskLoans.count} loans ({summaryMetrics.atRiskLoans.percentage.toFixed(1)}%)</div>
+          <div className="summary-detail">
+            Amount: ₦{(summaryMetrics.atRiskLoans.amount / 1000000).toFixed(2)}M |
+            Outstanding: ₦{(summaryMetrics.atRiskLoans.actualOutstanding / 1000000).toFixed(2)}M
+          </div>
+        </div>
+        <div className="summary-card">
+          <div className="summary-label">Total Amount in DPD</div>
+          <div className="summary-value">₦{(summaryMetrics.totalAmountInDPD / 1000000).toFixed(2)}M</div>
+        </div>
+        <div className="summary-card critical">
+          <div className="summary-label">Critical Loans (DPD &gt; 21)</div>
+          <div className="summary-value">{summaryMetrics.criticalLoans.count} loans ({summaryMetrics.criticalLoans.percentage.toFixed(1)}%)</div>
+        </div>
+        <div className="summary-card delay-categories">
+          <div className="summary-label">Repayment Delay Rate</div>
+          <div className="summary-detail">
+            <span className="delay-excellent">Excellent (≥80%): {summaryMetrics.repaymentDelayCategories.excellent}</span> |
+            <span className="delay-okay">Okay (40-79%): {summaryMetrics.repaymentDelayCategories.okay}</span> |
+            <span className="delay-critical">Critical (≤39%): {summaryMetrics.repaymentDelayCategories.critical}</span>
+          </div>
+        </div>
+      </div>
+
       {showFilters && (
         <div className="filter-panel">
           <div className="filter-row">
@@ -959,6 +1088,28 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                 <option value="">All Vertical Leads</option>
                 {filterOptions.verticalLeads.map(email => (
                   <option key={email} value={email}>{email}</option>
+                ))}
+              </select>
+            </div>
+            <div className="filter-group">
+              <select
+                value={filters.django_loan_type}
+                onChange={(e) => handleFilterChange('django_loan_type', e.target.value)}
+              >
+                <option value="">All Loan Types</option>
+                {allLoanTypes.map(type => (
+                  <option key={type} value={type}>{type}</option>
+                ))}
+              </select>
+            </div>
+            <div className="filter-group">
+              <select
+                value={filters.django_verification_status}
+                onChange={(e) => handleFilterChange('django_verification_status', e.target.value)}
+              >
+                <option value="">All Verification Statuses</option>
+                {allVerificationStatuses.map(status => (
+                  <option key={status} value={status}>{status}</option>
                 ))}
               </select>
             </div>
@@ -1113,6 +1264,8 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                 <th onClick={() => handleSort('vertical_lead_name')}>Vertical Lead Name</th>
                 <th onClick={() => handleSort('vertical_lead_email')}>Vertical Lead Email</th>
                 <th onClick={() => handleSort('channel')}>Channel</th>
+                <th onClick={() => handleSort('loan_type')}>Loan Type</th>
+                <th onClick={() => handleSort('verification_status')}>Verification Status</th>
                 <th onClick={() => handleSort('loan_amount')}>Loan Amount</th>
                 <th onClick={() => handleSort('current_dpd')}>Current DPD</th>
                 <th onClick={() => handleSort('days_since_last_repayment')}>Days Since Last Repayment</th>
@@ -1168,6 +1321,8 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                   <td>{loan.vertical_lead_name || 'N/A'}</td>
                   <td>{loan.vertical_lead_email || 'N/A'}</td>
                   <td>{loan.channel}</td>
+                  <td>{loan.loan_type || 'N/A'}</td>
+                  <td>{loan.verification_status || 'N/A'}</td>
                   <td className="amount">{formatCurrency(loan.loan_amount)}</td>
                   <td className="dpd">{loan.current_dpd}</td>
                   <td className="days-since">{loan.days_since_last_repayment != null ? loan.days_since_last_repayment : 'N/A'}</td>

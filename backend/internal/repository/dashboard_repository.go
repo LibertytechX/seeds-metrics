@@ -934,7 +934,9 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 			l.daily_repayment_amount,
 			l.repayment_days_due_today,
 			l.repayment_days_paid,
-			l.business_days_since_disbursement
+			l.business_days_since_disbursement,
+			l.loan_type,
+			l.verification_status
 		FROM loans l
 		JOIN officers o ON l.officer_id = o.officer_id
 		WHERE 1=1
@@ -1061,6 +1063,22 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 		argCount++
 	}
 
+	// Loan type filter
+	if loanType, ok := filters["loan_type"].(string); ok && loanType != "" {
+		query += fmt.Sprintf(" AND l.loan_type = $%d", argCount)
+		countQuery += fmt.Sprintf(" AND l.loan_type = $%d", argCount)
+		args = append(args, loanType)
+		argCount++
+	}
+
+	// Verification status filter
+	if verificationStatus, ok := filters["verification_status"].(string); ok && verificationStatus != "" {
+		query += fmt.Sprintf(" AND l.verification_status = $%d", argCount)
+		countQuery += fmt.Sprintf(" AND l.verification_status = $%d", argCount)
+		args = append(args, verificationStatus)
+		argCount++
+	}
+
 	// DPD range filter
 	if dpdMin, ok := filters["dpd_min"].(int); ok {
 		query += fmt.Sprintf(" AND l.current_dpd >= $%d", argCount)
@@ -1120,6 +1138,7 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 		loan := &models.AllLoan{}
 		var customerPhone, officerID, firstPaymentDueDate, maturityDate sql.NullString
 		var verticalLeadName, verticalLeadEmail, performanceStatus sql.NullString
+		var loanType, verificationStatus sql.NullString
 		var repaymentAmount, timelinessScore, repaymentHealth, repaymentDelayRate sql.NullFloat64
 		var dailyRepaymentAmount, repaymentDaysPaid sql.NullFloat64
 		var daysSinceLastRepayment, repaymentDaysDueToday, businessDaysSinceDisbursement sql.NullInt64
@@ -1160,6 +1179,8 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 			&repaymentDaysDueToday,
 			&repaymentDaysPaid,
 			&businessDaysSinceDisbursement,
+			&loanType,
+			&verificationStatus,
 		)
 		if err != nil {
 			return nil, 0, err
@@ -1179,6 +1200,12 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 		}
 		if performanceStatus.Valid {
 			loan.PerformanceStatus = &performanceStatus.String
+		}
+		if loanType.Valid {
+			loan.LoanType = &loanType.String
+		}
+		if verificationStatus.Valid {
+			loan.VerificationStatus = &verificationStatus.String
 		}
 		if repaymentAmount.Valid {
 			val := repaymentAmount.Float64

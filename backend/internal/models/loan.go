@@ -91,25 +91,29 @@ type LoanInput struct {
 	ChannelPartner      *string          `json:"channel_partner"`
 	Status              string           `json:"status" binding:"required"`
 	PerformanceStatus   *string          `json:"performance_status"`
-	ClosedDate          *string          `json:"closed_date"` // YYYY-MM-DD
-	Wave                *string          `json:"wave"`        // "Wave 1" or "Wave 2", defaults to "Wave 2"
+	ClosedDate          *string          `json:"closed_date"`         // YYYY-MM-DD
+	Wave                *string          `json:"wave"`                // "Wave 1" or "Wave 2", defaults to "Wave 2"
+	LoanType            *string          `json:"loan_type"`           // Loan type from Django (AJO, BNPL, PROSPER, DMO, etc.)
+	VerificationStatus  *string          `json:"verification_status"` // Verification status from Django
 }
 
 // LoanFilter represents filter criteria for querying loans
 type LoanFilter struct {
-	OfficerID       *string    `json:"officer_id"`
-	Region          *string    `json:"region"`
-	Branch          *string    `json:"branch"`
-	Status          *string    `json:"status"`
-	Channel         *string    `json:"channel"`
-	FIMRTagged      *bool      `json:"fimr_tagged"`
-	EarlyIndicator  *bool      `json:"early_indicator_tagged"`
-	MinDPD          *int       `json:"min_dpd"`
-	MaxDPD          *int       `json:"max_dpd"`
-	DisbursedAfter  *time.Time `json:"disbursed_after"`
-	DisbursedBefore *time.Time `json:"disbursed_before"`
-	Limit           int        `json:"limit"`
-	Offset          int        `json:"offset"`
+	OfficerID          *string    `json:"officer_id"`
+	Region             *string    `json:"region"`
+	Branch             *string    `json:"branch"`
+	Status             *string    `json:"status"`
+	Channel            *string    `json:"channel"`
+	FIMRTagged         *bool      `json:"fimr_tagged"`
+	EarlyIndicator     *bool      `json:"early_indicator_tagged"`
+	MinDPD             *int       `json:"min_dpd"`
+	MaxDPD             *int       `json:"max_dpd"`
+	DisbursedAfter     *time.Time `json:"disbursed_after"`
+	DisbursedBefore    *time.Time `json:"disbursed_before"`
+	LoanType           *string    `json:"loan_type"`
+	VerificationStatus *string    `json:"verification_status"`
+	Limit              int        `json:"limit"`
+	Offset             int        `json:"offset"`
 }
 
 // LoanDrilldown represents a loan record for drilldown views
@@ -164,6 +168,8 @@ type AllLoan struct {
 	RepaymentDaysDueToday         *int     `json:"repayment_days_due_today,omitempty"`
 	RepaymentDaysPaid             *float64 `json:"repayment_days_paid,omitempty"`
 	BusinessDaysSinceDisbursement *int     `json:"business_days_since_disbursement,omitempty"`
+	LoanType                      *string  `json:"loan_type,omitempty"`
+	VerificationStatus            *string  `json:"verification_status,omitempty"`
 }
 
 // TopRiskLoan represents a high-risk loan for audit purposes
