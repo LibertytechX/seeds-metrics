@@ -37,7 +37,6 @@ DECLARE
     v_calculation_end_date DATE;
     v_total_outstanding DECIMAL(15, 2);
     v_actual_outstanding DECIMAL(15, 2);
-    v_business_days_elapsed INTEGER;
 BEGIN
     -- Determine loan_id based on trigger source
     IF TG_TABLE_NAME = 'repayments' THEN
@@ -146,12 +145,11 @@ BEGIN
                           (COALESCE(v_fee_amount, 0) - v_total_fees_paid);
 
     -- Calculate actual_outstanding (overdue amount based on time elapsed - BUSINESS DAYS)
-    -- Formula: ((total_expected_repayment / loan_term_days) * business_days_elapsed) - total_repayments
-    IF v_loan_term_days > 0 AND v_disbursement_date IS NOT NULL THEN
-        v_business_days_elapsed := count_business_days(v_disbursement_date, CURRENT_DATE);
-        v_business_days_elapsed := LEAST(v_business_days_elapsed, v_loan_term_days);
+    -- Formula: (daily_repayment_amount * repayment_days_due_today) - total_repayments
+    -- This represents: "what should have been paid by now" - "what was actually paid"
+    IF v_daily_repayment_amount > 0 AND v_repayment_days_due_today > 0 THEN
         v_actual_outstanding := GREATEST(0,
-            (v_repayment_amount / v_loan_term_days) * v_business_days_elapsed - v_total_repayments
+            (v_daily_repayment_amount * v_repayment_days_due_today) - v_total_repayments
         );
     ELSE
         v_actual_outstanding := 0;
@@ -285,19 +283,6 @@ BEGIN
             (lrd.loan_amount - lrd.total_principal_paid) +
             (lrd.loan_amount * lrd.interest_rate - lrd.total_interest_paid) +
             (COALESCE(lrd.fee_amount, 0) - lrd.total_fees_paid) as total_outstanding,
-            -- Actual outstanding (overdue amount based on time elapsed - BUSINESS DAYS)
-            -- Formula: ((total_expected_repayment / loan_term_days) * business_days_elapsed) - total_repayments
-            GREATEST(0,
-                CASE
-                    WHEN lrd.loan_term_days > 0 AND lrd.disbursement_date IS NOT NULL AND lrd.repayment_amount > 0 THEN
-                        (lrd.repayment_amount / lrd.loan_term_days) *
-                        LEAST(
-                            count_business_days(lrd.disbursement_date, CURRENT_DATE),
-                            lrd.loan_term_days
-                        ) - lrd.total_repayments
-                    ELSE 0
-                END
-            ) as actual_outstanding,
 
             -- Days calculations
             CASE
@@ -355,6 +340,25 @@ BEGIN
                     count_business_days(lrd.disbursement_date, CURRENT_DATE)
                 ELSE 0
             END as business_days_since_disbursement,
+
+            -- Actual outstanding (overdue amount based on time elapsed - BUSINESS DAYS)
+            -- Formula: (daily_repayment_amount * repayment_days_due_today) - total_repayments
+            -- This represents: "what should have been paid by now" - "what was actually paid"
+            GREATEST(0,
+                CASE
+                    WHEN lrd.loan_term_days > 0 AND lrd.repayment_amount > 0 AND lrd.first_payment_due_date IS NOT NULL THEN
+                        CASE
+                            WHEN LEAST(CURRENT_DATE, COALESCE(lrd.maturity_date, CURRENT_DATE)) >= lrd.first_payment_due_date THEN
+                                (lrd.repayment_amount / lrd.loan_term_days) *
+                                count_business_days(
+                                    lrd.first_payment_due_date,
+                                    LEAST(CURRENT_DATE, COALESCE(lrd.maturity_date, CURRENT_DATE))
+                                ) - lrd.total_repayments
+                            ELSE 0
+                        END
+                    ELSE 0
+                END
+            ) as actual_outstanding,
 
             -- Step 6: Calculate DPD (missed repayment days)
             -- FIX: Set DPD to 0 if actual_outstanding <= 0 (loan is fully paid off)
