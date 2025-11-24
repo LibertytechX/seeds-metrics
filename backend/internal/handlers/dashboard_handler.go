@@ -515,6 +515,12 @@ func (h *DashboardHandler) GetAllLoans(c *gin.Context) {
 	if verticalLeadEmail := c.Query("vertical_lead_email"); verticalLeadEmail != "" {
 		filters["vertical_lead_email"] = verticalLeadEmail
 	}
+	if loanType := c.Query("loan_type"); loanType != "" {
+		filters["loan_type"] = loanType
+	}
+	if verificationStatus := c.Query("verification_status"); verificationStatus != "" {
+		filters["verification_status"] = verificationStatus
+	}
 	if dpdMin := c.Query("dpd_min"); dpdMin != "" {
 		if min, err := strconv.Atoi(dpdMin); err == nil {
 			filters["dpd_min"] = min
@@ -558,14 +564,26 @@ func (h *DashboardHandler) GetAllLoans(c *gin.Context) {
 		return
 	}
 
+	// Calculate summary metrics for all filtered loans (not just current page)
+	summaryMetrics, err := h.dashboardRepo.GetLoansSummaryMetrics(filters)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.APIResponse{
+			Status:  "error",
+			Message: "Failed to calculate summary metrics",
+			Error:   newAPIError("INTERNAL_ERROR", err.Error()),
+		})
+		return
+	}
+
 	c.JSON(http.StatusOK, models.APIResponse{
 		Status: "success",
 		Data: map[string]interface{}{
-			"loans": loans,
-			"total": total,
-			"page":  page,
-			"limit": limit,
-			"pages": (total + limit - 1) / limit,
+			"loans":           loans,
+			"total":           total,
+			"page":            page,
+			"limit":           limit,
+			"pages":           (total + limit - 1) / limit,
+			"summary_metrics": summaryMetrics,
 		},
 	})
 }

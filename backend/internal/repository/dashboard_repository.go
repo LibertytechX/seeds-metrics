@@ -895,6 +895,198 @@ func (r *DashboardRepository) GetEarlyIndicatorLoans(filters map[string]interfac
 	return loans, nil
 }
 
+// GetLoansSummaryMetrics calculates summary metrics for all loans matching the given filters
+func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interface{}) (map[string]interface{}, error) {
+	// Base query for summary metrics
+	query := `
+		SELECT
+			COUNT(*) as total_loans,
+			COALESCE(SUM(l.loan_amount), 0) as total_portfolio_amount,
+			COALESCE(SUM(CASE WHEN l.current_dpd > 14 THEN 1 ELSE 0 END), 0) as at_risk_count,
+			COALESCE(SUM(CASE WHEN l.current_dpd > 14 THEN l.loan_amount ELSE 0 END), 0) as at_risk_amount,
+			COALESCE(SUM(CASE WHEN l.current_dpd > 14 THEN l.actual_outstanding ELSE 0 END), 0) as at_risk_outstanding,
+			COALESCE(SUM(CASE WHEN l.current_dpd > 0 THEN l.actual_outstanding ELSE 0 END), 0) as total_amount_in_dpd,
+			COALESCE(SUM(CASE WHEN l.current_dpd > 21 THEN 1 ELSE 0 END), 0) as critical_count,
+			COALESCE(SUM(CASE WHEN l.repayment_delay_rate >= 80 THEN 1 ELSE 0 END), 0) as excellent_delay_count,
+			COALESCE(SUM(CASE WHEN l.repayment_delay_rate >= 40 AND l.repayment_delay_rate < 80 THEN 1 ELSE 0 END), 0) as okay_delay_count,
+			COALESCE(SUM(CASE WHEN l.repayment_delay_rate < 40 THEN 1 ELSE 0 END), 0) as critical_delay_count
+		FROM loans l
+		JOIN officers o ON l.officer_id = o.officer_id
+		WHERE 1=1
+			AND (o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT') OR o.user_type IS NULL)
+	`
+
+	args := []interface{}{}
+	argCount := 1
+
+	// Apply the same filters as GetAllLoans
+	if officerID, ok := filters["officer_id"].(string); ok && officerID != "" {
+		query += fmt.Sprintf(" AND l.officer_id = $%d", argCount)
+		args = append(args, officerID)
+		argCount++
+	}
+
+	if branch, ok := filters["branch"].(string); ok && branch != "" {
+		query += fmt.Sprintf(" AND l.branch = $%d", argCount)
+		args = append(args, branch)
+		argCount++
+	}
+
+	if region, ok := filters["region"].(string); ok && region != "" {
+		regions := strings.Split(region, ",")
+		if len(regions) == 1 {
+			query += fmt.Sprintf(" AND l.region = $%d", argCount)
+			args = append(args, regions[0])
+			argCount++
+		} else {
+			placeholders := []string{}
+			for _, r := range regions {
+				placeholders = append(placeholders, fmt.Sprintf("$%d", argCount))
+				args = append(args, strings.TrimSpace(r))
+				argCount++
+			}
+			query += fmt.Sprintf(" AND l.region IN (%s)", strings.Join(placeholders, ", "))
+		}
+	}
+
+	if channel, ok := filters["channel"].(string); ok && channel != "" {
+		query += fmt.Sprintf(" AND l.channel = $%d", argCount)
+		args = append(args, channel)
+		argCount++
+	}
+
+	if status, ok := filters["status"].(string); ok && status != "" {
+		statuses := strings.Split(status, ",")
+		if len(statuses) == 1 {
+			query += fmt.Sprintf(" AND l.status = $%d", argCount)
+			args = append(args, statuses[0])
+			argCount++
+		} else {
+			placeholders := []string{}
+			for _, s := range statuses {
+				placeholders = append(placeholders, fmt.Sprintf("$%d", argCount))
+				args = append(args, strings.TrimSpace(s))
+				argCount++
+			}
+			query += fmt.Sprintf(" AND l.status IN (%s)", strings.Join(placeholders, ", "))
+		}
+	}
+
+	if performanceStatus, ok := filters["performance_status"].(string); ok && performanceStatus != "" {
+		performanceStatuses := strings.Split(performanceStatus, ",")
+		if len(performanceStatuses) == 1 {
+			query += fmt.Sprintf(" AND l.performance_status = $%d", argCount)
+			args = append(args, performanceStatuses[0])
+			argCount++
+		} else {
+			placeholders := []string{}
+			for _, ps := range performanceStatuses {
+				placeholders = append(placeholders, fmt.Sprintf("$%d", argCount))
+				args = append(args, strings.TrimSpace(ps))
+				argCount++
+			}
+			query += fmt.Sprintf(" AND l.performance_status IN (%s)", strings.Join(placeholders, ", "))
+		}
+	}
+
+	if wave, ok := filters["wave"].(string); ok && wave != "" {
+		query += fmt.Sprintf(" AND l.wave = $%d", argCount)
+		args = append(args, wave)
+		argCount++
+	}
+
+	if customerPhone, ok := filters["customer_phone"].(string); ok && customerPhone != "" {
+		query += fmt.Sprintf(" AND l.customer_phone LIKE $%d", argCount)
+		args = append(args, "%"+customerPhone+"%")
+		argCount++
+	}
+
+	if verticalLeadEmail, ok := filters["vertical_lead_email"].(string); ok && verticalLeadEmail != "" {
+		query += fmt.Sprintf(" AND l.vertical_lead_email = $%d", argCount)
+		args = append(args, verticalLeadEmail)
+		argCount++
+	}
+
+	if loanType, ok := filters["loan_type"].(string); ok && loanType != "" {
+		query += fmt.Sprintf(" AND l.loan_type = $%d", argCount)
+		args = append(args, loanType)
+		argCount++
+	}
+
+	if verificationStatus, ok := filters["verification_status"].(string); ok && verificationStatus != "" {
+		query += fmt.Sprintf(" AND l.verification_status = $%d", argCount)
+		args = append(args, verificationStatus)
+		argCount++
+	}
+
+	if dpdMin, ok := filters["dpd_min"].(int); ok {
+		query += fmt.Sprintf(" AND l.current_dpd >= $%d", argCount)
+		args = append(args, dpdMin)
+		argCount++
+	}
+
+	if dpdMax, ok := filters["dpd_max"].(int); ok {
+		query += fmt.Sprintf(" AND l.current_dpd <= $%d", argCount)
+		args = append(args, dpdMax)
+		argCount++
+	}
+
+	// Execute query
+	var totalLoans, atRiskCount, criticalCount, excellentDelayCount, okayDelayCount, criticalDelayCount int
+	var totalPortfolioAmount, atRiskAmount, atRiskOutstanding, totalAmountInDPD float64
+
+	err := r.db.QueryRow(query, args...).Scan(
+		&totalLoans,
+		&totalPortfolioAmount,
+		&atRiskCount,
+		&atRiskAmount,
+		&atRiskOutstanding,
+		&totalAmountInDPD,
+		&criticalCount,
+		&excellentDelayCount,
+		&okayDelayCount,
+		&criticalDelayCount,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate summary metrics: %w", err)
+	}
+
+	// Calculate percentages
+	atRiskPercentage := 0.0
+	if totalLoans > 0 {
+		atRiskPercentage = (float64(atRiskCount) / float64(totalLoans)) * 100
+	}
+
+	criticalPercentage := 0.0
+	if totalLoans > 0 {
+		criticalPercentage = (float64(criticalCount) / float64(totalLoans)) * 100
+	}
+
+	// Build response
+	metrics := map[string]interface{}{
+		"total_loans":            totalLoans,
+		"total_portfolio_amount": totalPortfolioAmount,
+		"at_risk_loans": map[string]interface{}{
+			"count":              atRiskCount,
+			"amount":             atRiskAmount,
+			"actual_outstanding": atRiskOutstanding,
+			"percentage":         atRiskPercentage,
+		},
+		"total_amount_in_dpd": totalAmountInDPD,
+		"critical_loans": map[string]interface{}{
+			"count":      criticalCount,
+			"percentage": criticalPercentage,
+		},
+		"repayment_delay_categories": map[string]interface{}{
+			"excellent": excellentDelayCount,
+			"okay":      okayDelayCount,
+			"critical":  criticalDelayCount,
+		},
+	}
+
+	return metrics, nil
+}
+
 // GetAllLoans retrieves all loans with pagination and filters
 func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*models.AllLoan, int, error) {
 	// Base query

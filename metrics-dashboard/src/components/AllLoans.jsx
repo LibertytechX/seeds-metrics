@@ -283,64 +283,35 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
           pages: data.data.pages, // Use backend calculated pages
         });
 
-        // Calculate summary metrics from fetched loans
-        calculateSummaryMetrics(fetchedLoans, data.data.total);
+        // Use summary metrics from backend (calculated from ALL filtered loans, not just current page)
+        if (data.data.summary_metrics) {
+          setSummaryMetrics({
+            totalLoans: data.data.summary_metrics.total_loans,
+            totalPortfolioAmount: data.data.summary_metrics.total_portfolio_amount,
+            atRiskLoans: {
+              count: data.data.summary_metrics.at_risk_loans.count,
+              amount: data.data.summary_metrics.at_risk_loans.amount,
+              actualOutstanding: data.data.summary_metrics.at_risk_loans.actual_outstanding,
+              percentage: data.data.summary_metrics.at_risk_loans.percentage
+            },
+            totalAmountInDPD: data.data.summary_metrics.total_amount_in_dpd,
+            criticalLoans: {
+              count: data.data.summary_metrics.critical_loans.count,
+              percentage: data.data.summary_metrics.critical_loans.percentage
+            },
+            repaymentDelayCategories: {
+              excellent: data.data.summary_metrics.repayment_delay_categories.excellent,
+              okay: data.data.summary_metrics.repayment_delay_categories.okay,
+              critical: data.data.summary_metrics.repayment_delay_categories.critical
+            }
+          });
+        }
       }
     } catch (error) {
       console.error('Error fetching loans:', error);
     } finally {
       setLoading(false);
     }
-  };
-
-  // Calculate summary metrics from loans data
-  const calculateSummaryMetrics = (loansData, totalCount) => {
-    const totalPortfolioAmount = loansData.reduce((sum, loan) => sum + (loan.loan_amount || 0), 0);
-
-    const atRiskLoans = loansData.filter(loan => loan.current_dpd > 14);
-    const atRiskCount = atRiskLoans.length;
-    const atRiskAmount = atRiskLoans.reduce((sum, loan) => sum + (loan.loan_amount || 0), 0);
-    const atRiskActualOutstanding = atRiskLoans.reduce((sum, loan) => sum + (loan.actual_outstanding || 0), 0);
-    const atRiskPercentage = totalCount > 0 ? (atRiskCount / totalCount) * 100 : 0;
-
-    const totalAmountInDPD = loansData
-      .filter(loan => loan.current_dpd > 0)
-      .reduce((sum, loan) => sum + (loan.actual_outstanding || 0), 0);
-
-    const criticalLoans = loansData.filter(loan => loan.current_dpd > 21);
-    const criticalCount = criticalLoans.length;
-    const criticalPercentage = totalCount > 0 ? (criticalCount / totalCount) * 100 : 0;
-
-    const excellentCount = loansData.filter(loan =>
-      loan.repayment_delay_rate != null && loan.repayment_delay_rate >= 80
-    ).length;
-    const okayCount = loansData.filter(loan =>
-      loan.repayment_delay_rate != null && loan.repayment_delay_rate >= 40 && loan.repayment_delay_rate < 80
-    ).length;
-    const criticalDelayCount = loansData.filter(loan =>
-      loan.repayment_delay_rate != null && loan.repayment_delay_rate < 40
-    ).length;
-
-    setSummaryMetrics({
-      totalLoans: totalCount,
-      totalPortfolioAmount,
-      atRiskLoans: {
-        count: atRiskCount,
-        amount: atRiskAmount,
-        actualOutstanding: atRiskActualOutstanding,
-        percentage: atRiskPercentage
-      },
-      totalAmountInDPD,
-      criticalLoans: {
-        count: criticalCount,
-        percentage: criticalPercentage
-      },
-      repaymentDelayCategories: {
-        excellent: excellentCount,
-        okay: okayCount,
-        critical: criticalDelayCount
-      }
-    });
   };
 
   // Update filters when initialFilter prop changes
