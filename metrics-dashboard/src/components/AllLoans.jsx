@@ -472,11 +472,12 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     const headers = [
       'Loan ID', 'Customer Name', 'Customer Phone', 'Officer Name', 'Region', 'Branch',
       'Vertical Lead Name', 'Vertical Lead Email',
-      'Channel', 'Loan Amount', 'Repayment Amount', 'Disbursement Date', 'Loan Tenure', 'Maturity Date',
+      'Channel', 'Loan Type', 'Verification Status', 'Loan Amount', 'Repayment Amount', 'Disbursement Date',
+      'First Repayment Due Date', 'Loan Tenure', 'Maturity Date',
       'Daily Repayment Amount', 'Repayment Days Due Today', 'Repayment Days Paid', 'Business Days Since Disbursement',
       'Timeliness Score', 'Repayment Health', 'Repayment Delay Rate %', 'Wave', 'Days Since Last Repayment', 'Current DPD',
       'Principal Outstanding', 'Interest Outstanding', 'Fees Outstanding', 'Total Outstanding',
-      'Actual Outstanding', 'Total Repayments', 'Status', 'FIMR Tagged'
+      'Actual Outstanding', 'Total Repayments', 'Status', 'Performance Status', 'FIMR Tagged'
     ];
 
     const rows = loans.map(loan => [
@@ -489,9 +490,12 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       loan.vertical_lead_name || 'N/A',
       loan.vertical_lead_email || 'N/A',
       loan.channel,
+      loan.loan_type || 'N/A',
+      loan.verification_status || 'N/A',
       loan.loan_amount,
       loan.repayment_amount || 'N/A',
       loan.disbursement_date,
+      loan.first_payment_due_date || 'N/A',
       formatTenure(loan.loan_term_days),
       loan.maturity_date,
       loan.daily_repayment_amount != null ? loan.daily_repayment_amount.toFixed(2) : 'N/A',
@@ -511,6 +515,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       loan.actual_outstanding || 0,
       loan.total_repayments || 0,
       loan.status,
+      loan.performance_status || 'N/A',
       loan.fimr_tagged ? 'Yes' : 'No',
     ]);
 
@@ -637,11 +642,12 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
         const headers = [
           'Loan ID', 'Customer Name', 'Customer Phone', 'Officer Name', 'Region', 'Branch',
           'Vertical Lead Name', 'Vertical Lead Email',
-          'Channel', 'Loan Amount', 'Repayment Amount', 'Disbursement Date', 'Loan Tenure', 'Maturity Date',
+          'Channel', 'Loan Type', 'Verification Status', 'Loan Amount', 'Repayment Amount', 'Disbursement Date',
+          'First Repayment Due Date', 'Loan Tenure', 'Maturity Date',
           'Daily Repayment Amount', 'Repayment Days Due Today', 'Repayment Days Paid', 'Business Days Since Disbursement',
           'Timeliness Score', 'Repayment Health', 'Repayment Delay Rate %', 'Wave', 'Days Since Last Repayment', 'Current DPD',
           'Principal Outstanding', 'Interest Outstanding', 'Fees Outstanding', 'Total Outstanding',
-          'Actual Outstanding', 'Total Repayments', 'Status', 'FIMR Tagged'
+          'Actual Outstanding', 'Total Repayments', 'Status', 'Performance Status', 'FIMR Tagged'
         ];
 
         const rows = exportLoans.map(loan => [
@@ -654,9 +660,12 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
           loan.vertical_lead_name || 'N/A',
           loan.vertical_lead_email || 'N/A',
           loan.channel,
+          loan.loan_type || 'N/A',
+          loan.verification_status || 'N/A',
           loan.loan_amount,
           loan.repayment_amount || 'N/A',
           loan.disbursement_date,
+          loan.first_payment_due_date || 'N/A',
           formatTenure(loan.loan_term_days),
           loan.maturity_date,
           loan.daily_repayment_amount != null ? loan.daily_repayment_amount.toFixed(2) : 'N/A',
@@ -676,6 +685,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
           loan.actual_outstanding || 0,
           loan.total_repayments || 0,
           loan.status,
+          loan.performance_status || 'N/A',
           loan.fimr_tagged ? 'Yes' : 'No',
         ]);
 
