@@ -725,7 +725,25 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     return `${months} month${months !== 1 ? 's' : ''}`;
   };
 
-  const activeFilterCount = Object.values(filters).filter(v => v !== '').length;
+  // Count only filters that are actually "set": non-empty strings or non-empty arrays.
+  const activeFilterCount = [
+    filters.officer_id,
+    filters.branch,
+    filters.wave,
+    filters.channel,
+    filters.customer_phone,
+    filters.vertical_lead_email,
+    filters.loan_type,
+    filters.rot_type,
+    filters.delay_type,
+    filters.dpd_min,
+    filters.dpd_max,
+    (filters.regions && filters.regions.length > 0) ? 'regions' : '',
+    (filters.statuses && filters.statuses.length > 0) ? 'statuses' : '',
+    (filters.performance_statuses && filters.performance_statuses.length > 0) ? 'performance_statuses' : '',
+    (filters.django_loan_types && filters.django_loan_types.length > 0) ? 'django_loan_types' : '',
+    (filters.django_verification_statuses && filters.django_verification_statuses.length > 0) ? 'django_verification_statuses' : '',
+  ].filter(Boolean).length;
 
   const handleViewRepayments = (loan) => {
     setSelectedLoan(loan);
