@@ -7,6 +7,7 @@ import EarlyIndicatorsDrilldown from './components/EarlyIndicatorsDrilldown';
 import AgentPerformance from './components/AgentPerformance';
 import CreditHealthByBranch from './components/CreditHealthByBranch';
 import AllLoans from './components/AllLoans';
+import CollectionControlCentre from './components/CollectionControlCentre';
 import Login from './components/Login';
 import { TabHeader } from './components/Tooltip';
 import { formatTabTooltip } from './utils/metricInfo';
@@ -258,6 +259,18 @@ function App() {
     setActiveTab('allLoans');
   };
 
+	  // Lightweight URL awareness for the Collections Control Centre route
+	  useEffect(() => {
+	    try {
+	      const path = window.location?.pathname || '';
+	      if (path.includes('/collections/control-centre')) {
+	        setActiveTab('collectionsControlCentre');
+	      }
+	    } catch (e) {
+	      // Ignore in non-browser environments
+	    }
+	  }, []);
+
   // Handle login
   const handleLogin = () => {
     setIsAuthenticated(true);
@@ -411,6 +424,27 @@ function App() {
               info="Credit Health Overview aggregated by Branch"
             />
           </button>
+	          <button
+	            className={`tab ${activeTab === 'collectionsControlCentre' ? 'active' : ''}`}
+	            onClick={() => {
+	              setActiveTab('collectionsControlCentre');
+	              try {
+	                const newPath = '/collections/control-centre';
+	                if (window.history && window.location?.pathname !== newPath) {
+	                  window.history.pushState({}, '', newPath);
+	                }
+	              } catch (e) {
+	                // Ignore history errors
+	              }
+	            }}
+	            title="Collections-focused control centre"
+	          >
+	            <TabHeader
+	              label="Collections Control Centre"
+	              tabKey="collectionsControlCentre"
+	              info="Collections performance view using loans and repayments data"
+	            />
+	          </button>
           <button
             className={`tab ${activeTab === 'allLoans' ? 'active' : ''}`}
             onClick={() => setActiveTab('allLoans')}
@@ -424,34 +458,36 @@ function App() {
           </button>
         </div>
 
-        <div className="tab-content">
-          {activeTab === 'fimrDrilldown' ? (
-            <FIMRDrilldown loans={fimrLoans} />
-          ) : activeTab === 'earlyIndicatorsDrilldown' ? (
-            <EarlyIndicatorsDrilldown loans={earlyIndicatorLoans} />
-          ) : activeTab === 'agentPerformance' ? (
-            <AgentPerformance
-              key={JSON.stringify(agentPerformanceFilter)}
-              agents={officers}
-              onViewPortfolio={handleViewOfficerPortfolio}
-              onViewLowDelayLoans={handleViewOfficerLowDelayLoans}
-              initialFilter={agentPerformanceFilter}
-            />
-          ) : activeTab === 'creditHealthByBranch' ? (
-            <CreditHealthByBranch branches={branches} />
-          ) : activeTab === 'allLoans' ? (
-            <AllLoans
-              key={JSON.stringify(allLoansFilter)}
-              initialFilter={allLoansFilter}
-            />
-          ) : (
-            <DataTables
-              officers={filteredOfficers}
-              activeTab={activeTab}
-              onFilterChange={handleCreditHealthFilterChange}
-            />
-          )}
-        </div>
+	        <div className="tab-content">
+	          {activeTab === 'fimrDrilldown' ? (
+	            <FIMRDrilldown loans={fimrLoans} />
+	          ) : activeTab === 'earlyIndicatorsDrilldown' ? (
+	            <EarlyIndicatorsDrilldown loans={earlyIndicatorLoans} />
+	          ) : activeTab === 'agentPerformance' ? (
+	            <AgentPerformance
+	              key={JSON.stringify(agentPerformanceFilter)}
+	              agents={officers}
+	              onViewPortfolio={handleViewOfficerPortfolio}
+	              onViewLowDelayLoans={handleViewOfficerLowDelayLoans}
+	              initialFilter={agentPerformanceFilter}
+	            />
+	          ) : activeTab === 'creditHealthByBranch' ? (
+	            <CreditHealthByBranch branches={branches} />
+	          ) : activeTab === 'collectionsControlCentre' ? (
+	            <CollectionControlCentre />
+	          ) : activeTab === 'allLoans' ? (
+	            <AllLoans
+	              key={JSON.stringify(allLoansFilter)}
+	              initialFilter={allLoansFilter}
+	            />
+	          ) : (
+	            <DataTables
+	              officers={filteredOfficers}
+	              activeTab={activeTab}
+	              onFilterChange={handleCreditHealthFilterChange}
+	            />
+	          )}
+	        </div>
       </div>
     </div>
   );
