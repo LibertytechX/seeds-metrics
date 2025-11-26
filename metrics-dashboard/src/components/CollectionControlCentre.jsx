@@ -26,6 +26,10 @@ const CollectionControlCentre = () => {
   });
 
   const [summaryMetrics, setSummaryMetrics] = useState(null);
+	// For Collections Received we want "all repayments" for the period,
+	// not restricted to collections-specific django_status values.
+	// We'll fetch this alongside the restricted metrics.
+	const [totalRepaidTodayAll, setTotalRepaidTodayAll] = useState(null);
   const [loadingFilters, setLoadingFilters] = useState(false);
   const [loadingMetrics, setLoadingMetrics] = useState(false);
   const [error, setError] = useState(null);
@@ -67,64 +71,85 @@ const CollectionControlCentre = () => {
     fetchFilterOptions();
   }, []);
 
-  // Refresh collections metrics whenever filters change
-  useEffect(() => {
-    const fetchSummaryMetrics = async () => {
-      try {
-        setLoadingMetrics(true);
-        setError(null);
+	  // Refresh collections metrics whenever filters change
+	  useEffect(() => {
+	    const fetchSummaryMetrics = async () => {
+	      try {
+	        setLoadingMetrics(true);
+	        setError(null);
 
-        const API_BASE_URL = import.meta.env.VITE_API_URL ||
-          (import.meta.env.MODE === 'production' ? '/api/v1' : 'http://localhost:8081/api/v1');
+	        const API_BASE_URL = import.meta.env.VITE_API_URL ||
+	          (import.meta.env.MODE === 'production' ? '/api/v1' : 'http://localhost:8081/api/v1');
 
-        const params = new URLSearchParams();
-        // We only need summary metrics, so request a single row from /loans
-        params.set('page', '1');
-        params.set('limit', '1');
+	        const baseParams = new URLSearchParams();
+	        // We only need summary metrics, so request a single row from /loans
+	        baseParams.set('page', '1');
+	        baseParams.set('limit', '1');
 
-        if (filters.branch) {
-          params.set('branch', filters.branch);
-        }
-        if (filters.region) {
-          params.set('region', filters.region);
-        }
-        if (filters.product) {
-          params.set('loan_type', filters.product);
-        }
+	        if (filters.branch) {
+	          baseParams.set('branch', filters.branch);
+	        }
+	        if (filters.region) {
+	          baseParams.set('region', filters.region);
+	        }
+	        if (filters.product) {
+	          baseParams.set('loan_type', filters.product);
+	        }
 
-        // Per collections requirements, restrict to loans that are relevant
-        // for collections work:
-        //   - django_status = OPEN
-        //   - django_status = PAST_MATURITY
-        //   - Missing django_status (NULL / empty), via sentinel
-        // This uses the same MissingValueSentinel logic as AllLoans/backend.
-        const djangoStatusFilter = ['OPEN', 'PAST_MATURITY', MISSING_VALUE].join(',');
-        params.set('django_status', djangoStatusFilter);
+	        // Restricted metrics (used for Collections Due, At-Risk, etc.)
+	        // Per collections requirements, restrict to loans that are relevant
+	        // for collections work:
+	        //   - django_status = OPEN
+	        //   - django_status = PAST_MATURITY
+	        //   - Missing django_status (NULL / empty), via sentinel
+	        // This uses the same MissingValueSentinel logic as AllLoans/backend.
+	        const restrictedParams = new URLSearchParams(baseParams.toString());
+	        const djangoStatusFilter = ['OPEN', 'PAST_MATURITY', MISSING_VALUE].join(',');
+	        restrictedParams.set('django_status', djangoStatusFilter);
 
-        // NOTE: For now, the backend summary metrics are calculated for "today".
-        // The period filter is wired and will trigger refreshes, but broader
-        // period handling will be implemented in a dedicated backend endpoint.
+	        // Unrestricted metrics (for Collections Received): all repayments,
+	        // still respecting region/branch/product filters but NOT restricted
+	        // by django_status.
+	        const unrestrictedParams = new URLSearchParams(baseParams.toString());
 
-        const response = await fetch(`${API_BASE_URL}/loans?${params.toString()}`);
-        const data = await response.json();
+	        // NOTE: For now, the backend summary metrics are calculated for "today".
+	        // The period filter is wired and will trigger refreshes, but broader
+	        // period handling will be implemented in a dedicated backend endpoint.
 
-        if (data.status !== 'success') {
-          throw new Error(data.message || 'Failed to load collections summary metrics');
-        }
+	        const [restrictedRes, unrestrictedRes] = await Promise.all([
+	          fetch(`${API_BASE_URL}/loans?${restrictedParams.toString()}`),
+	          fetch(`${API_BASE_URL}/loans?${unrestrictedParams.toString()}`),
+	        ]);
 
-        setSummaryMetrics(data.data?.summary_metrics || null);
-        setLastUpdated(new Date());
-      } catch (err) {
-        console.error('Error fetching collections summary metrics:', err);
-        setError(err.message || 'Error fetching collections data');
-        setSummaryMetrics(null);
-      } finally {
-        setLoadingMetrics(false);
-      }
-    };
+	        const [restrictedData, unrestrictedData] = await Promise.all([
+	          restrictedRes.json(),
+	          unrestrictedRes.json(),
+	        ]);
 
-    fetchSummaryMetrics();
-  }, [filters.branch, filters.region, filters.product, filters.period]);
+	        if (restrictedData.status !== 'success') {
+	          throw new Error(restrictedData.message || 'Failed to load collections summary metrics');
+	        }
+	        if (unrestrictedData.status !== 'success') {
+	          throw new Error(unrestrictedData.message || 'Failed to load collections received metrics');
+	        }
+
+	        setSummaryMetrics(restrictedData.data?.summary_metrics || null);
+	        setTotalRepaidTodayAll(
+	          unrestrictedData.data?.summary_metrics?.total_repayments_today ?? null,
+	        );
+	        setLastUpdated(new Date());
+	      } catch (err) {
+	        console.error('Error fetching collections summary metrics:', err);
+	        setError(err.message || 'Error fetching collections data');
+	        setSummaryMetrics(null);
+	        setTotalRepaidTodayAll(null);
+	      } finally {
+	        setLoadingMetrics(false);
+	      }
+	    };
+
+	    fetchSummaryMetrics();
+	  }, [filters.branch, filters.region, filters.product, filters.period]);
 
   const handleFilterChange = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -152,9 +177,12 @@ const CollectionControlCentre = () => {
 
   const isLoading = loadingFilters || loadingMetrics;
 
-  // Derived values from existing summary metrics
+	  // Derived values from existing summary metrics
   const totalDueToday = summaryMetrics?.total_due_for_today ?? null;
-  const totalRepaidToday = summaryMetrics?.total_repayments_today ?? null;
+	  // For Collections Received, use the unrestricted "all repayments" value
+	  // when available; fall back to the restricted one if needed.
+	  const totalRepaidToday =
+	    totalRepaidTodayAll ?? summaryMetrics?.total_repayments_today ?? null;
   const collectionRateToday = summaryMetrics?.percentage_of_due_collected ?? null;
   const atRiskInfo = summaryMetrics?.at_risk_loans || null;
   const totalPortfolioAmount = summaryMetrics?.total_portfolio_amount ?? null;
