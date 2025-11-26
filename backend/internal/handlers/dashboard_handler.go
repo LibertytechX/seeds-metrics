@@ -521,6 +521,17 @@ func (h *DashboardHandler) GetAllLoans(c *gin.Context) {
 	if verificationStatus := c.Query("verification_status"); verificationStatus != "" {
 		filters["verification_status"] = verificationStatus
 	}
+	// Behavior-based filters used by All Loans UI (implemented server-side so
+	// dashboard totals and CSV exports stay consistent)
+	if behaviorLoanType := c.Query("behavior_loan_type"); behaviorLoanType != "" {
+		filters["behavior_loan_type"] = behaviorLoanType
+	}
+	if rotType := c.Query("rot_type"); rotType != "" {
+		filters["rot_type"] = rotType
+	}
+	if delayType := c.Query("delay_type"); delayType != "" {
+		filters["delay_type"] = delayType
+	}
 	if dpdMin := c.Query("dpd_min"); dpdMin != "" {
 		if min, err := strconv.Atoi(dpdMin); err == nil {
 			filters["dpd_min"] = min

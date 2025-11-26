@@ -182,6 +182,17 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
         apiFilters.verification_status = filters.django_verification_statuses.join(',');
       }
 
+      // Map behaviour-based filters to backend params so server, table, and exports match
+      if (filters.loan_type) {
+        apiFilters.behavior_loan_type = filters.loan_type;
+      }
+      if (filters.rot_type) {
+        apiFilters.rot_type = filters.rot_type;
+      }
+      if (filters.delay_type) {
+        apiFilters.delay_type = filters.delay_type;
+      }
+
       // Convert regions array to comma-separated string
       if (filters.regions && filters.regions.length > 0) {
         apiFilters.region = filters.regions.join(',');
@@ -210,64 +221,13 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       const data = await response.json();
 
       if (data.status === 'success') {
-        let fetchedLoans = data.data.loans || [];
-        console.log(`📦 AllLoans: Fetched ${fetchedLoans.length} loans from API`);
+        const fetchedLoans = data.data.loans || [];
+        console.log(`📦 AllLoans: Fetched ${fetchedLoans.length} loans from API (already fully filtered server-side)`);
 
-        // Apply client-side filtering for loan_type and rot_type
-        if (filters.loan_type === 'active') {
-          console.log('🔵 Filtering for ACTIVE loans');
-          fetchedLoans = fetchedLoans.filter(loan =>
-            loan.total_outstanding > 2000 && loan.days_since_last_repayment < 6
-          );
-          console.log(`✅ Active loans filtered: ${fetchedLoans.length} loans`);
-        } else if (filters.loan_type === 'inactive') {
-          console.log('🔵 Filtering for INACTIVE loans');
-          fetchedLoans = fetchedLoans.filter(loan =>
-            loan.total_outstanding <= 2000 || loan.days_since_last_repayment > 5
-          );
-          console.log(`✅ Inactive loans filtered: ${fetchedLoans.length} loans`);
-        } else if (filters.loan_type === 'overdue_15d') {
-          console.log('🔵 Filtering for OVERDUE >15 Days loans');
-          fetchedLoans = fetchedLoans.filter(loan =>
-            loan.current_dpd > 15
-          );
-          console.log(`✅ Overdue >15 Days loans filtered: ${fetchedLoans.length} loans`);
-        }
-
-        if (filters.rot_type === 'early') {
-          console.log('🔵 Filtering for EARLY ROT loans');
-          fetchedLoans = fetchedLoans.filter(loan => {
-            const loanAge = Math.floor((new Date() - new Date(loan.disbursement_date)) / (1000 * 60 * 60 * 24));
-            return loanAge < 7 && loan.current_dpd > 4;
-          });
-          console.log(`✅ Early ROT loans filtered: ${fetchedLoans.length} loans`);
-        } else if (filters.rot_type === 'late') {
-          console.log('🔵 Filtering for LATE ROT loans');
-          fetchedLoans = fetchedLoans.filter(loan => {
-            const loanAge = Math.floor((new Date() - new Date(loan.disbursement_date)) / (1000 * 60 * 60 * 24));
-            return loanAge >= 7 && loan.current_dpd > 4;
-          });
-          console.log(`✅ Late ROT loans filtered: ${fetchedLoans.length} loans`);
-        }
-
-        // Filter for risky delay loans (repayment_delay_rate < 60%)
-        if (filters.delay_type === 'risky') {
-          console.log('🔵 Filtering for RISKY DELAY loans (repayment_delay_rate < 60%)');
-          fetchedLoans = fetchedLoans.filter(loan => {
-            // Only consider active loans with outstanding balance > 2000
-            if (loan.status !== 'Active' || loan.total_outstanding <= 2000) {
-              return false;
-            }
-
-            // Filter by repayment_delay_rate < 60% (strict less-than)
-            if (loan.repayment_delay_rate != null) {
-              return loan.repayment_delay_rate < 60;
-            }
-
-            return false;
-          });
-          console.log(`✅ Risky delay loans filtered: ${fetchedLoans.length} loans`);
-        }
+        // All behavior-based filters (active/inactive/overdue_15d, early/late ROT,
+        // risky delay) are now handled on the backend so that the table,
+        // pagination totals, summary metrics, and CSV exports all use the same
+        // set of loans.
 
         setLoans(fetchedLoans);
 
@@ -583,6 +543,17 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
         apiFilters.verification_status = filters.django_verification_statuses.join(',');
       }
 
+      // Pass behaviour-based filters through to backend so export uses identical logic
+      if (filters.loan_type) {
+        apiFilters.behavior_loan_type = filters.loan_type;
+      }
+      if (filters.rot_type) {
+        apiFilters.rot_type = filters.rot_type;
+      }
+      if (filters.delay_type) {
+        apiFilters.delay_type = filters.delay_type;
+      }
+
       const params = new URLSearchParams({
         page: 1,
         limit: 999999, // Very high limit to fetch all results
@@ -596,47 +567,12 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       const data = await response.json();
 
       if (data.status === 'success') {
-        let exportLoans = data.data.loans || [];
-        console.log(`📦 Fetched ${exportLoans.length} loans for export`);
+        const exportLoans = data.data.loans || [];
+        console.log(`📦 Fetched ${exportLoans.length} loans for export (fully filtered by backend)`);
 
-        // Apply client-side filtering for loan_type and rot_type (same as fetchLoans)
-        if (filters.loan_type === 'active') {
-          exportLoans = exportLoans.filter(loan =>
-            loan.total_outstanding > 2000 && loan.days_since_last_repayment < 6
-          );
-        } else if (filters.loan_type === 'inactive') {
-          exportLoans = exportLoans.filter(loan =>
-            loan.total_outstanding <= 2000 || loan.days_since_last_repayment > 5
-          );
-        } else if (filters.loan_type === 'overdue_15d') {
-          exportLoans = exportLoans.filter(loan =>
-            loan.current_dpd > 15
-          );
-        }
-
-        if (filters.rot_type === 'early') {
-          exportLoans = exportLoans.filter(loan => {
-            const loanAge = Math.floor((new Date() - new Date(loan.disbursement_date)) / (1000 * 60 * 60 * 24));
-            return loanAge < 7 && loan.current_dpd > 4;
-          });
-        } else if (filters.rot_type === 'late') {
-          exportLoans = exportLoans.filter(loan => {
-            const loanAge = Math.floor((new Date() - new Date(loan.disbursement_date)) / (1000 * 60 * 60 * 24));
-            return loanAge >= 7 && loan.current_dpd > 4;
-          });
-        }
-
-        if (filters.delay_type === 'risky') {
-          exportLoans = exportLoans.filter(loan => {
-            if (loan.status !== 'Active' || loan.total_outstanding <= 2000) {
-              return false;
-            }
-            if (loan.repayment_delay_rate != null) {
-              return loan.repayment_delay_rate < 60;
-            }
-            return false;
-          });
-        }
+        // No extra client-side filtering herebackend already applied
+        // loan_type/rot_type/delay_type behaviour filters so that the CSV
+        // exactly matches what the dashboard considers "filtered loans".
 
         // Generate CSV
         const headers = [
@@ -1321,11 +1257,11 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
         position="top"
       />
 
-      {/* Show info message when client-side filtering is active */}
-      {(filters.loan_type || filters.rot_type || filters.delay_type) && loans.length < pagination.limit && (
+      {/* Info message when behaviour-based filters are active */}
+      {(filters.loan_type || filters.rot_type || filters.delay_type) && (
         <div className="client-filter-info">
-          ℹ️ Showing {loans.length} loans after applying display filters.
-          Total matching records: {pagination.total}
+          ℹ️ Showing {loans.length} loans on this page.
+          Total matching records (all pages): {pagination.total}
         </div>
       )}
 

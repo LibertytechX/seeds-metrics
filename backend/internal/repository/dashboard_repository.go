@@ -1061,6 +1061,34 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 		argCount++
 	}
 
+	// Behavior-based filters (active/inactive/overdue_15d, early/late ROT, risky delay)
+	// kept in sync with GetAllLoans so summary metrics match the table and exports.
+	if behaviorLoanType, ok := filters["behavior_loan_type"].(string); ok && behaviorLoanType != "" {
+		switch behaviorLoanType {
+		case "active":
+			query += " AND l.total_outstanding > 2000 AND COALESCE(l.days_since_last_repayment, 0) < 6"
+		case "inactive":
+			query += " AND (l.total_outstanding <= 2000 OR COALESCE(l.days_since_last_repayment, 0) > 5)"
+		case "overdue_15d":
+			query += " AND l.current_dpd > 15"
+		}
+	}
+
+	if rotType, ok := filters["rot_type"].(string); ok && rotType != "" {
+		switch rotType {
+		case "early":
+			query += " AND (CURRENT_DATE - l.disbursement_date::date) < 7 AND l.current_dpd > 4"
+		case "late":
+			query += " AND (CURRENT_DATE - l.disbursement_date::date) >= 7 AND l.current_dpd > 4"
+		}
+	}
+
+	if delayType, ok := filters["delay_type"].(string); ok && delayType != "" {
+		if delayType == "risky" {
+			query += " AND l.status = 'Active' AND l.total_outstanding > 2000 AND l.repayment_delay_rate IS NOT NULL AND l.repayment_delay_rate < 60"
+		}
+	}
+
 	// Execute query
 	var totalLoans, atRiskCount, criticalCount, excellentDelayCount, okayDelayCount, criticalDelayCount int
 	var totalPortfolioAmount, atRiskAmount, atRiskOutstanding, totalAmountInDPD, totalDueForToday float64
@@ -1509,6 +1537,46 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 		countQuery += fmt.Sprintf(" AND l.current_dpd <= $%d", argCount)
 		args = append(args, dpdMax)
 		argCount++
+	}
+
+	// Behavior-based filters that were previously applied only on the frontend
+	// so that dashboard totals and CSV exports now use identical logic.
+	if behaviorLoanType, ok := filters["behavior_loan_type"].(string); ok && behaviorLoanType != "" {
+		switch behaviorLoanType {
+		case "active":
+			// Active: significant outstanding and recent repayment
+			query += " AND l.total_outstanding > 2000 AND COALESCE(l.days_since_last_repayment, 0) < 6"
+			countQuery += " AND l.total_outstanding > 2000 AND COALESCE(l.days_since_last_repayment, 0) < 6"
+		case "inactive":
+			// Inactive: low outstanding or no recent repayment
+			query += " AND (l.total_outstanding <= 2000 OR COALESCE(l.days_since_last_repayment, 0) > 5)"
+			countQuery += " AND (l.total_outstanding <= 2000 OR COALESCE(l.days_since_last_repayment, 0) > 5)"
+		case "overdue_15d":
+			// Overdue: DPD strictly greater than 15 days
+			query += " AND l.current_dpd > 15"
+			countQuery += " AND l.current_dpd > 15"
+		}
+	}
+
+	if rotType, ok := filters["rot_type"].(string); ok && rotType != "" {
+		switch rotType {
+		case "early":
+			// Early ROT: young loan with emerging DPD
+			query += " AND (CURRENT_DATE - l.disbursement_date::date) < 7 AND l.current_dpd > 4"
+			countQuery += " AND (CURRENT_DATE - l.disbursement_date::date) < 7 AND l.current_dpd > 4"
+		case "late":
+			// Late ROT: older loan with DPD
+			query += " AND (CURRENT_DATE - l.disbursement_date::date) >= 7 AND l.current_dpd > 4"
+			countQuery += " AND (CURRENT_DATE - l.disbursement_date::date) >= 7 AND l.current_dpd > 4"
+		}
+	}
+
+	if delayType, ok := filters["delay_type"].(string); ok && delayType != "" {
+		// Risky loans based on repayment delay rate
+		if delayType == "risky" {
+			query += " AND l.status = 'Active' AND l.total_outstanding > 2000 AND l.repayment_delay_rate IS NOT NULL AND l.repayment_delay_rate < 60"
+			countQuery += " AND l.status = 'Active' AND l.total_outstanding > 2000 AND l.repayment_delay_rate IS NOT NULL AND l.repayment_delay_rate < 60"
+		}
 	}
 
 	// Get total count
