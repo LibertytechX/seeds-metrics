@@ -528,6 +528,11 @@ func (h *DashboardHandler) GetAllLoans(c *gin.Context) {
 	if verificationStatus := c.Query("verification_status"); verificationStatus != "" {
 		filters["verification_status"] = verificationStatus
 	}
+	// Optional period filter used primarily by Collections Control Centre.
+	// Supported values (for now): today, this_week, this_month, last_month.
+	if period := c.Query("period"); period != "" {
+		filters["period"] = period
+	}
 	// Behavior-based filters used by All Loans UI (implemented server-side so
 	// dashboard totals and CSV exports stay consistent)
 	if behaviorLoanType := c.Query("behavior_loan_type"); behaviorLoanType != "" {

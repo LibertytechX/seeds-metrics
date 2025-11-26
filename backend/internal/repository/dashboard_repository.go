@@ -1226,17 +1226,46 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 		return nil, fmt.Errorf("failed to calculate summary metrics: %w", err)
 	}
 
-	// Query for today's repayments
-	// Build a query to sum repayments made today for loans matching the filters
+	// Determine requested period for repayments summary. Defaults to "today" if not specified.
+	period := ""
+	if p, ok := filters["period"].(string); ok {
+		period = strings.TrimSpace(strings.ToLower(p))
+	}
+
+	// Build a query to sum repayments made in the requested period for loans matching the filters
 	repaymentsQuery := `
-		SELECT COALESCE(SUM(r.payment_amount), 0) as total_repayments_today
-		FROM repayments r
-		INNER JOIN loans l ON r.loan_id = l.loan_id
-		INNER JOIN officers o ON l.officer_id = o.officer_id
-		WHERE r.is_reversed = false
-			AND DATE(r.payment_date) = CURRENT_DATE
-			AND (o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT') OR o.user_type IS NULL)
-	`
+			SELECT COALESCE(SUM(r.payment_amount), 0) as total_repayments_today
+			FROM repayments r
+			INNER JOIN loans l ON r.loan_id = l.loan_id
+			INNER JOIN officers o ON l.officer_id = o.officer_id
+			WHERE r.is_reversed = false
+				AND (o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT') OR o.user_type IS NULL)
+		`
+
+	// Apply period restriction on repayment dates. This affects only the repayments
+	// aggregation; loan-level metrics (e.g. total_due_for_today) remain as currently
+	// defined until collections-specific period handling is implemented for them.
+	switch period {
+	case "this_week":
+		repaymentsQuery += `
+				AND DATE(r.payment_date) >= DATE_TRUNC('week', CURRENT_DATE)::date
+				AND DATE(r.payment_date) <= CURRENT_DATE
+			`
+	case "this_month":
+		repaymentsQuery += `
+				AND DATE(r.payment_date) >= DATE_TRUNC('month', CURRENT_DATE)::date
+				AND DATE(r.payment_date) <= CURRENT_DATE
+			`
+	case "last_month":
+		repaymentsQuery += `
+				AND DATE(r.payment_date) >= (DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '1 month')::date
+				AND DATE(r.payment_date) < DATE_TRUNC('month', CURRENT_DATE)::date
+			`
+	default: // "today" or any unrecognised value
+		repaymentsQuery += `
+				AND DATE(r.payment_date) = CURRENT_DATE
+			`
+	}
 
 	// Apply the same filters to the repayments query
 	repaymentsArgs := []interface{}{}

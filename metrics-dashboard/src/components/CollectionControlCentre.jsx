@@ -95,6 +95,9 @@ const CollectionControlCentre = () => {
 	        if (filters.product) {
 	          baseParams.set('loan_type', filters.product);
 	        }
+	        if (filters.period) {
+	          baseParams.set('period', filters.period);
+	        }
 
 	        // Restricted metrics (used for Collections Due, At-Risk, etc.)
 	        // Per collections requirements, restrict to loans that are relevant
@@ -111,10 +114,6 @@ const CollectionControlCentre = () => {
 	        // still respecting region/branch/product filters but NOT restricted
 	        // by django_status.
 	        const unrestrictedParams = new URLSearchParams(baseParams.toString());
-
-	        // NOTE: For now, the backend summary metrics are calculated for "today".
-	        // The period filter is wired and will trigger refreshes, but broader
-	        // period handling will be implemented in a dedicated backend endpoint.
 
 	        const [restrictedRes, unrestrictedRes] = await Promise.all([
 	          fetch(`${API_BASE_URL}/loans?${restrictedParams.toString()}`),
