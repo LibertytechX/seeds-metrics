@@ -9,6 +9,8 @@ import (
 	"github.com/seeds-metrics/analytics-backend/internal/models"
 )
 
+const MissingValueSentinel = "__MISSING__"
+
 // DashboardRepository handles dashboard data queries
 type DashboardRepository struct {
 	db *sql.DB
@@ -980,18 +982,42 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 
 	if performanceStatus, ok := filters["performance_status"].(string); ok && performanceStatus != "" {
 		performanceStatuses := strings.Split(performanceStatus, ",")
-		if len(performanceStatuses) == 1 {
-			query += fmt.Sprintf(" AND l.performance_status = $%d", argCount)
-			args = append(args, performanceStatuses[0])
+		nonMissing := []string{}
+		includeMissing := false
+
+		for _, ps := range performanceStatuses {
+			value := strings.TrimSpace(ps)
+			if value == "" {
+				continue
+			}
+			if value == MissingValueSentinel {
+				includeMissing = true
+			} else {
+				nonMissing = append(nonMissing, value)
+			}
+		}
+
+		conditions := []string{}
+		if len(nonMissing) == 1 {
+			conditions = append(conditions, fmt.Sprintf("l.performance_status = $%d", argCount))
+			args = append(args, nonMissing[0])
 			argCount++
-		} else {
-			placeholders := []string{}
-			for _, ps := range performanceStatuses {
-				placeholders = append(placeholders, fmt.Sprintf("$%d", argCount))
-				args = append(args, strings.TrimSpace(ps))
+		} else if len(nonMissing) > 1 {
+			placeholders := make([]string, len(nonMissing))
+			for i, ps := range nonMissing {
+				placeholders[i] = fmt.Sprintf("$%d", argCount)
+				args = append(args, ps)
 				argCount++
 			}
-			query += fmt.Sprintf(" AND l.performance_status IN (%s)", strings.Join(placeholders, ", "))
+			conditions = append(conditions, fmt.Sprintf("l.performance_status IN (%s)", strings.Join(placeholders, ", ")))
+		}
+
+		if includeMissing {
+			conditions = append(conditions, "(l.performance_status IS NULL OR l.performance_status = '')")
+		}
+
+		if len(conditions) > 0 {
+			query += " AND (" + strings.Join(conditions, " OR ") + ")"
 		}
 	}
 
@@ -1014,38 +1040,86 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 	}
 
 	if loanType, ok := filters["loan_type"].(string); ok && loanType != "" {
-		// Support comma-separated values for multiple loan types
+		// Support comma-separated values for multiple loan types, including a sentinel for missing values
 		loanTypes := strings.Split(loanType, ",")
-		if len(loanTypes) == 1 {
-			query += fmt.Sprintf(" AND l.loan_type = $%d", argCount)
-			args = append(args, loanTypes[0])
+		nonMissing := []string{}
+		includeMissing := false
+
+		for _, lt := range loanTypes {
+			value := strings.TrimSpace(lt)
+			if value == "" {
+				continue
+			}
+			if value == MissingValueSentinel {
+				includeMissing = true
+			} else {
+				nonMissing = append(nonMissing, value)
+			}
+		}
+
+		conditions := []string{}
+		if len(nonMissing) == 1 {
+			conditions = append(conditions, fmt.Sprintf("l.loan_type = $%d", argCount))
+			args = append(args, nonMissing[0])
 			argCount++
-		} else {
-			placeholders := make([]string, len(loanTypes))
-			for i, lt := range loanTypes {
+		} else if len(nonMissing) > 1 {
+			placeholders := make([]string, len(nonMissing))
+			for i, lt := range nonMissing {
 				placeholders[i] = fmt.Sprintf("$%d", argCount)
-				args = append(args, strings.TrimSpace(lt))
+				args = append(args, lt)
 				argCount++
 			}
-			query += fmt.Sprintf(" AND l.loan_type IN (%s)", strings.Join(placeholders, ","))
+			conditions = append(conditions, fmt.Sprintf("l.loan_type IN (%s)", strings.Join(placeholders, ",")))
+		}
+
+		if includeMissing {
+			conditions = append(conditions, "(l.loan_type IS NULL OR l.loan_type = '')")
+		}
+
+		if len(conditions) > 0 {
+			query += " AND (" + strings.Join(conditions, " OR ") + ")"
 		}
 	}
 
 	if verificationStatus, ok := filters["verification_status"].(string); ok && verificationStatus != "" {
-		// Support comma-separated values for multiple verification statuses
+		// Support comma-separated values for multiple verification statuses, including a sentinel for missing values
 		verificationStatuses := strings.Split(verificationStatus, ",")
-		if len(verificationStatuses) == 1 {
-			query += fmt.Sprintf(" AND l.verification_status = $%d", argCount)
-			args = append(args, verificationStatuses[0])
+		nonMissing := []string{}
+		includeMissing := false
+
+		for _, vs := range verificationStatuses {
+			value := strings.TrimSpace(vs)
+			if value == "" {
+				continue
+			}
+			if value == MissingValueSentinel {
+				includeMissing = true
+			} else {
+				nonMissing = append(nonMissing, value)
+			}
+		}
+
+		conditions := []string{}
+		if len(nonMissing) == 1 {
+			conditions = append(conditions, fmt.Sprintf("l.verification_status = $%d", argCount))
+			args = append(args, nonMissing[0])
 			argCount++
-		} else {
-			placeholders := make([]string, len(verificationStatuses))
-			for i, vs := range verificationStatuses {
+		} else if len(nonMissing) > 1 {
+			placeholders := make([]string, len(nonMissing))
+			for i, vs := range nonMissing {
 				placeholders[i] = fmt.Sprintf("$%d", argCount)
-				args = append(args, strings.TrimSpace(vs))
+				args = append(args, vs)
 				argCount++
 			}
-			query += fmt.Sprintf(" AND l.verification_status IN (%s)", strings.Join(placeholders, ","))
+			conditions = append(conditions, fmt.Sprintf("l.verification_status IN (%s)", strings.Join(placeholders, ",")))
+		}
+
+		if includeMissing {
+			conditions = append(conditions, "(l.verification_status IS NULL OR l.verification_status = '')")
+		}
+
+		if len(conditions) > 0 {
+			query += " AND (" + strings.Join(conditions, " OR ") + ")"
 		}
 	}
 
@@ -1215,35 +1289,83 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 
 	if loanType, ok := filters["loan_type"].(string); ok && loanType != "" {
 		loanTypes := strings.Split(loanType, ",")
-		if len(loanTypes) == 1 {
-			repaymentsQuery += fmt.Sprintf(" AND l.loan_type = $%d", repaymentsArgCount)
-			repaymentsArgs = append(repaymentsArgs, loanTypes[0])
+		nonMissing := []string{}
+		includeMissing := false
+
+		for _, lt := range loanTypes {
+			value := strings.TrimSpace(lt)
+			if value == "" {
+				continue
+			}
+			if value == MissingValueSentinel {
+				includeMissing = true
+			} else {
+				nonMissing = append(nonMissing, value)
+			}
+		}
+
+		conditions := []string{}
+		if len(nonMissing) == 1 {
+			conditions = append(conditions, fmt.Sprintf("l.loan_type = $%d", repaymentsArgCount))
+			repaymentsArgs = append(repaymentsArgs, nonMissing[0])
 			repaymentsArgCount++
-		} else {
-			placeholders := make([]string, len(loanTypes))
-			for i, lt := range loanTypes {
+		} else if len(nonMissing) > 1 {
+			placeholders := make([]string, len(nonMissing))
+			for i, lt := range nonMissing {
 				placeholders[i] = fmt.Sprintf("$%d", repaymentsArgCount)
-				repaymentsArgs = append(repaymentsArgs, strings.TrimSpace(lt))
+				repaymentsArgs = append(repaymentsArgs, lt)
 				repaymentsArgCount++
 			}
-			repaymentsQuery += fmt.Sprintf(" AND l.loan_type IN (%s)", strings.Join(placeholders, ","))
+			conditions = append(conditions, fmt.Sprintf("l.loan_type IN (%s)", strings.Join(placeholders, ",")))
+		}
+
+		if includeMissing {
+			conditions = append(conditions, "(l.loan_type IS NULL OR l.loan_type = '')")
+		}
+
+		if len(conditions) > 0 {
+			repaymentsQuery += " AND (" + strings.Join(conditions, " OR ") + ")"
 		}
 	}
 
 	if verificationStatus, ok := filters["verification_status"].(string); ok && verificationStatus != "" {
 		verificationStatuses := strings.Split(verificationStatus, ",")
-		if len(verificationStatuses) == 1 {
-			repaymentsQuery += fmt.Sprintf(" AND l.verification_status = $%d", repaymentsArgCount)
-			repaymentsArgs = append(repaymentsArgs, verificationStatuses[0])
+		nonMissing := []string{}
+		includeMissing := false
+
+		for _, vs := range verificationStatuses {
+			value := strings.TrimSpace(vs)
+			if value == "" {
+				continue
+			}
+			if value == MissingValueSentinel {
+				includeMissing = true
+			} else {
+				nonMissing = append(nonMissing, value)
+			}
+		}
+
+		conditions := []string{}
+		if len(nonMissing) == 1 {
+			conditions = append(conditions, fmt.Sprintf("l.verification_status = $%d", repaymentsArgCount))
+			repaymentsArgs = append(repaymentsArgs, nonMissing[0])
 			repaymentsArgCount++
-		} else {
-			placeholders := make([]string, len(verificationStatuses))
-			for i, vs := range verificationStatuses {
+		} else if len(nonMissing) > 1 {
+			placeholders := make([]string, len(nonMissing))
+			for i, vs := range nonMissing {
 				placeholders[i] = fmt.Sprintf("$%d", repaymentsArgCount)
-				repaymentsArgs = append(repaymentsArgs, strings.TrimSpace(vs))
+				repaymentsArgs = append(repaymentsArgs, vs)
 				repaymentsArgCount++
 			}
-			repaymentsQuery += fmt.Sprintf(" AND l.verification_status IN (%s)", strings.Join(placeholders, ","))
+			conditions = append(conditions, fmt.Sprintf("l.verification_status IN (%s)", strings.Join(placeholders, ",")))
+		}
+
+		if includeMissing {
+			conditions = append(conditions, "(l.verification_status IS NULL OR l.verification_status = '')")
+		}
+
+		if len(conditions) > 0 {
+			repaymentsQuery += " AND (" + strings.Join(conditions, " OR ") + ")"
 		}
 	}
 
@@ -1436,24 +1558,46 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 	}
 
 	if performanceStatus, ok := filters["performance_status"].(string); ok && performanceStatus != "" {
-		// Support comma-separated performance statuses for multi-select
+		// Support comma-separated performance statuses for multi-select, including a sentinel for missing values
 		performanceStatuses := strings.Split(performanceStatus, ",")
-		if len(performanceStatuses) == 1 {
-			query += fmt.Sprintf(" AND l.performance_status = $%d", argCount)
-			countQuery += fmt.Sprintf(" AND l.performance_status = $%d", argCount)
-			args = append(args, performanceStatuses[0])
+		nonMissing := []string{}
+		includeMissing := false
+
+		for _, ps := range performanceStatuses {
+			value := strings.TrimSpace(ps)
+			if value == "" {
+				continue
+			}
+			if value == MissingValueSentinel {
+				includeMissing = true
+			} else {
+				nonMissing = append(nonMissing, value)
+			}
+		}
+
+		conditions := []string{}
+		if len(nonMissing) == 1 {
+			conditions = append(conditions, fmt.Sprintf("l.performance_status = $%d", argCount))
+			args = append(args, nonMissing[0])
 			argCount++
-		} else {
-			// Build IN clause for multiple performance statuses
-			placeholders := []string{}
-			for _, ps := range performanceStatuses {
-				placeholders = append(placeholders, fmt.Sprintf("$%d", argCount))
-				args = append(args, strings.TrimSpace(ps))
+		} else if len(nonMissing) > 1 {
+			placeholders := make([]string, len(nonMissing))
+			for i, ps := range nonMissing {
+				placeholders[i] = fmt.Sprintf("$%d", argCount)
+				args = append(args, ps)
 				argCount++
 			}
-			inClause := fmt.Sprintf(" AND l.performance_status IN (%s)", strings.Join(placeholders, ", "))
-			query += inClause
-			countQuery += inClause
+			conditions = append(conditions, fmt.Sprintf("l.performance_status IN (%s)", strings.Join(placeholders, ", ")))
+		}
+
+		if includeMissing {
+			conditions = append(conditions, "(l.performance_status IS NULL OR l.performance_status = '')")
+		}
+
+		if len(conditions) > 0 {
+			clause := " AND (" + strings.Join(conditions, " OR ") + ")"
+			query += clause
+			countQuery += clause
 		}
 	}
 
@@ -1478,49 +1622,94 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 		argCount++
 	}
 
-	// Loan type filter - support comma-separated values for multiple loan types
+	// Loan type filter - support comma-separated values for multiple loan types, including a sentinel for missing values
 	if loanType, ok := filters["loan_type"].(string); ok && loanType != "" {
 		loanTypes := strings.Split(loanType, ",")
-		fmt.Printf("DEBUG GetAllLoans: loan_type filter - input: '%s', split into %d types: %v\n", loanType, len(loanTypes), loanTypes)
-		if len(loanTypes) == 1 {
-			query += fmt.Sprintf(" AND l.loan_type = $%d", argCount)
-			countQuery += fmt.Sprintf(" AND l.loan_type = $%d", argCount)
-			args = append(args, loanTypes[0])
+		fmt.Printf("DEBUG GetAllLoans: loan_type filter - raw input: '%s', split into %d values: %v\n", loanType, len(loanTypes), loanTypes)
+
+		nonMissing := []string{}
+		includeMissing := false
+
+		for _, lt := range loanTypes {
+			value := strings.TrimSpace(lt)
+			if value == "" {
+				continue
+			}
+			if value == MissingValueSentinel {
+				includeMissing = true
+			} else {
+				nonMissing = append(nonMissing, value)
+			}
+		}
+
+		conditions := []string{}
+		if len(nonMissing) == 1 {
+			conditions = append(conditions, fmt.Sprintf("l.loan_type = $%d", argCount))
+			args = append(args, nonMissing[0])
 			argCount++
-		} else {
-			placeholders := make([]string, len(loanTypes))
-			for i, lt := range loanTypes {
+		} else if len(nonMissing) > 1 {
+			placeholders := make([]string, len(nonMissing))
+			for i, lt := range nonMissing {
 				placeholders[i] = fmt.Sprintf("$%d", argCount)
-				trimmed := strings.TrimSpace(lt)
-				args = append(args, trimmed)
-				fmt.Printf("DEBUG GetAllLoans: Adding loan type '%s' (trimmed: '%s') at position $%d\n", lt, trimmed, argCount)
+				args = append(args, lt)
 				argCount++
 			}
-			inClause := fmt.Sprintf(" AND l.loan_type IN (%s)", strings.Join(placeholders, ","))
-			fmt.Printf("DEBUG GetAllLoans: loan_type IN clause: %s, total args so far: %d\n", inClause, len(args))
-			query += inClause
-			countQuery += inClause
+			conditions = append(conditions, fmt.Sprintf("l.loan_type IN (%s)", strings.Join(placeholders, ",")))
+		}
+
+		if includeMissing {
+			conditions = append(conditions, "(l.loan_type IS NULL OR l.loan_type = '')")
+		}
+
+		if len(conditions) > 0 {
+			clause := " AND (" + strings.Join(conditions, " OR ") + ")"
+			fmt.Printf("DEBUG GetAllLoans: loan_type WHERE clause: %s, total args: %d\n", clause, len(args))
+			query += clause
+			countQuery += clause
 		}
 	}
 
-	// Verification status filter - support comma-separated values for multiple verification statuses
+	// Verification status filter - support comma-separated values for multiple verification statuses, including a sentinel for missing values
 	if verificationStatus, ok := filters["verification_status"].(string); ok && verificationStatus != "" {
 		verificationStatuses := strings.Split(verificationStatus, ",")
-		if len(verificationStatuses) == 1 {
-			query += fmt.Sprintf(" AND l.verification_status = $%d", argCount)
-			countQuery += fmt.Sprintf(" AND l.verification_status = $%d", argCount)
-			args = append(args, verificationStatuses[0])
+		nonMissing := []string{}
+		includeMissing := false
+
+		for _, vs := range verificationStatuses {
+			value := strings.TrimSpace(vs)
+			if value == "" {
+				continue
+			}
+			if value == MissingValueSentinel {
+				includeMissing = true
+			} else {
+				nonMissing = append(nonMissing, value)
+			}
+		}
+
+		conditions := []string{}
+		if len(nonMissing) == 1 {
+			conditions = append(conditions, fmt.Sprintf("l.verification_status = $%d", argCount))
+			args = append(args, nonMissing[0])
 			argCount++
-		} else {
-			placeholders := make([]string, len(verificationStatuses))
-			for i, vs := range verificationStatuses {
+		} else if len(nonMissing) > 1 {
+			placeholders := make([]string, len(nonMissing))
+			for i, vs := range nonMissing {
 				placeholders[i] = fmt.Sprintf("$%d", argCount)
-				args = append(args, strings.TrimSpace(vs))
+				args = append(args, vs)
 				argCount++
 			}
-			inClause := fmt.Sprintf(" AND l.verification_status IN (%s)", strings.Join(placeholders, ","))
-			query += inClause
-			countQuery += inClause
+			conditions = append(conditions, fmt.Sprintf("l.verification_status IN (%s)", strings.Join(placeholders, ",")))
+		}
+
+		if includeMissing {
+			conditions = append(conditions, "(l.verification_status IS NULL OR l.verification_status = '')")
+		}
+
+		if len(conditions) > 0 {
+			clause := " AND (" + strings.Join(conditions, " OR ") + ")"
+			query += clause
+			countQuery += clause
 		}
 	}
 

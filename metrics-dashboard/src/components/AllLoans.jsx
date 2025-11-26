@@ -6,6 +6,8 @@ import LoanRepaymentsModal from './LoanRepaymentsModal';
 import Pagination from './Pagination';
 import SearchableSelect from './SearchableSelect';
 import './AllLoans.css';
+const MISSING_VALUE = '__MISSING__';
+
 
 const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
   const [loans, setLoans] = useState(initialLoans);
@@ -444,12 +446,12 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       loan.loan_id,
       loan.customer_name,
       loan.customer_phone || '',
-      loan.officer_name,
-      loan.region,
-      loan.branch,
+      loan.officer_name || 'N/A',
+      loan.region || 'N/A',
+      loan.branch || 'N/A',
       loan.vertical_lead_name || 'N/A',
       loan.vertical_lead_email || 'N/A',
-      loan.channel,
+      loan.channel || 'N/A',
       loan.loan_type || 'N/A',
       loan.verification_status || 'N/A',
       loan.loan_amount,
@@ -474,7 +476,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       loan.total_outstanding,
       loan.actual_outstanding || 0,
       loan.total_repayments || 0,
-      loan.status,
+      loan.status || 'N/A',
       loan.performance_status || 'N/A',
       loan.fimr_tagged ? 'Yes' : 'No',
     ]);
@@ -590,12 +592,12 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
           loan.loan_id,
           loan.customer_name,
           loan.customer_phone || '',
-          loan.officer_name,
-          loan.region,
-          loan.branch,
+          loan.officer_name || 'N/A',
+          loan.region || 'N/A',
+          loan.branch || 'N/A',
           loan.vertical_lead_name || 'N/A',
           loan.vertical_lead_email || 'N/A',
-          loan.channel,
+          loan.channel || 'N/A',
           loan.loan_type || 'N/A',
           loan.verification_status || 'N/A',
           loan.loan_amount,
@@ -620,7 +622,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
           loan.total_outstanding,
           loan.actual_outstanding || 0,
           loan.total_repayments || 0,
-          loan.status,
+          loan.status || 'N/A',
           loan.performance_status || 'N/A',
           loan.fimr_tagged ? 'Yes' : 'No',
         ]);
@@ -1107,6 +1109,17 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                       <span>{type}</span>
                     </div>
                   ))}
+                  <div
+                    className="multi-select-option"
+                    onClick={() => handleLoanTypeToggle(MISSING_VALUE)}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={filters.django_loan_types && filters.django_loan_types.includes(MISSING_VALUE)}
+                      readOnly
+                    />
+                    <span>(Missing)</span>
+                  </div>
                 </div>
               )}
             </div>
@@ -1146,6 +1159,17 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                       <span>{status}</span>
                     </div>
                   ))}
+                  <div
+                    className="multi-select-option"
+                    onClick={() => handleVerificationStatusToggle(MISSING_VALUE)}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={filters.django_verification_statuses && filters.django_verification_statuses.includes(MISSING_VALUE)}
+                      readOnly
+                    />
+                    <span>(Missing)</span>
+                  </div>
                 </div>
               )}
             </div>
@@ -1224,6 +1248,17 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                       <span>{performanceStatus}</span>
                     </div>
                   ))}
+                  <div
+                    className="multi-select-option"
+                    onClick={() => handlePerformanceStatusToggle(MISSING_VALUE)}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={filters.performance_statuses && filters.performance_statuses.includes(MISSING_VALUE)}
+                      readOnly
+                    />
+                    <span>(Missing)</span>
+                  </div>
                 </div>
               )}
             </div>
@@ -1351,12 +1386,12 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                   <td className="loan-id">{loan.loan_id}</td>
                   <td>{loan.customer_name}</td>
                   <td>{loan.customer_phone || 'N/A'}</td>
-                  <td>{loan.officer_name}</td>
-                  <td>{loan.region}</td>
-                  <td>{loan.branch}</td>
+                  <td>{loan.officer_name || 'N/A'}</td>
+                  <td>{loan.region || 'N/A'}</td>
+                  <td>{loan.branch || 'N/A'}</td>
                   <td>{loan.vertical_lead_name || 'N/A'}</td>
                   <td>{loan.vertical_lead_email || 'N/A'}</td>
-                  <td>{loan.channel}</td>
+                  <td>{loan.channel || 'N/A'}</td>
                   <td>{loan.loan_type || 'N/A'}</td>
                   <td>{loan.verification_status || 'N/A'}</td>
                   <td className="amount">{formatCurrency(loan.loan_amount)}</td>
@@ -1383,7 +1418,9 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                   <td className="score">{loan.timeliness_score != null ? loan.timeliness_score.toFixed(2) : 'N/A'}</td>
                   <td className="score">{loan.repayment_health != null ? loan.repayment_health.toFixed(2) : 'N/A'}</td>
                   <td className="wave">
-                    <span className={`wave-badge wave-${loan.wave?.replace(' ', '-').toLowerCase()}`}>
+                    <span
+                      className={`wave-badge ${loan.wave ? 'wave-' + loan.wave.replace(' ', '-').toLowerCase() : 'wave-unknown'}`}
+                    >
                       {loan.wave || 'N/A'}
                     </span>
                   </td>
@@ -1391,8 +1428,8 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                   <td className="amount">{formatCurrency(loan.actual_outstanding || 0)}</td>
                   <td className="amount">{formatCurrency(loan.total_repayments || 0)}</td>
                   <td>
-                    <span className={`status-badge status-${loan.status.toLowerCase()}`}>
-                      {loan.status}
+                    <span className={`status-badge ${loan.status ? 'status-' + loan.status.toLowerCase() : 'status-unknown'}`}>
+                      {loan.status || 'N/A'}
                     </span>
                   </td>
                   <td>
