@@ -1500,6 +1500,261 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 		return nil, fmt.Errorf("failed to calculate today's repayments: %w", err)
 	}
 
+	// Calculate missed repayments today: loans that have a scheduled daily repayment
+	// today (same population as total_due_for_today) but have no repayment recorded
+	// for the current day. This uses the same filters as the loans and repayments
+	// summary so that amounts and counts stay aligned.
+	missedQuery := `
+			SELECT
+				COALESCE(SUM(CASE WHEN l.actual_outstanding > 0 THEN l.daily_repayment_amount ELSE 0 END), 0) AS missed_amount_today,
+				COUNT(*) AS missed_count_today
+			FROM loans l
+			INNER JOIN officers o ON l.officer_id = o.officer_id
+			WHERE 1=1
+				AND (o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT') OR o.user_type IS NULL)
+				AND l.actual_outstanding > 0
+				AND NOT EXISTS (
+					SELECT 1
+					FROM repayments r
+					WHERE r.loan_id = l.loan_id
+						AND r.is_reversed = false
+						AND DATE(r.payment_date) = CURRENT_DATE
+				)
+		`
+
+	missedArgs := []interface{}{}
+	missedArgCount := 1
+
+	if officerID, ok := filters["officer_id"].(string); ok && officerID != "" {
+		missedQuery += fmt.Sprintf(" AND l.officer_id = $%d", missedArgCount)
+		missedArgs = append(missedArgs, officerID)
+		missedArgCount++
+	}
+
+	if branch, ok := filters["branch"].(string); ok && branch != "" {
+		missedQuery += fmt.Sprintf(" AND l.branch = $%d", missedArgCount)
+		missedArgs = append(missedArgs, branch)
+		missedArgCount++
+	}
+
+	if region, ok := filters["region"].(string); ok && region != "" {
+		regions := strings.Split(region, ",")
+		if len(regions) == 1 {
+			missedQuery += fmt.Sprintf(" AND l.region = $%d", missedArgCount)
+			missedArgs = append(missedArgs, regions[0])
+			missedArgCount++
+		} else {
+			placeholders := []string{}
+			for _, r := range regions {
+				placeholders = append(placeholders, fmt.Sprintf("$%d", missedArgCount))
+				missedArgs = append(missedArgs, strings.TrimSpace(r))
+				missedArgCount++
+			}
+			missedQuery += fmt.Sprintf(" AND l.region IN (%s)", strings.Join(placeholders, ", "))
+		}
+	}
+
+	if channel, ok := filters["channel"].(string); ok && channel != "" {
+		missedQuery += fmt.Sprintf(" AND l.channel = $%d", missedArgCount)
+		missedArgs = append(missedArgs, channel)
+		missedArgCount++
+	}
+
+	if status, ok := filters["status"].(string); ok && status != "" {
+		statuses := strings.Split(status, ",")
+		if len(statuses) == 1 {
+			missedQuery += fmt.Sprintf(" AND l.status = $%d", missedArgCount)
+			missedArgs = append(missedArgs, statuses[0])
+			missedArgCount++
+		} else {
+			placeholders := []string{}
+			for _, s := range statuses {
+				placeholders = append(placeholders, fmt.Sprintf("$%d", missedArgCount))
+				missedArgs = append(missedArgs, strings.TrimSpace(s))
+				missedArgCount++
+			}
+			missedQuery += fmt.Sprintf(" AND l.status IN (%s)", strings.Join(placeholders, ", "))
+		}
+	}
+
+	// Raw Django status filter - supports comma-separated values and optional missing sentinel
+	if djangoStatus, ok := filters["django_status"].(string); ok && djangoStatus != "" {
+		statuses := strings.Split(djangoStatus, ",")
+		nonMissing := []string{}
+		includeMissing := false
+
+		for _, s := range statuses {
+			value := strings.TrimSpace(s)
+			if value == "" {
+				continue
+			}
+			if value == MissingValueSentinel {
+				includeMissing = true
+			} else {
+				nonMissing = append(nonMissing, value)
+			}
+		}
+
+		conditions := []string{}
+		if len(nonMissing) == 1 {
+			conditions = append(conditions, fmt.Sprintf("l.django_status = $%d", missedArgCount))
+			missedArgs = append(missedArgs, nonMissing[0])
+			missedArgCount++
+		} else if len(nonMissing) > 1 {
+			placeholders := make([]string, len(nonMissing))
+			for i, s := range nonMissing {
+				placeholders[i] = fmt.Sprintf("$%d", missedArgCount)
+				missedArgs = append(missedArgs, s)
+				missedArgCount++
+			}
+			conditions = append(conditions, fmt.Sprintf("l.django_status IN (%s)", strings.Join(placeholders, ",")))
+		}
+
+		if includeMissing {
+			conditions = append(conditions, "(l.django_status IS NULL OR l.django_status = '')")
+		}
+
+		if len(conditions) > 0 {
+			missedQuery += " AND (" + strings.Join(conditions, " OR ") + ")"
+		}
+	}
+
+	if performanceStatus, ok := filters["performance_status"].(string); ok && performanceStatus != "" {
+		performanceStatuses := strings.Split(performanceStatus, ",")
+		if len(performanceStatuses) == 1 {
+			missedQuery += fmt.Sprintf(" AND l.performance_status = $%d", missedArgCount)
+			missedArgs = append(missedArgs, performanceStatuses[0])
+			missedArgCount++
+		} else {
+			placeholders := []string{}
+			for _, ps := range performanceStatuses {
+				placeholders = append(placeholders, fmt.Sprintf("$%d", missedArgCount))
+				missedArgs = append(missedArgs, strings.TrimSpace(ps))
+				missedArgCount++
+			}
+			missedQuery += fmt.Sprintf(" AND l.performance_status IN (%s)", strings.Join(placeholders, ", "))
+		}
+	}
+
+	if wave, ok := filters["wave"].(string); ok && wave != "" {
+		missedQuery += fmt.Sprintf(" AND l.wave = $%d", missedArgCount)
+		missedArgs = append(missedArgs, wave)
+		missedArgCount++
+	}
+
+	if customerPhone, ok := filters["customer_phone"].(string); ok && customerPhone != "" {
+		missedQuery += fmt.Sprintf(" AND l.customer_phone LIKE $%d", missedArgCount)
+		missedArgs = append(missedArgs, "%"+customerPhone+"%")
+		missedArgCount++
+	}
+
+	if verticalLeadEmail, ok := filters["vertical_lead_email"].(string); ok && verticalLeadEmail != "" {
+		missedQuery += fmt.Sprintf(" AND l.vertical_lead_email = $%d", missedArgCount)
+		missedArgs = append(missedArgs, verticalLeadEmail)
+		missedArgCount++
+	}
+
+	if loanType, ok := filters["loan_type"].(string); ok && loanType != "" {
+		loanTypes := strings.Split(loanType, ",")
+		nonMissing := []string{}
+		includeMissing := false
+
+		for _, lt := range loanTypes {
+			value := strings.TrimSpace(lt)
+			if value == "" {
+				continue
+			}
+			if value == MissingValueSentinel {
+				includeMissing = true
+			} else {
+				nonMissing = append(nonMissing, value)
+			}
+		}
+
+		conditions := []string{}
+		if len(nonMissing) == 1 {
+			conditions = append(conditions, fmt.Sprintf("l.loan_type = $%d", missedArgCount))
+			missedArgs = append(missedArgs, nonMissing[0])
+			missedArgCount++
+		} else if len(nonMissing) > 1 {
+			placeholders := make([]string, len(nonMissing))
+			for i, lt := range nonMissing {
+				placeholders[i] = fmt.Sprintf("$%d", missedArgCount)
+				missedArgs = append(missedArgs, lt)
+				missedArgCount++
+			}
+			conditions = append(conditions, fmt.Sprintf("l.loan_type IN (%s)", strings.Join(placeholders, ",")))
+		}
+
+		if includeMissing {
+			conditions = append(conditions, "(l.loan_type IS NULL OR l.loan_type = '')")
+		}
+
+		if len(conditions) > 0 {
+			missedQuery += " AND (" + strings.Join(conditions, " OR ") + ")"
+		}
+	}
+
+	if verificationStatus, ok := filters["verification_status"].(string); ok && verificationStatus != "" {
+		verificationStatuses := strings.Split(verificationStatus, ",")
+		nonMissing := []string{}
+		includeMissing := false
+
+		for _, vs := range verificationStatuses {
+			value := strings.TrimSpace(vs)
+			if value == "" {
+				continue
+			}
+			if value == MissingValueSentinel {
+				includeMissing = true
+			} else {
+				nonMissing = append(nonMissing, value)
+			}
+		}
+
+		conditions := []string{}
+		if len(nonMissing) == 1 {
+			conditions = append(conditions, fmt.Sprintf("l.verification_status = $%d", missedArgCount))
+			missedArgs = append(missedArgs, nonMissing[0])
+			missedArgCount++
+		} else if len(nonMissing) > 1 {
+			placeholders := make([]string, len(nonMissing))
+			for i, vs := range nonMissing {
+				placeholders[i] = fmt.Sprintf("$%d", missedArgCount)
+				missedArgs = append(missedArgs, vs)
+				missedArgCount++
+			}
+			conditions = append(conditions, fmt.Sprintf("l.verification_status IN (%s)", strings.Join(placeholders, ",")))
+		}
+
+		if includeMissing {
+			conditions = append(conditions, "(l.verification_status IS NULL OR l.verification_status = '')")
+		}
+
+		if len(conditions) > 0 {
+			missedQuery += " AND (" + strings.Join(conditions, " OR ") + ")"
+		}
+	}
+
+	if dpdMin, ok := filters["dpd_min"].(int); ok {
+		missedQuery += fmt.Sprintf(" AND l.current_dpd >= $%d", missedArgCount)
+		missedArgs = append(missedArgs, dpdMin)
+		missedArgCount++
+	}
+
+	if dpdMax, ok := filters["dpd_max"].(int); ok {
+		missedQuery += fmt.Sprintf(" AND l.current_dpd <= $%d", missedArgCount)
+		missedArgs = append(missedArgs, dpdMax)
+		missedArgCount++
+	}
+
+	var missedAmountToday float64
+	var missedCountToday int
+	err = r.db.QueryRow(missedQuery, missedArgs...).Scan(&missedAmountToday, &missedCountToday)
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate missed repayments today: %w", err)
+	}
+
 	// Calculate percentages
 	atRiskPercentage := 0.0
 	if totalLoans > 0 {
@@ -1537,9 +1792,11 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 			"okay":      okayDelayCount,
 			"critical":  criticalDelayCount,
 		},
-		"total_due_for_today":         totalDueForToday,
-		"total_repayments_today":      totalRepaymentsToday,
-		"percentage_of_due_collected": percentageDueCollected,
+		"total_due_for_today":           totalDueForToday,
+		"total_repayments_today":        totalRepaymentsToday,
+		"percentage_of_due_collected":   percentageDueCollected,
+		"missed_repayments_today":       missedAmountToday,
+		"missed_repayments_today_count": missedCountToday,
 	}
 
 	return metrics, nil

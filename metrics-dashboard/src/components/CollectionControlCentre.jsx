@@ -25,11 +25,11 @@ const CollectionControlCentre = () => {
     products: [],
   });
 
-  const [summaryMetrics, setSummaryMetrics] = useState(null);
-	// For Collections Received we want "all repayments" for the period,
-	// not restricted to collections-specific django_status values.
-	// We'll fetch this alongside the restricted metrics.
-	const [totalRepaidTodayAll, setTotalRepaidTodayAll] = useState(null);
+	  const [summaryMetrics, setSummaryMetrics] = useState(null);
+	  // For Collections Received we want "all repayments" for the period,
+	  // not restricted to collections-specific django_status values.
+	  // We'll fetch this alongside the restricted metrics.
+	  const [totalRepaidTodayAll, setTotalRepaidTodayAll] = useState(null);
   const [loadingFilters, setLoadingFilters] = useState(false);
   const [loadingMetrics, setLoadingMetrics] = useState(false);
   const [error, setError] = useState(null);
@@ -177,12 +177,14 @@ const CollectionControlCentre = () => {
   const isLoading = loadingFilters || loadingMetrics;
 
 	  // Derived values from existing summary metrics
-  const totalDueToday = summaryMetrics?.total_due_for_today ?? null;
+	  const totalDueToday = summaryMetrics?.total_due_for_today ?? null;
 	  // For Collections Received, use the unrestricted "all repayments" value
 	  // when available; fall back to the restricted one if needed.
 	  const totalRepaidToday =
 	    totalRepaidTodayAll ?? summaryMetrics?.total_repayments_today ?? null;
-  const collectionRateToday = summaryMetrics?.percentage_of_due_collected ?? null;
+	  const collectionRateToday = summaryMetrics?.percentage_of_due_collected ?? null;
+	  const missedRepaymentsTodayAmount = summaryMetrics?.missed_repayments_today ?? null;
+	  const missedRepaymentsTodayCount = summaryMetrics?.missed_repayments_today_count ?? null;
   const atRiskInfo = summaryMetrics?.at_risk_loans || null;
   const totalPortfolioAmount = summaryMetrics?.total_portfolio_amount ?? null;
   const totalInDPD = summaryMetrics?.total_amount_in_dpd ?? null;
@@ -304,15 +306,23 @@ const CollectionControlCentre = () => {
           <div className="card-subtitle">% of due amount collected in the period</div>
         </button>
 
-        {/* 4. Missed Repayments (Period) – placeholder */}
+	        {/* 4. Missed Repayments (Today) */}
         <button
           type="button"
           className="collection-card kpi-amber"
           onClick={() => handleCardClick('missed-repayments')}
         >
-          <div className="card-label">Missed Repayments ({PERIOD_OPTIONS.find(p => p.value === filters.period)?.label || 'Period'})</div>
-          <div className="card-value">Coming soon</div>
-          <div className="card-subtitle">Will use loans + repayments only to count missed dues</div>
+	          <div className="card-label">Missed Repayments (Today)</div>
+	          <div className="card-value">
+	            {missedRepaymentsTodayAmount != null
+	              ? formatCurrency(missedRepaymentsTodayAmount)
+	              : '—'}
+	          </div>
+	          <div className="card-subtitle">
+	            {missedRepaymentsTodayCount != null
+	              ? `${missedRepaymentsTodayCount.toLocaleString()} loans with a scheduled repayment today but no payment recorded`
+	              : 'Loans with a scheduled repayment today but no repayment recorded today'}
+	          </div>
         </button>
 
         {/* 5. Past Maturity Outstanding – placeholder */}
