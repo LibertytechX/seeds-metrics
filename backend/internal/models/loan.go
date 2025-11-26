@@ -35,6 +35,7 @@ type Loan struct {
 	Channel           string           `json:"channel" db:"channel"`
 	ChannelPartner    *string          `json:"channel_partner,omitempty" db:"channel_partner"`
 	Status            string           `json:"status" db:"status"`
+	DjangoStatus      *string          `json:"django_status,omitempty" db:"django_status"`
 	PerformanceStatus *string          `json:"performance_status,omitempty" db:"performance_status"`
 	ClosedDate        *time.Time       `json:"closed_date,omitempty" db:"closed_date"`
 	TimelinessScore   *decimal.Decimal `json:"timeliness_score,omitempty" db:"timeliness_score"`
@@ -90,6 +91,7 @@ type LoanInput struct {
 	Channel             string           `json:"channel" binding:"required"`
 	ChannelPartner      *string          `json:"channel_partner"`
 	Status              string           `json:"status" binding:"required"`
+	DjangoStatus        *string          `json:"django_status"`
 	PerformanceStatus   *string          `json:"performance_status"`
 	ClosedDate          *string          `json:"closed_date"`         // YYYY-MM-DD
 	Wave                *string          `json:"wave"`                // "Wave 1" or "Wave 2", defaults to "Wave 2"
@@ -170,6 +172,7 @@ type AllLoan struct {
 	BusinessDaysSinceDisbursement *int     `json:"business_days_since_disbursement,omitempty"`
 	LoanType                      *string  `json:"loan_type,omitempty"`
 	VerificationStatus            *string  `json:"verification_status,omitempty"`
+	DjangoStatus                  *string  `json:"django_status,omitempty"`
 }
 
 // TopRiskLoan represents a high-risk loan for audit purposes

@@ -364,8 +364,8 @@ func (r *DjangoRepository) GetLoans(ctx context.Context, limit, offset int) ([]m
 			l.tenor_in_days as loan_term_days,
 			l.date_disbursed as disbursement_date,
 			l.start_date as first_payment_due_date,
-			l.end_date as maturity_date,
-			CASE
+				l.end_date as maturity_date,
+				CASE
 				-- Completed/Closed loans
 				WHEN l.status = 'COMPLETED' THEN 'Closed'
 				WHEN l.status = 'CLOSED' THEN 'Closed'
@@ -385,10 +385,11 @@ func (r *DjangoRepository) GetLoans(ctx context.Context, limit, offset int) ([]m
 				WHEN l.status = 'REJECTED' THEN 'Rejected'
 				WHEN l.status = 'NOT_TAKEN' THEN 'Cancelled'
 
-				-- Default fallback
-				ELSE 'Active'
-			END as status,
-			l.performance_status,
+					-- Default fallback
+					ELSE 'Active'
+				END as status,
+				l.status as django_status,
+				l.performance_status,
 			l.loan_type,
 			l.verification_stage as verification_status,
 			l.created_at,
@@ -411,6 +412,7 @@ func (r *DjangoRepository) GetLoans(ctx context.Context, limit, offset int) ([]m
 	for rows.Next() {
 		var loanID, customerID, customerName, officerID, officerName, branch, region, status string
 		var customerPhone, officerPhone, performanceStatus, loanType, verificationStatus sql.NullString
+		var djangoStatus sql.NullString
 		var loanAmount, repaymentAmount, interestRate, feeAmount float64
 		var loanTermDays int
 		var disbursementDate, firstPaymentDueDate, maturityDate sql.NullTime
@@ -435,6 +437,7 @@ func (r *DjangoRepository) GetLoans(ctx context.Context, limit, offset int) ([]m
 			&firstPaymentDueDate,
 			&maturityDate,
 			&status,
+			&djangoStatus,
 			&performanceStatus,
 			&loanType,
 			&verificationStatus,
@@ -462,6 +465,10 @@ func (r *DjangoRepository) GetLoans(ctx context.Context, limit, offset int) ([]m
 			"channel":          "AJO", // Default channel
 			"created_at":       createdAt,
 			"updated_at":       updatedAt,
+		}
+
+		if djangoStatus.Valid {
+			loan["django_status"] = djangoStatus.String
 		}
 
 		if customerPhone.Valid {

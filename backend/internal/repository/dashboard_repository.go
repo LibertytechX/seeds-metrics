@@ -980,6 +980,48 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 		}
 	}
 
+	// Raw Django status filter - supports comma-separated values and optional missing sentinel
+	if djangoStatus, ok := filters["django_status"].(string); ok && djangoStatus != "" {
+		statuses := strings.Split(djangoStatus, ",")
+		nonMissing := []string{}
+		includeMissing := false
+
+		for _, s := range statuses {
+			value := strings.TrimSpace(s)
+			if value == "" {
+				continue
+			}
+			if value == MissingValueSentinel {
+				includeMissing = true
+			} else {
+				nonMissing = append(nonMissing, value)
+			}
+		}
+
+		conditions := []string{}
+		if len(nonMissing) == 1 {
+			conditions = append(conditions, fmt.Sprintf("l.django_status = $%d", argCount))
+			args = append(args, nonMissing[0])
+			argCount++
+		} else if len(nonMissing) > 1 {
+			placeholders := make([]string, len(nonMissing))
+			for i, s := range nonMissing {
+				placeholders[i] = fmt.Sprintf("$%d", argCount)
+				args = append(args, s)
+				argCount++
+			}
+			conditions = append(conditions, fmt.Sprintf("l.django_status IN (%s)", strings.Join(placeholders, ",")))
+		}
+
+		if includeMissing {
+			conditions = append(conditions, "(l.django_status IS NULL OR l.django_status = '')")
+		}
+
+		if len(conditions) > 0 {
+			query += " AND (" + strings.Join(conditions, " OR ") + ")"
+		}
+	}
+
 	if performanceStatus, ok := filters["performance_status"].(string); ok && performanceStatus != "" {
 		performanceStatuses := strings.Split(performanceStatus, ",")
 		nonMissing := []string{}
@@ -1252,6 +1294,48 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 		}
 	}
 
+	// Raw Django status filter - supports comma-separated values and optional missing sentinel
+	if djangoStatus, ok := filters["django_status"].(string); ok && djangoStatus != "" {
+		statuses := strings.Split(djangoStatus, ",")
+		nonMissing := []string{}
+		includeMissing := false
+
+		for _, s := range statuses {
+			value := strings.TrimSpace(s)
+			if value == "" {
+				continue
+			}
+			if value == MissingValueSentinel {
+				includeMissing = true
+			} else {
+				nonMissing = append(nonMissing, value)
+			}
+		}
+
+		conditions := []string{}
+		if len(nonMissing) == 1 {
+			conditions = append(conditions, fmt.Sprintf("l.django_status = $%d", repaymentsArgCount))
+			repaymentsArgs = append(repaymentsArgs, nonMissing[0])
+			repaymentsArgCount++
+		} else if len(nonMissing) > 1 {
+			placeholders := make([]string, len(nonMissing))
+			for i, s := range nonMissing {
+				placeholders[i] = fmt.Sprintf("$%d", repaymentsArgCount)
+				repaymentsArgs = append(repaymentsArgs, s)
+				repaymentsArgCount++
+			}
+			conditions = append(conditions, fmt.Sprintf("l.django_status IN (%s)", strings.Join(placeholders, ",")))
+		}
+
+		if includeMissing {
+			conditions = append(conditions, "(l.django_status IS NULL OR l.django_status = '')")
+		}
+
+		if len(conditions) > 0 {
+			repaymentsQuery += " AND (" + strings.Join(conditions, " OR ") + ")"
+		}
+	}
+
 	if performanceStatus, ok := filters["performance_status"].(string); ok && performanceStatus != "" {
 		performanceStatuses := strings.Split(performanceStatus, ",")
 		if len(performanceStatuses) == 1 {
@@ -1459,9 +1543,10 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 			l.fees_outstanding,
 			l.total_outstanding,
 			l.actual_outstanding,
-			l.total_repayments,
-			l.status,
-			l.performance_status,
+				l.total_repayments,
+				l.status,
+				l.django_status,
+				l.performance_status,
 			l.fimr_tagged,
 			l.timeliness_score,
 			l.repayment_health,
@@ -1554,6 +1639,50 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 			inClause := fmt.Sprintf(" AND l.status IN (%s)", strings.Join(placeholders, ", "))
 			query += inClause
 			countQuery += inClause
+		}
+	}
+
+	// Raw Django status filter - supports comma-separated values and optional missing sentinel
+	if djangoStatus, ok := filters["django_status"].(string); ok && djangoStatus != "" {
+		statuses := strings.Split(djangoStatus, ",")
+		nonMissing := []string{}
+		includeMissing := false
+
+		for _, s := range statuses {
+			value := strings.TrimSpace(s)
+			if value == "" {
+				continue
+			}
+			if value == MissingValueSentinel {
+				includeMissing = true
+			} else {
+				nonMissing = append(nonMissing, value)
+			}
+		}
+
+		conditions := []string{}
+		if len(nonMissing) == 1 {
+			conditions = append(conditions, fmt.Sprintf("l.django_status = $%d", argCount))
+			args = append(args, nonMissing[0])
+			argCount++
+		} else if len(nonMissing) > 1 {
+			placeholders := make([]string, len(nonMissing))
+			for i, s := range nonMissing {
+				placeholders[i] = fmt.Sprintf("$%d", argCount)
+				args = append(args, s)
+				argCount++
+			}
+			conditions = append(conditions, fmt.Sprintf("l.django_status IN (%s)", strings.Join(placeholders, ",")))
+		}
+
+		if includeMissing {
+			conditions = append(conditions, "(l.django_status IS NULL OR l.django_status = '')")
+		}
+
+		if len(conditions) > 0 {
+			clause := " AND (" + strings.Join(conditions, " OR ") + ")"
+			query += clause
+			countQuery += clause
 		}
 	}
 
@@ -1812,7 +1941,7 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 		loan := &models.AllLoan{}
 		var customerPhone, officerID, firstPaymentDueDate, maturityDate sql.NullString
 		var verticalLeadName, verticalLeadEmail, performanceStatus sql.NullString
-		var loanType, verificationStatus sql.NullString
+		var loanType, verificationStatus, djangoStatus sql.NullString
 		var repaymentAmount, timelinessScore, repaymentHealth, repaymentDelayRate sql.NullFloat64
 		var dailyRepaymentAmount, repaymentDaysPaid sql.NullFloat64
 		var daysSinceLastRepayment, repaymentDaysDueToday, businessDaysSinceDisbursement sql.NullInt64
@@ -1842,6 +1971,7 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 			&loan.ActualOutstanding,
 			&loan.TotalRepayments,
 			&loan.Status,
+			&djangoStatus,
 			&performanceStatus,
 			&loan.FIMRTagged,
 			&timelinessScore,
@@ -1874,6 +2004,9 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 		}
 		if performanceStatus.Valid {
 			loan.PerformanceStatus = &performanceStatus.String
+		}
+		if djangoStatus.Valid {
+			loan.DjangoStatus = &djangoStatus.String
 		}
 		if loanType.Valid {
 			loan.LoanType = &loanType.String
@@ -2178,6 +2311,8 @@ func (r *DashboardRepository) GetFilterOptions(filterType string, filters map[st
 		return r.getLoanTypes()
 	case "verification-statuses":
 		return r.getVerificationStatuses()
+	case "django-statuses":
+		return r.getDjangoStatuses()
 	default:
 		return nil, fmt.Errorf("unknown filter type: %s", filterType)
 	}
@@ -2404,6 +2539,33 @@ func (r *DashboardRepository) getVerificationStatuses() ([]string, error) {
 	}
 
 	return verificationStatuses, nil
+}
+
+// getDjangoStatuses returns the distinct raw Django status values stored on loans.django_status
+func (r *DashboardRepository) getDjangoStatuses() ([]string, error) {
+	query := `SELECT DISTINCT l.django_status FROM loans l
+		INNER JOIN officers o ON l.officer_id = o.officer_id
+		WHERE l.django_status IS NOT NULL
+		AND l.django_status != ''
+		AND (o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT') OR o.user_type IS NULL)
+		ORDER BY l.django_status`
+
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	statuses := []string{}
+	for rows.Next() {
+		var status string
+		if err := rows.Scan(&status); err != nil {
+			return nil, err
+		}
+		statuses = append(statuses, status)
+	}
+
+	return statuses, nil
 }
 
 func (r *DashboardRepository) getOfficerOptions(filters map[string]interface{}) ([]*models.OfficerOption, error) {

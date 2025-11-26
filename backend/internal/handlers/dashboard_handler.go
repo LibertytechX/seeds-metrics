@@ -268,6 +268,9 @@ func (h *DashboardHandler) GetFIMRLoans(c *gin.Context) {
 	if status := c.Query("status"); status != "" {
 		filters["status"] = status
 	}
+	if djangoStatus := c.Query("django_status"); djangoStatus != "" {
+		filters["django_status"] = djangoStatus
+	}
 	if wave := c.Query("wave"); wave != "" {
 		filters["wave"] = wave
 	}
@@ -475,7 +478,8 @@ func (h *DashboardHandler) GetEarlyIndicatorSummary(c *gin.Context) {
 // @Param branch query string false "Filter by branch"
 // @Param region query string false "Filter by region"
 // @Param channel query string false "Filter by channel"
-// @Param status query string false "Filter by status"
+// @Param status query string false "Filter by normalized status"
+// @Param django_status query string false "Filter by raw Django status (comma-separated list; use __MISSING__ for missing)"
 // @Param customer_phone query string false "Filter by customer phone (partial match)"
 // @Param sort_by query string false "Sort field"
 // @Param sort_dir query string false "Sort direction (asc/desc)"
@@ -502,6 +506,9 @@ func (h *DashboardHandler) GetAllLoans(c *gin.Context) {
 	}
 	if status := c.Query("status"); status != "" {
 		filters["status"] = status
+	}
+	if djangoStatus := c.Query("django_status"); djangoStatus != "" {
+		filters["django_status"] = djangoStatus
 	}
 	if performanceStatus := c.Query("performance_status"); performanceStatus != "" {
 		filters["performance_status"] = performanceStatus

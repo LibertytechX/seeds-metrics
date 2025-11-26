@@ -21,6 +21,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     channel: '',
     statuses: [], // Multi-select status filter
     performance_statuses: [], // Multi-select performance status filter
+	    django_statuses: [], // Multi-select raw Django status filter
     customer_phone: '',
     vertical_lead_email: '',
     loan_type: initialFilter?.loan_type || '', // 'active' or 'inactive'
@@ -41,6 +42,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
   const [allOfficers, setAllOfficers] = useState([]);
   const [allLoanTypes, setAllLoanTypes] = useState([]);
   const [allVerificationStatuses, setAllVerificationStatuses] = useState([]);
+	  const [allDjangoStatuses, setAllDjangoStatuses] = useState([]);
   const [isRegionDropdownOpen, setIsRegionDropdownOpen] = useState(false);
   const regionDropdownRef = useRef(null);
   const [isStatusDropdownOpen, setIsStatusDropdownOpen] = useState(false);
@@ -51,6 +53,8 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
   const loanTypeDropdownRef = useRef(null);
   const [isVerificationStatusDropdownOpen, setIsVerificationStatusDropdownOpen] = useState(false);
   const verificationStatusDropdownRef = useRef(null);
+	  const [isDjangoStatusDropdownOpen, setIsDjangoStatusDropdownOpen] = useState(false);
+	  const djangoStatusDropdownRef = useRef(null);
   const [filterLabel, setFilterLabel] = useState(
     initialFilter?.officer_name ? `Officer: ${initialFilter.officer_name}` :
     initialFilter?.label ? initialFilter.label : ''
@@ -99,6 +103,9 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       if (verificationStatusDropdownRef.current && !verificationStatusDropdownRef.current.contains(event.target)) {
         setIsVerificationStatusDropdownOpen(false);
       }
+	      if (djangoStatusDropdownRef.current && !djangoStatusDropdownRef.current.contains(event.target)) {
+	        setIsDjangoStatusDropdownOpen(false);
+	      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -109,8 +116,18 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     try {
       const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8081/api/v1';
 
-      // Fetch branches, regions, channels, waves, statuses, officers, loan types, and verification statuses from API
-      const [branchesRes, regionsRes, channelsRes, wavesRes, statusesRes, officersRes, loanTypesRes, verificationStatusesRes] = await Promise.all([
+	      // Fetch branches, regions, channels, waves, statuses, officers, loan types, verification statuses, and Django statuses from API
+	      const [
+	        branchesRes,
+	        regionsRes,
+	        channelsRes,
+	        wavesRes,
+	        statusesRes,
+	        officersRes,
+	        loanTypesRes,
+	        verificationStatusesRes,
+	        djangoStatusesRes,
+	      ] = await Promise.all([
         fetch(`${API_BASE_URL}/filters/branches`),
         fetch(`${API_BASE_URL}/filters/regions`),
         fetch(`${API_BASE_URL}/filters/channels`),
@@ -119,9 +136,20 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
         fetch(`${API_BASE_URL}/filters/officers`),
         fetch(`${API_BASE_URL}/filters/loan-types`),
         fetch(`${API_BASE_URL}/filters/verification-statuses`),
+	        fetch(`${API_BASE_URL}/filters/django-statuses`),
       ]);
 
-      const [branchesData, regionsData, channelsData, wavesData, statusesData, officersData, loanTypesData, verificationStatusesData] = await Promise.all([
+	      const [
+	        branchesData,
+	        regionsData,
+	        channelsData,
+	        wavesData,
+	        statusesData,
+	        officersData,
+	        loanTypesData,
+	        verificationStatusesData,
+	        djangoStatusesData,
+	      ] = await Promise.all([
         branchesRes.json(),
         regionsRes.json(),
         channelsRes.json(),
@@ -130,6 +158,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
         officersRes.json(),
         loanTypesRes.json(),
         verificationStatusesRes.json(),
+	        djangoStatusesRes.json(),
       ]);
 
       if (branchesData.status === 'success') {
@@ -156,6 +185,9 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       if (verificationStatusesData.status === 'success') {
         setAllVerificationStatuses(verificationStatusesData.data['verification-statuses'] || []);
       }
+	      if (djangoStatusesData.status === 'success') {
+	        setAllDjangoStatuses(djangoStatusesData.data['django-statuses'] || []);
+	      }
     } catch (error) {
       console.error('Error fetching filter options:', error);
     }
@@ -171,7 +203,18 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       // Include customer_phone and DPD filters for server-side filtering
       const apiFilters = Object.fromEntries(
         Object.entries(filters)
-          .filter(([k, v]) => v !== '' && k !== 'loan_type' && k !== 'rot_type' && k !== 'delay_type' && k !== 'regions' && k !== 'statuses' && k !== 'performance_statuses' && k !== 'django_loan_types' && k !== 'django_verification_statuses')
+	          .filter(([k, v]) =>
+	            v !== '' &&
+	            k !== 'loan_type' &&
+	            k !== 'rot_type' &&
+	            k !== 'delay_type' &&
+	            k !== 'regions' &&
+	            k !== 'statuses' &&
+	            k !== 'performance_statuses' &&
+	            k !== 'django_loan_types' &&
+	            k !== 'django_verification_statuses' &&
+	            k !== 'django_statuses'
+	          )
       );
 
       // Add django_loan_types as loan_type for API (comma-separated)
@@ -209,6 +252,11 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       if (filters.performance_statuses && filters.performance_statuses.length > 0) {
         apiFilters.performance_status = filters.performance_statuses.join(',');
       }
+
+	      // Convert django_statuses array (raw Django status) to comma-separated string
+	      if (filters.django_statuses && filters.django_statuses.length > 0) {
+	        apiFilters.django_status = filters.django_statuses.join(',');
+	      }
 
       const params = new URLSearchParams({
         page: pagination.page,
@@ -300,6 +348,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
         channel: '',
         statuses: [],
         performance_statuses: [],
+	        django_statuses: [],
         customer_phone: '',
         vertical_lead_email: '',
         loan_type: initialFilter.loan_type || '',
@@ -373,14 +422,23 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     setPagination(prev => ({ ...prev, page: 1 })); // Reset to first page
   };
 
-  const handlePerformanceStatusToggle = (performanceStatus) => {
-    const currentPerformanceStatuses = filters.performance_statuses || [];
-    const newPerformanceStatuses = currentPerformanceStatuses.includes(performanceStatus)
-      ? currentPerformanceStatuses.filter(ps => ps !== performanceStatus)
-      : [...currentPerformanceStatuses, performanceStatus];
-    setFilters(prev => ({ ...prev, performance_statuses: newPerformanceStatuses }));
-    setPagination(prev => ({ ...prev, page: 1 })); // Reset to first page
-  };
+	  const handlePerformanceStatusToggle = (performanceStatus) => {
+	    const currentPerformanceStatuses = filters.performance_statuses || [];
+	    const newPerformanceStatuses = currentPerformanceStatuses.includes(performanceStatus)
+	      ? currentPerformanceStatuses.filter(ps => ps !== performanceStatus)
+	      : [...currentPerformanceStatuses, performanceStatus];
+	    setFilters(prev => ({ ...prev, performance_statuses: newPerformanceStatuses }));
+	    setPagination(prev => ({ ...prev, page: 1 })); // Reset to first page
+	  };
+
+	  const handleDjangoStatusToggle = (djangoStatus) => {
+	    const currentDjangoStatuses = filters.django_statuses || [];
+	    const newDjangoStatuses = currentDjangoStatuses.includes(djangoStatus)
+	      ? currentDjangoStatuses.filter(s => s !== djangoStatus)
+	      : [...currentDjangoStatuses, djangoStatus];
+	    setFilters(prev => ({ ...prev, django_statuses: newDjangoStatuses }));
+	    setPagination(prev => ({ ...prev, page: 1 })); // Reset to first page
+	  };
 
   const handleLoanTypeToggle = (loanType) => {
     const currentLoanTypes = filters.django_loan_types || [];
@@ -409,6 +467,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       channel: '',
       statuses: [],
       performance_statuses: [],
+	      django_statuses: [],
       customer_phone: '',
       vertical_lead_email: '',
       loan_type: '',
@@ -436,10 +495,10 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       'Vertical Lead Name', 'Vertical Lead Email',
       'Channel', 'Loan Type', 'Verification Status', 'Loan Amount', 'Repayment Amount', 'Disbursement Date',
       'First Repayment Due Date', 'Loan Tenure', 'Maturity Date',
-      'Daily Repayment Amount', 'Repayment Days Due Today', 'Repayment Days Paid', 'Business Days Since Disbursement',
-      'Timeliness Score', 'Repayment Health', 'Repayment Delay Rate %', 'Wave', 'Days Since Last Repayment', 'Current DPD',
-      'Principal Outstanding', 'Interest Outstanding', 'Fees Outstanding', 'Total Outstanding',
-      'Actual Outstanding', 'Total Repayments', 'Status', 'Performance Status', 'FIMR Tagged'
+	      'Daily Repayment Amount', 'Repayment Days Due Today', 'Repayment Days Paid', 'Business Days Since Disbursement',
+	      'Timeliness Score', 'Repayment Health', 'Repayment Delay Rate %', 'Wave', 'Days Since Last Repayment', 'Current DPD',
+	      'Principal Outstanding', 'Interest Outstanding', 'Fees Outstanding', 'Total Outstanding',
+	      'Actual Outstanding', 'Total Repayments', 'Status', 'Django Status', 'Performance Status', 'FIMR Tagged'
     ];
 
     const rows = loans.map(loan => [
@@ -477,6 +536,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       loan.actual_outstanding || 0,
       loan.total_repayments || 0,
       loan.status || 'N/A',
+	      loan.django_status || 'N/A',
       loan.performance_status || 'N/A',
       loan.fimr_tagged ? 'Yes' : 'No',
     ]);
@@ -515,10 +575,21 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     try {
       console.log('🔍 Exporting all filtered loans. Total count:', totalCount);
 
-      // Prepare API filters (same logic as fetchLoans)
-      const apiFilters = Object.fromEntries(
-        Object.entries(filters).filter(([k, v]) => v !== '' && k !== 'loan_type' && k !== 'rot_type' && k !== 'delay_type' && k !== 'regions' && k !== 'statuses' && k !== 'performance_statuses' && k !== 'django_loan_types' && k !== 'django_verification_statuses')
-      );
+	      // Prepare API filters (same logic as fetchLoans)
+	      const apiFilters = Object.fromEntries(
+	        Object.entries(filters).filter(([k, v]) =>
+	          v !== '' &&
+	          k !== 'loan_type' &&
+	          k !== 'rot_type' &&
+	          k !== 'delay_type' &&
+	          k !== 'regions' &&
+	          k !== 'statuses' &&
+	          k !== 'performance_statuses' &&
+	          k !== 'django_loan_types' &&
+	          k !== 'django_verification_statuses' &&
+	          k !== 'django_statuses'
+	        )
+	      );
 
       // Convert regions array to comma-separated string
       if (filters.regions && filters.regions.length > 0) {
@@ -534,6 +605,11 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       if (filters.performance_statuses && filters.performance_statuses.length > 0) {
         apiFilters.performance_status = filters.performance_statuses.join(',');
       }
+
+	      // Convert django_statuses array (raw Django status) to comma-separated string
+	      if (filters.django_statuses && filters.django_statuses.length > 0) {
+	        apiFilters.django_status = filters.django_statuses.join(',');
+	      }
 
       // Convert django_loan_types array to comma-separated string
       if (filters.django_loan_types && filters.django_loan_types.length > 0) {
@@ -576,19 +652,19 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
         // loan_type/rot_type/delay_type behaviour filters so that the CSV
         // exactly matches what the dashboard considers "filtered loans".
 
-        // Generate CSV
-        const headers = [
-          'Loan ID', 'Customer Name', 'Customer Phone', 'Officer Name', 'Region', 'Branch',
-          'Vertical Lead Name', 'Vertical Lead Email',
-          'Channel', 'Loan Type', 'Verification Status', 'Loan Amount', 'Repayment Amount', 'Disbursement Date',
-          'First Repayment Due Date', 'Loan Tenure', 'Maturity Date',
-          'Daily Repayment Amount', 'Repayment Days Due Today', 'Repayment Days Paid', 'Business Days Since Disbursement',
-          'Timeliness Score', 'Repayment Health', 'Repayment Delay Rate %', 'Wave', 'Days Since Last Repayment', 'Current DPD',
-          'Principal Outstanding', 'Interest Outstanding', 'Fees Outstanding', 'Total Outstanding',
-          'Actual Outstanding', 'Total Repayments', 'Status', 'Performance Status', 'FIMR Tagged'
-        ];
+	        // Generate CSV
+	        const headers = [
+	          'Loan ID', 'Customer Name', 'Customer Phone', 'Officer Name', 'Region', 'Branch',
+	          'Vertical Lead Name', 'Vertical Lead Email',
+	          'Channel', 'Loan Type', 'Verification Status', 'Loan Amount', 'Repayment Amount', 'Disbursement Date',
+	          'First Repayment Due Date', 'Loan Tenure', 'Maturity Date',
+	          'Daily Repayment Amount', 'Repayment Days Due Today', 'Repayment Days Paid', 'Business Days Since Disbursement',
+	          'Timeliness Score', 'Repayment Health', 'Repayment Delay Rate %', 'Wave', 'Days Since Last Repayment', 'Current DPD',
+	          'Principal Outstanding', 'Interest Outstanding', 'Fees Outstanding', 'Total Outstanding',
+	          'Actual Outstanding', 'Total Repayments', 'Status', 'Django Status', 'Performance Status', 'FIMR Tagged'
+	        ];
 
-        const rows = exportLoans.map(loan => [
+	        const rows = exportLoans.map(loan => [
           loan.loan_id,
           loan.customer_name,
           loan.customer_phone || '',
@@ -623,6 +699,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
           loan.actual_outstanding || 0,
           loan.total_repayments || 0,
           loan.status || 'N/A',
+	          loan.django_status || 'N/A',
           loan.performance_status || 'N/A',
           loan.fimr_tagged ? 'Yes' : 'No',
         ]);
@@ -666,39 +743,44 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 22);
     doc.text(`Total Loans: ${pagination.total}`, 14, 27);
 
-    const tableData = loans.map(loan => [
-      loan.loan_id,
-      loan.customer_name,
-      loan.customer_phone || 'N/A',
-      loan.officer_name,
-      loan.branch,
-      `₦${(loan.loan_amount / 1000000).toFixed(2)}M`,
-      loan.repayment_amount ? `₦${(loan.repayment_amount / 1000000).toFixed(2)}M` : 'N/A',
-      loan.disbursement_date,
-      formatTenure(loan.loan_term_days),
-      loan.daily_repayment_amount != null ? `₦${(loan.daily_repayment_amount / 1000).toFixed(1)}K` : 'N/A',
-      loan.repayment_days_due_today != null ? loan.repayment_days_due_today : 'N/A',
-      loan.repayment_days_paid != null ? loan.repayment_days_paid.toFixed(1) : 'N/A',
-      loan.business_days_since_disbursement != null ? loan.business_days_since_disbursement : 'N/A',
-      loan.timeliness_score != null ? loan.timeliness_score.toFixed(1) : 'N/A',
-      loan.repayment_health != null ? loan.repayment_health.toFixed(1) : 'N/A',
-      loan.repayment_delay_rate != null ? loan.repayment_delay_rate.toFixed(1) + '%' : 'N/A',
-      loan.wave || 'N/A',
-      loan.days_since_last_repayment != null ? loan.days_since_last_repayment : 'N/A',
-      loan.current_dpd,
-      `₦${(loan.total_outstanding / 1000000).toFixed(2)}M`,
-      `₦${((loan.actual_outstanding || 0) / 1000000).toFixed(2)}M`,
-      loan.status,
-      loan.fimr_tagged ? 'Yes' : 'No',
-    ]);
+	    const tableData = loans.map(loan => [
+	      loan.loan_id,
+	      loan.customer_name,
+	      loan.customer_phone || 'N/A',
+	      loan.officer_name,
+	      loan.branch,
+	      `₦${(loan.loan_amount / 1000000).toFixed(2)}M`,
+	      loan.repayment_amount ? `₦${(loan.repayment_amount / 1000000).toFixed(2)}M` : 'N/A',
+	      loan.disbursement_date,
+	      formatTenure(loan.loan_term_days),
+	      loan.daily_repayment_amount != null ? `₦${(loan.daily_repayment_amount / 1000).toFixed(1)}K` : 'N/A',
+	      loan.repayment_days_due_today != null ? loan.repayment_days_due_today : 'N/A',
+	      loan.repayment_days_paid != null ? loan.repayment_days_paid.toFixed(1) : 'N/A',
+	      loan.business_days_since_disbursement != null ? loan.business_days_since_disbursement : 'N/A',
+	      loan.timeliness_score != null ? loan.timeliness_score.toFixed(1) : 'N/A',
+	      loan.repayment_health != null ? loan.repayment_health.toFixed(1) : 'N/A',
+	      loan.repayment_delay_rate != null ? loan.repayment_delay_rate.toFixed(1) + '%' : 'N/A',
+	      loan.wave || 'N/A',
+	      loan.days_since_last_repayment != null ? loan.days_since_last_repayment : 'N/A',
+	      loan.current_dpd,
+	      `₦${(loan.total_outstanding / 1000000).toFixed(2)}M`,
+	      `₦${((loan.actual_outstanding || 0) / 1000000).toFixed(2)}M`,
+	      loan.status,
+	      loan.django_status || 'N/A',
+	      loan.fimr_tagged ? 'Yes' : 'No',
+	    ]);
 
-    doc.autoTable({
-      startY: 32,
-      head: [['Loan ID', 'Customer', 'Phone', 'Officer', 'Branch', 'Amount', 'Repay. Amt', 'Disbursed', 'Tenure', 'Daily Repay', 'Days Due', 'Days Paid', 'Biz Days', 'T.Score', 'R.Health', 'Delay %', 'Wave', 'Days Since', 'DPD', 'Total Out.', 'Actual Out.', 'Status', 'FIMR']],
-      body: tableData,
-      styles: { fontSize: 5 },
-      headStyles: { fillColor: [41, 128, 185] },
-    });
+	    doc.autoTable({
+	      startY: 32,
+	      head: [[
+	        'Loan ID', 'Customer', 'Phone', 'Officer', 'Branch', 'Amount', 'Repay. Amt', 'Disbursed', 'Tenure',
+	        'Daily Repay', 'Days Due', 'Days Paid', 'Biz Days', 'T.Score', 'R.Health', 'Delay %', 'Wave',
+	        'Days Since', 'DPD', 'Total Out.', 'Actual Out.', 'Status', 'Django Status', 'FIMR',
+	      ]],
+	      body: tableData,
+	      styles: { fontSize: 5 },
+	      headStyles: { fillColor: [41, 128, 185] },
+	    });
 
     doc.save(`All_Loans_${new Date().toISOString().split('T')[0]}.pdf`);
   };
@@ -743,6 +825,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     (filters.regions && filters.regions.length > 0) ? 'regions' : '',
     (filters.statuses && filters.statuses.length > 0) ? 'statuses' : '',
     (filters.performance_statuses && filters.performance_statuses.length > 0) ? 'performance_statuses' : '',
+	    (filters.django_statuses && filters.django_statuses.length > 0) ? 'django_statuses' : '',
     (filters.django_loan_types && filters.django_loan_types.length > 0) ? 'django_loan_types' : '',
     (filters.django_verification_statuses && filters.django_verification_statuses.length > 0) ? 'django_verification_statuses' : '',
   ].filter(Boolean).length;
@@ -1262,6 +1345,56 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                 </div>
               )}
             </div>
+	            <div className="filter-group multi-select-wrapper" ref={djangoStatusDropdownRef}>
+	              <button
+	                className="multi-select-button"
+	                onClick={() => setIsDjangoStatusDropdownOpen(!isDjangoStatusDropdownOpen)}
+	              >
+	                <span>
+	                  {filters.django_statuses && filters.django_statuses.length > 0
+	                    ? `${filters.django_statuses.length} Django Status${filters.django_statuses.length > 1 ? 'es' : ''} Selected`
+	                    : 'All Django Statuses'}
+	                </span>
+	                <ChevronDown size={16} />
+	              </button>
+	              {isDjangoStatusDropdownOpen && (
+	                <div className="multi-select-dropdown">
+	                  <div className="multi-select-option" onClick={() => setFilters(prev => ({ ...prev, django_statuses: [] }))}>
+	                    <input
+	                      type="checkbox"
+	                      checked={!filters.django_statuses || filters.django_statuses.length === 0}
+	                      readOnly
+	                    />
+	                    <span>All Django Statuses</span>
+	                  </div>
+	                  {allDjangoStatuses.map(status => (
+	                    <div
+	                      key={status}
+	                      className="multi-select-option"
+	                      onClick={() => handleDjangoStatusToggle(status)}
+	                    >
+	                      <input
+	                        type="checkbox"
+	                        checked={filters.django_statuses && filters.django_statuses.includes(status)}
+	                        readOnly
+	                      />
+	                      <span>{status}</span>
+	                    </div>
+	                  ))}
+	                  <div
+	                    className="multi-select-option"
+	                    onClick={() => handleDjangoStatusToggle(MISSING_VALUE)}
+	                  >
+	                    <input
+	                      type="checkbox"
+	                      checked={filters.django_statuses && filters.django_statuses.includes(MISSING_VALUE)}
+	                      readOnly
+	                    />
+	                    <span>(Missing)</span>
+	                  </div>
+	                </div>
+	              )}
+	            </div>
             <div className="filter-group">
               <input
                 type="text"
@@ -1356,6 +1489,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                 <th onClick={() => handleSort('actual_outstanding')}>Actual Outstanding</th>
                 <th onClick={() => handleSort('total_repayments')}>Total Repayments</th>
                 <th onClick={() => handleSort('status')}>Status</th>
+	              <th onClick={() => handleSort('django_status')}>Django Status</th>
                 <th onClick={() => handleSort('performance_status')}>Performance Status</th>
                 <th>FIMR Tagged</th>
               </tr>
@@ -1432,6 +1566,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                       {loan.status || 'N/A'}
                     </span>
                   </td>
+	              <td>{loan.django_status || 'N/A'}</td>
                   <td>
                     {loan.performance_status ? (
                       <span className={`status-badge performance-status-${loan.performance_status.toLowerCase().replace('_', '-')}`}>

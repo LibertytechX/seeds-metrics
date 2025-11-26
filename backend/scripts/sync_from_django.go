@@ -209,6 +209,10 @@ func syncLoans(ctx context.Context, djangoRepo *repository.DjangoRepository, loa
 			loanAmount, _ := loanData["loan_amount"].(float64)
 			loanTermDays, _ := loanData["loan_term_days"].(int)
 			status, _ := loanData["status"].(string)
+			var djangoStatus *string
+			if rawStatus, ok := loanData["django_status"].(string); ok && rawStatus != "" {
+				djangoStatus = &rawStatus
+			}
 			channel, _ := loanData["channel"].(string)
 			disbursementDate, _ := loanData["disbursement_date"].(string)
 			firstPaymentDueDate, _ := loanData["first_payment_due_date"].(string)
@@ -232,6 +236,7 @@ func syncLoans(ctx context.Context, djangoRepo *repository.DjangoRepository, loa
 				LoanAmount:       decimal.NewFromFloat(loanAmount),
 				LoanTermDays:     loanTermDays,
 				Status:           status,
+				DjangoStatus:     djangoStatus,
 				Channel:          channel,
 				DisbursementDate: disbursementDate,
 				MaturityDate:     maturityDate,

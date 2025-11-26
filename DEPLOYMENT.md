@@ -313,14 +313,14 @@ psql "postgresql://metricsuser:PASSWORD@private-generaldb-do-user-9489371-0.k.db
 
 ```sql
 -- Check if column exists
-SELECT column_name, data_type 
-FROM information_schema.columns 
+SELECT column_name, data_type
+FROM information_schema.columns
 WHERE table_name = 'officers' AND column_name = 'user_type';
 
 -- Check data
-SELECT user_type, COUNT(*) 
-FROM officers 
-WHERE user_type IS NOT NULL 
+SELECT user_type, COUNT(*)
+FROM officers
+WHERE user_type IS NOT NULL
 GROUP BY user_type;
 ```
 
@@ -337,6 +337,7 @@ cd /home/seeds-metrics-backend/backend
 
 # Run sync script
 /usr/local/go/bin/go run scripts/sync_from_django.go
+ssh root@143.198.146.44 'cd /home/seeds-metrics-backend/backend && ./bin/sync_from_django'
 ```
 
 ---
