@@ -1,6 +1,9 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import './CollectionControlCentre.css';
 
+// Reuse the same sentinel value used in AllLoans and backend (MissingValueSentinel)
+const MISSING_VALUE = '__MISSING__';
+
 const PERIOD_OPTIONS = [
   { value: 'today', label: 'Today' },
   { value: 'this_week', label: 'This Week' },
@@ -88,6 +91,15 @@ const CollectionControlCentre = () => {
         if (filters.product) {
           params.set('loan_type', filters.product);
         }
+
+        // Per collections requirements, restrict to loans that are relevant
+        // for collections work:
+        //   - django_status = OPEN
+        //   - django_status = PAST_MATURITY
+        //   - Missing django_status (NULL / empty), via sentinel
+        // This uses the same MissingValueSentinel logic as AllLoans/backend.
+        const djangoStatusFilter = ['OPEN', 'PAST_MATURITY', MISSING_VALUE].join(',');
+        params.set('django_status', djangoStatusFilter);
 
         // NOTE: For now, the backend summary metrics are calculated for "today".
         // The period filter is wired and will trigger refreshes, but broader
