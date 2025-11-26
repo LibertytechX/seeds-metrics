@@ -26,8 +26,8 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     delay_type: initialFilter?.delay_type || '', // 'risky' for high delay loans
     dpd_min: '', // DPD minimum value
     dpd_max: '', // DPD maximum value
-    django_loan_type: '', // Loan type from Django (AJO, BNPL, PROSPER, DMO)
-    django_verification_status: '', // Verification status from Django
+    django_loan_types: [], // Multi-select loan types from Django (AJO, BNPL, PROSPER, DMO)
+    django_verification_statuses: [], // Multi-select verification statuses from Django
   });
   const [allBranches, setAllBranches] = useState([]);
   const [allRegions, setAllRegions] = useState([]);
@@ -45,6 +45,10 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
   const statusDropdownRef = useRef(null);
   const [isPerformanceStatusDropdownOpen, setIsPerformanceStatusDropdownOpen] = useState(false);
   const performanceStatusDropdownRef = useRef(null);
+  const [isLoanTypeDropdownOpen, setIsLoanTypeDropdownOpen] = useState(false);
+  const loanTypeDropdownRef = useRef(null);
+  const [isVerificationStatusDropdownOpen, setIsVerificationStatusDropdownOpen] = useState(false);
+  const verificationStatusDropdownRef = useRef(null);
   const [filterLabel, setFilterLabel] = useState(
     initialFilter?.officer_name ? `Officer: ${initialFilter.officer_name}` :
     initialFilter?.label ? initialFilter.label : ''
@@ -69,7 +73,10 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     atRiskLoans: { count: 0, amount: 0, actualOutstanding: 0, percentage: 0 },
     totalAmountInDPD: 0,
     criticalLoans: { count: 0, percentage: 0 },
-    repaymentDelayCategories: { excellent: 0, okay: 0, critical: 0 }
+    repaymentDelayCategories: { excellent: 0, okay: 0, critical: 0 },
+    totalDueForToday: 0,
+    totalRepaymentsToday: 0,
+    percentageOfDueCollected: 0
   });
 
   // Close dropdown when clicking outside
@@ -84,6 +91,12 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       if (performanceStatusDropdownRef.current && !performanceStatusDropdownRef.current.contains(event.target)) {
         setIsPerformanceStatusDropdownOpen(false);
       }
+      if (loanTypeDropdownRef.current && !loanTypeDropdownRef.current.contains(event.target)) {
+        setIsLoanTypeDropdownOpen(false);
+      }
+      if (verificationStatusDropdownRef.current && !verificationStatusDropdownRef.current.contains(event.target)) {
+        setIsVerificationStatusDropdownOpen(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -94,23 +107,27 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     try {
       const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8081/api/v1';
 
-      // Fetch branches, regions, channels, waves, statuses, and officers from API
-      const [branchesRes, regionsRes, channelsRes, wavesRes, statusesRes, officersRes] = await Promise.all([
+      // Fetch branches, regions, channels, waves, statuses, officers, loan types, and verification statuses from API
+      const [branchesRes, regionsRes, channelsRes, wavesRes, statusesRes, officersRes, loanTypesRes, verificationStatusesRes] = await Promise.all([
         fetch(`${API_BASE_URL}/filters/branches`),
         fetch(`${API_BASE_URL}/filters/regions`),
         fetch(`${API_BASE_URL}/filters/channels`),
         fetch(`${API_BASE_URL}/filters/waves`),
         fetch(`${API_BASE_URL}/filters/statuses`),
         fetch(`${API_BASE_URL}/filters/officers`),
+        fetch(`${API_BASE_URL}/filters/loan-types`),
+        fetch(`${API_BASE_URL}/filters/verification-statuses`),
       ]);
 
-      const [branchesData, regionsData, channelsData, wavesData, statusesData, officersData] = await Promise.all([
+      const [branchesData, regionsData, channelsData, wavesData, statusesData, officersData, loanTypesData, verificationStatusesData] = await Promise.all([
         branchesRes.json(),
         regionsRes.json(),
         channelsRes.json(),
         wavesRes.json(),
         statusesRes.json(),
         officersRes.json(),
+        loanTypesRes.json(),
+        verificationStatusesRes.json(),
       ]);
 
       if (branchesData.status === 'success') {
@@ -131,6 +148,12 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       if (officersData.status === 'success') {
         setAllOfficers(officersData.data.officers || []);
       }
+      if (loanTypesData.status === 'success') {
+        setAllLoanTypes(loanTypesData.data['loan-types'] || []);
+      }
+      if (verificationStatusesData.status === 'success') {
+        setAllVerificationStatuses(verificationStatusesData.data['verification-statuses'] || []);
+      }
     } catch (error) {
       console.error('Error fetching filter options:', error);
     }
@@ -142,22 +165,21 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     try {
       console.log('🔍 AllLoans: fetchLoans called with filters:', filters);
 
-      // Exclude loan_type, rot_type, delay_type, regions, statuses, and performance_statuses from API params (will handle arrays separately)
+      // Exclude loan_type, rot_type, delay_type, regions, statuses, performance_statuses, django_loan_types, and django_verification_statuses from API params (will handle arrays separately)
       // Include customer_phone and DPD filters for server-side filtering
-      // Rename django_loan_type and django_verification_status to loan_type and verification_status for API
       const apiFilters = Object.fromEntries(
         Object.entries(filters)
-          .filter(([k, v]) => v !== '' && k !== 'loan_type' && k !== 'rot_type' && k !== 'delay_type' && k !== 'regions' && k !== 'statuses' && k !== 'performance_statuses' && k !== 'django_loan_type' && k !== 'django_verification_status')
+          .filter(([k, v]) => v !== '' && k !== 'loan_type' && k !== 'rot_type' && k !== 'delay_type' && k !== 'regions' && k !== 'statuses' && k !== 'performance_statuses' && k !== 'django_loan_types' && k !== 'django_verification_statuses')
       );
 
-      // Add django_loan_type as loan_type for API
-      if (filters.django_loan_type) {
-        apiFilters.loan_type = filters.django_loan_type;
+      // Add django_loan_types as loan_type for API (comma-separated)
+      if (filters.django_loan_types && filters.django_loan_types.length > 0) {
+        apiFilters.loan_type = filters.django_loan_types.join(',');
       }
 
-      // Add django_verification_status as verification_status for API
-      if (filters.django_verification_status) {
-        apiFilters.verification_status = filters.django_verification_status;
+      // Add django_verification_statuses as verification_status for API (comma-separated)
+      if (filters.django_verification_statuses && filters.django_verification_statuses.length > 0) {
+        apiFilters.verification_status = filters.django_verification_statuses.join(',');
       }
 
       // Convert regions array to comma-separated string
@@ -257,21 +279,8 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
         )].sort();
         setAllVerticalLeads(uniqueVerticalLeads);
 
-        // Extract unique loan types from fetched loans
-        const uniqueLoanTypes = [...new Set(
-          fetchedLoans
-            .map(loan => loan.loan_type)
-            .filter(type => type != null && type !== '')
-        )].sort();
-        setAllLoanTypes(uniqueLoanTypes);
-
-        // Extract unique verification statuses from fetched loans
-        const uniqueVerificationStatuses = [...new Set(
-          fetchedLoans
-            .map(loan => loan.verification_status)
-            .filter(status => status != null && status !== '')
-        )].sort();
-        setAllVerificationStatuses(uniqueVerificationStatuses);
+        // Note: loan types and verification statuses are now fetched from API in fetchFilterOptions()
+        // No need to extract them from fetched loans
 
         // Use backend total for pagination, not client-side filtered count
         // The backend total represents the actual number of records matching server-side filters
@@ -303,7 +312,10 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
               excellent: data.data.summary_metrics.repayment_delay_categories.excellent,
               okay: data.data.summary_metrics.repayment_delay_categories.okay,
               critical: data.data.summary_metrics.repayment_delay_categories.critical
-            }
+            },
+            totalDueForToday: data.data.summary_metrics.total_due_for_today || 0,
+            totalRepaymentsToday: data.data.summary_metrics.total_repayments_today || 0,
+            percentageOfDueCollected: data.data.summary_metrics.percentage_of_due_collected || 0
           });
         }
       }
@@ -333,8 +345,8 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
         delay_type: initialFilter.delay_type || '',
         dpd_min: '',
         dpd_max: '',
-        django_loan_type: '',
-        django_verification_status: '',
+        django_loan_types: [],
+        django_verification_statuses: [],
       });
       setFilterLabel(
         initialFilter.officer_name ? `Officer: ${initialFilter.officer_name}` :
@@ -408,6 +420,24 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     setPagination(prev => ({ ...prev, page: 1 })); // Reset to first page
   };
 
+  const handleLoanTypeToggle = (loanType) => {
+    const currentLoanTypes = filters.django_loan_types || [];
+    const newLoanTypes = currentLoanTypes.includes(loanType)
+      ? currentLoanTypes.filter(lt => lt !== loanType)
+      : [...currentLoanTypes, loanType];
+    setFilters(prev => ({ ...prev, django_loan_types: newLoanTypes }));
+    setPagination(prev => ({ ...prev, page: 1 })); // Reset to first page
+  };
+
+  const handleVerificationStatusToggle = (verificationStatus) => {
+    const currentVerificationStatuses = filters.django_verification_statuses || [];
+    const newVerificationStatuses = currentVerificationStatuses.includes(verificationStatus)
+      ? currentVerificationStatuses.filter(vs => vs !== verificationStatus)
+      : [...currentVerificationStatuses, verificationStatus];
+    setFilters(prev => ({ ...prev, django_verification_statuses: newVerificationStatuses }));
+    setPagination(prev => ({ ...prev, page: 1 })); // Reset to first page
+  };
+
   const clearFilters = () => {
     setFilters({
       officer_id: '',
@@ -424,8 +454,8 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       delay_type: '',
       dpd_min: '',
       dpd_max: '',
-      django_loan_type: '',
-      django_verification_status: '',
+      django_loan_types: [],
+      django_verification_statuses: [],
     });
     setFilterLabel('');
   };
@@ -520,7 +550,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
 
       // Prepare API filters (same logic as fetchLoans)
       const apiFilters = Object.fromEntries(
-        Object.entries(filters).filter(([k, v]) => v !== '' && k !== 'loan_type' && k !== 'rot_type' && k !== 'delay_type' && k !== 'regions' && k !== 'statuses' && k !== 'performance_statuses')
+        Object.entries(filters).filter(([k, v]) => v !== '' && k !== 'loan_type' && k !== 'rot_type' && k !== 'delay_type' && k !== 'regions' && k !== 'statuses' && k !== 'performance_statuses' && k !== 'django_loan_types' && k !== 'django_verification_statuses')
       );
 
       // Convert regions array to comma-separated string
@@ -536,6 +566,16 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       // Convert performance_statuses array to comma-separated string
       if (filters.performance_statuses && filters.performance_statuses.length > 0) {
         apiFilters.performance_status = filters.performance_statuses.join(',');
+      }
+
+      // Convert django_loan_types array to comma-separated string
+      if (filters.django_loan_types && filters.django_loan_types.length > 0) {
+        apiFilters.loan_type = filters.django_loan_types.join(',');
+      }
+
+      // Convert django_verification_statuses array to comma-separated string
+      if (filters.django_verification_statuses && filters.django_verification_statuses.length > 0) {
+        apiFilters.verification_status = filters.django_verification_statuses.join(',');
       }
 
       const params = new URLSearchParams({
@@ -923,6 +963,11 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
         <div className="summary-card">
           <div className="summary-label">Total Portfolio Amount</div>
           <div className="summary-value">₦{(summaryMetrics.totalPortfolioAmount / 1000000).toFixed(2)}M</div>
+          <div className="summary-detail">
+            Due Today: ₦{summaryMetrics.totalDueForToday.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} |
+            Collected: ₦{summaryMetrics.totalRepaymentsToday.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} |
+            Collection Rate: {summaryMetrics.percentageOfDueCollected.toFixed(2)}%
+          </div>
         </div>
         <div className="summary-card at-risk">
           <div className="summary-label">At Risk Loans (DPD &gt; 14)</div>
@@ -1062,27 +1107,83 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                 ))}
               </select>
             </div>
-            <div className="filter-group">
-              <select
-                value={filters.django_loan_type}
-                onChange={(e) => handleFilterChange('django_loan_type', e.target.value)}
+            <div className="filter-group multi-select-wrapper" ref={loanTypeDropdownRef}>
+              <button
+                className="multi-select-button"
+                onClick={() => setIsLoanTypeDropdownOpen(!isLoanTypeDropdownOpen)}
               >
-                <option value="">All Loan Types</option>
-                {allLoanTypes.map(type => (
-                  <option key={type} value={type}>{type}</option>
-                ))}
-              </select>
+                <span>
+                  {filters.django_loan_types && filters.django_loan_types.length > 0
+                    ? `${filters.django_loan_types.length} Loan Type${filters.django_loan_types.length > 1 ? 's' : ''} Selected`
+                    : 'All Loan Types'}
+                </span>
+                <ChevronDown size={16} />
+              </button>
+              {isLoanTypeDropdownOpen && (
+                <div className="multi-select-dropdown">
+                  <div className="multi-select-option" onClick={() => setFilters(prev => ({ ...prev, django_loan_types: [] }))}>
+                    <input
+                      type="checkbox"
+                      checked={!filters.django_loan_types || filters.django_loan_types.length === 0}
+                      readOnly
+                    />
+                    <span>All Loan Types</span>
+                  </div>
+                  {allLoanTypes.map(type => (
+                    <div
+                      key={type}
+                      className="multi-select-option"
+                      onClick={() => handleLoanTypeToggle(type)}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={filters.django_loan_types && filters.django_loan_types.includes(type)}
+                        readOnly
+                      />
+                      <span>{type}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
-            <div className="filter-group">
-              <select
-                value={filters.django_verification_status}
-                onChange={(e) => handleFilterChange('django_verification_status', e.target.value)}
+            <div className="filter-group multi-select-wrapper" ref={verificationStatusDropdownRef}>
+              <button
+                className="multi-select-button"
+                onClick={() => setIsVerificationStatusDropdownOpen(!isVerificationStatusDropdownOpen)}
               >
-                <option value="">All Verification Statuses</option>
-                {allVerificationStatuses.map(status => (
-                  <option key={status} value={status}>{status}</option>
-                ))}
-              </select>
+                <span>
+                  {filters.django_verification_statuses && filters.django_verification_statuses.length > 0
+                    ? `${filters.django_verification_statuses.length} Verification Status${filters.django_verification_statuses.length > 1 ? 'es' : ''} Selected`
+                    : 'All Verification Statuses'}
+                </span>
+                <ChevronDown size={16} />
+              </button>
+              {isVerificationStatusDropdownOpen && (
+                <div className="multi-select-dropdown">
+                  <div className="multi-select-option" onClick={() => setFilters(prev => ({ ...prev, django_verification_statuses: [] }))}>
+                    <input
+                      type="checkbox"
+                      checked={!filters.django_verification_statuses || filters.django_verification_statuses.length === 0}
+                      readOnly
+                    />
+                    <span>All Verification Statuses</span>
+                  </div>
+                  {allVerificationStatuses.map(status => (
+                    <div
+                      key={status}
+                      className="multi-select-option"
+                      onClick={() => handleVerificationStatusToggle(status)}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={filters.django_verification_statuses && filters.django_verification_statuses.includes(status)}
+                        readOnly
+                      />
+                      <span>{status}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
             <div className="filter-group multi-select-wrapper" ref={statusDropdownRef}>
               <button

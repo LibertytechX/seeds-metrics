@@ -914,7 +914,8 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 			COALESCE(SUM(CASE WHEN l.current_dpd > 21 THEN 1 ELSE 0 END), 0) as critical_count,
 			COALESCE(SUM(CASE WHEN l.repayment_delay_rate >= 80 THEN 1 ELSE 0 END), 0) as excellent_delay_count,
 			COALESCE(SUM(CASE WHEN l.repayment_delay_rate >= 40 AND l.repayment_delay_rate < 80 THEN 1 ELSE 0 END), 0) as okay_delay_count,
-			COALESCE(SUM(CASE WHEN l.repayment_delay_rate < 40 THEN 1 ELSE 0 END), 0) as critical_delay_count
+			COALESCE(SUM(CASE WHEN l.repayment_delay_rate < 40 THEN 1 ELSE 0 END), 0) as critical_delay_count,
+			COALESCE(SUM(CASE WHEN l.actual_outstanding > 0 THEN l.daily_repayment_amount ELSE 0 END), 0) as total_due_for_today
 		FROM loans l
 		JOIN officers o ON l.officer_id = o.officer_id
 		WHERE 1=1
@@ -1013,15 +1014,39 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 	}
 
 	if loanType, ok := filters["loan_type"].(string); ok && loanType != "" {
-		query += fmt.Sprintf(" AND l.loan_type = $%d", argCount)
-		args = append(args, loanType)
-		argCount++
+		// Support comma-separated values for multiple loan types
+		loanTypes := strings.Split(loanType, ",")
+		if len(loanTypes) == 1 {
+			query += fmt.Sprintf(" AND l.loan_type = $%d", argCount)
+			args = append(args, loanTypes[0])
+			argCount++
+		} else {
+			placeholders := make([]string, len(loanTypes))
+			for i, lt := range loanTypes {
+				placeholders[i] = fmt.Sprintf("$%d", argCount)
+				args = append(args, strings.TrimSpace(lt))
+				argCount++
+			}
+			query += fmt.Sprintf(" AND l.loan_type IN (%s)", strings.Join(placeholders, ","))
+		}
 	}
 
 	if verificationStatus, ok := filters["verification_status"].(string); ok && verificationStatus != "" {
-		query += fmt.Sprintf(" AND l.verification_status = $%d", argCount)
-		args = append(args, verificationStatus)
-		argCount++
+		// Support comma-separated values for multiple verification statuses
+		verificationStatuses := strings.Split(verificationStatus, ",")
+		if len(verificationStatuses) == 1 {
+			query += fmt.Sprintf(" AND l.verification_status = $%d", argCount)
+			args = append(args, verificationStatuses[0])
+			argCount++
+		} else {
+			placeholders := make([]string, len(verificationStatuses))
+			for i, vs := range verificationStatuses {
+				placeholders[i] = fmt.Sprintf("$%d", argCount)
+				args = append(args, strings.TrimSpace(vs))
+				argCount++
+			}
+			query += fmt.Sprintf(" AND l.verification_status IN (%s)", strings.Join(placeholders, ","))
+		}
 	}
 
 	if dpdMin, ok := filters["dpd_min"].(int); ok {
@@ -1038,7 +1063,7 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 
 	// Execute query
 	var totalLoans, atRiskCount, criticalCount, excellentDelayCount, okayDelayCount, criticalDelayCount int
-	var totalPortfolioAmount, atRiskAmount, atRiskOutstanding, totalAmountInDPD float64
+	var totalPortfolioAmount, atRiskAmount, atRiskOutstanding, totalAmountInDPD, totalDueForToday float64
 
 	err := r.db.QueryRow(query, args...).Scan(
 		&totalLoans,
@@ -1051,9 +1076,165 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 		&excellentDelayCount,
 		&okayDelayCount,
 		&criticalDelayCount,
+		&totalDueForToday,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate summary metrics: %w", err)
+	}
+
+	// Query for today's repayments
+	// Build a query to sum repayments made today for loans matching the filters
+	repaymentsQuery := `
+		SELECT COALESCE(SUM(r.payment_amount), 0) as total_repayments_today
+		FROM repayments r
+		INNER JOIN loans l ON r.loan_id = l.loan_id
+		INNER JOIN officers o ON l.officer_id = o.officer_id
+		WHERE r.is_reversed = false
+			AND DATE(r.payment_date) = CURRENT_DATE
+			AND (o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT') OR o.user_type IS NULL)
+	`
+
+	// Apply the same filters to the repayments query
+	repaymentsArgs := []interface{}{}
+	repaymentsArgCount := 1
+
+	if officerID, ok := filters["officer_id"].(string); ok && officerID != "" {
+		repaymentsQuery += fmt.Sprintf(" AND l.officer_id = $%d", repaymentsArgCount)
+		repaymentsArgs = append(repaymentsArgs, officerID)
+		repaymentsArgCount++
+	}
+
+	if branch, ok := filters["branch"].(string); ok && branch != "" {
+		repaymentsQuery += fmt.Sprintf(" AND l.branch = $%d", repaymentsArgCount)
+		repaymentsArgs = append(repaymentsArgs, branch)
+		repaymentsArgCount++
+	}
+
+	if region, ok := filters["region"].(string); ok && region != "" {
+		regions := strings.Split(region, ",")
+		if len(regions) == 1 {
+			repaymentsQuery += fmt.Sprintf(" AND l.region = $%d", repaymentsArgCount)
+			repaymentsArgs = append(repaymentsArgs, regions[0])
+			repaymentsArgCount++
+		} else {
+			placeholders := []string{}
+			for _, r := range regions {
+				placeholders = append(placeholders, fmt.Sprintf("$%d", repaymentsArgCount))
+				repaymentsArgs = append(repaymentsArgs, strings.TrimSpace(r))
+				repaymentsArgCount++
+			}
+			repaymentsQuery += fmt.Sprintf(" AND l.region IN (%s)", strings.Join(placeholders, ", "))
+		}
+	}
+
+	if channel, ok := filters["channel"].(string); ok && channel != "" {
+		repaymentsQuery += fmt.Sprintf(" AND l.channel = $%d", repaymentsArgCount)
+		repaymentsArgs = append(repaymentsArgs, channel)
+		repaymentsArgCount++
+	}
+
+	if status, ok := filters["status"].(string); ok && status != "" {
+		statuses := strings.Split(status, ",")
+		if len(statuses) == 1 {
+			repaymentsQuery += fmt.Sprintf(" AND l.status = $%d", repaymentsArgCount)
+			repaymentsArgs = append(repaymentsArgs, statuses[0])
+			repaymentsArgCount++
+		} else {
+			placeholders := []string{}
+			for _, s := range statuses {
+				placeholders = append(placeholders, fmt.Sprintf("$%d", repaymentsArgCount))
+				repaymentsArgs = append(repaymentsArgs, strings.TrimSpace(s))
+				repaymentsArgCount++
+			}
+			repaymentsQuery += fmt.Sprintf(" AND l.status IN (%s)", strings.Join(placeholders, ", "))
+		}
+	}
+
+	if performanceStatus, ok := filters["performance_status"].(string); ok && performanceStatus != "" {
+		performanceStatuses := strings.Split(performanceStatus, ",")
+		if len(performanceStatuses) == 1 {
+			repaymentsQuery += fmt.Sprintf(" AND l.performance_status = $%d", repaymentsArgCount)
+			repaymentsArgs = append(repaymentsArgs, performanceStatuses[0])
+			repaymentsArgCount++
+		} else {
+			placeholders := []string{}
+			for _, ps := range performanceStatuses {
+				placeholders = append(placeholders, fmt.Sprintf("$%d", repaymentsArgCount))
+				repaymentsArgs = append(repaymentsArgs, strings.TrimSpace(ps))
+				repaymentsArgCount++
+			}
+			repaymentsQuery += fmt.Sprintf(" AND l.performance_status IN (%s)", strings.Join(placeholders, ", "))
+		}
+	}
+
+	if wave, ok := filters["wave"].(string); ok && wave != "" {
+		repaymentsQuery += fmt.Sprintf(" AND l.wave = $%d", repaymentsArgCount)
+		repaymentsArgs = append(repaymentsArgs, wave)
+		repaymentsArgCount++
+	}
+
+	if customerPhone, ok := filters["customer_phone"].(string); ok && customerPhone != "" {
+		repaymentsQuery += fmt.Sprintf(" AND l.customer_phone LIKE $%d", repaymentsArgCount)
+		repaymentsArgs = append(repaymentsArgs, "%"+customerPhone+"%")
+		repaymentsArgCount++
+	}
+
+	if verticalLeadEmail, ok := filters["vertical_lead_email"].(string); ok && verticalLeadEmail != "" {
+		repaymentsQuery += fmt.Sprintf(" AND l.vertical_lead_email = $%d", repaymentsArgCount)
+		repaymentsArgs = append(repaymentsArgs, verticalLeadEmail)
+		repaymentsArgCount++
+	}
+
+	if loanType, ok := filters["loan_type"].(string); ok && loanType != "" {
+		loanTypes := strings.Split(loanType, ",")
+		if len(loanTypes) == 1 {
+			repaymentsQuery += fmt.Sprintf(" AND l.loan_type = $%d", repaymentsArgCount)
+			repaymentsArgs = append(repaymentsArgs, loanTypes[0])
+			repaymentsArgCount++
+		} else {
+			placeholders := make([]string, len(loanTypes))
+			for i, lt := range loanTypes {
+				placeholders[i] = fmt.Sprintf("$%d", repaymentsArgCount)
+				repaymentsArgs = append(repaymentsArgs, strings.TrimSpace(lt))
+				repaymentsArgCount++
+			}
+			repaymentsQuery += fmt.Sprintf(" AND l.loan_type IN (%s)", strings.Join(placeholders, ","))
+		}
+	}
+
+	if verificationStatus, ok := filters["verification_status"].(string); ok && verificationStatus != "" {
+		verificationStatuses := strings.Split(verificationStatus, ",")
+		if len(verificationStatuses) == 1 {
+			repaymentsQuery += fmt.Sprintf(" AND l.verification_status = $%d", repaymentsArgCount)
+			repaymentsArgs = append(repaymentsArgs, verificationStatuses[0])
+			repaymentsArgCount++
+		} else {
+			placeholders := make([]string, len(verificationStatuses))
+			for i, vs := range verificationStatuses {
+				placeholders[i] = fmt.Sprintf("$%d", repaymentsArgCount)
+				repaymentsArgs = append(repaymentsArgs, strings.TrimSpace(vs))
+				repaymentsArgCount++
+			}
+			repaymentsQuery += fmt.Sprintf(" AND l.verification_status IN (%s)", strings.Join(placeholders, ","))
+		}
+	}
+
+	if dpdMin, ok := filters["dpd_min"].(int); ok {
+		repaymentsQuery += fmt.Sprintf(" AND l.current_dpd >= $%d", repaymentsArgCount)
+		repaymentsArgs = append(repaymentsArgs, dpdMin)
+		repaymentsArgCount++
+	}
+
+	if dpdMax, ok := filters["dpd_max"].(int); ok {
+		repaymentsQuery += fmt.Sprintf(" AND l.current_dpd <= $%d", repaymentsArgCount)
+		repaymentsArgs = append(repaymentsArgs, dpdMax)
+		repaymentsArgCount++
+	}
+
+	var totalRepaymentsToday float64
+	err = r.db.QueryRow(repaymentsQuery, repaymentsArgs...).Scan(&totalRepaymentsToday)
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate today's repayments: %w", err)
 	}
 
 	// Calculate percentages
@@ -1065,6 +1246,12 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 	criticalPercentage := 0.0
 	if totalLoans > 0 {
 		criticalPercentage = (float64(criticalCount) / float64(totalLoans)) * 100
+	}
+
+	// Calculate percentage of due collected
+	percentageDueCollected := 0.0
+	if totalDueForToday > 0 {
+		percentageDueCollected = (totalRepaymentsToday / totalDueForToday) * 100
 	}
 
 	// Build response
@@ -1087,6 +1274,9 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 			"okay":      okayDelayCount,
 			"critical":  criticalDelayCount,
 		},
+		"total_due_for_today":         totalDueForToday,
+		"total_repayments_today":      totalRepaymentsToday,
+		"percentage_of_due_collected": percentageDueCollected,
 	}
 
 	return metrics, nil
@@ -1260,20 +1450,50 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 		argCount++
 	}
 
-	// Loan type filter
+	// Loan type filter - support comma-separated values for multiple loan types
 	if loanType, ok := filters["loan_type"].(string); ok && loanType != "" {
-		query += fmt.Sprintf(" AND l.loan_type = $%d", argCount)
-		countQuery += fmt.Sprintf(" AND l.loan_type = $%d", argCount)
-		args = append(args, loanType)
-		argCount++
+		loanTypes := strings.Split(loanType, ",")
+		fmt.Printf("DEBUG GetAllLoans: loan_type filter - input: '%s', split into %d types: %v\n", loanType, len(loanTypes), loanTypes)
+		if len(loanTypes) == 1 {
+			query += fmt.Sprintf(" AND l.loan_type = $%d", argCount)
+			countQuery += fmt.Sprintf(" AND l.loan_type = $%d", argCount)
+			args = append(args, loanTypes[0])
+			argCount++
+		} else {
+			placeholders := make([]string, len(loanTypes))
+			for i, lt := range loanTypes {
+				placeholders[i] = fmt.Sprintf("$%d", argCount)
+				trimmed := strings.TrimSpace(lt)
+				args = append(args, trimmed)
+				fmt.Printf("DEBUG GetAllLoans: Adding loan type '%s' (trimmed: '%s') at position $%d\n", lt, trimmed, argCount)
+				argCount++
+			}
+			inClause := fmt.Sprintf(" AND l.loan_type IN (%s)", strings.Join(placeholders, ","))
+			fmt.Printf("DEBUG GetAllLoans: loan_type IN clause: %s, total args so far: %d\n", inClause, len(args))
+			query += inClause
+			countQuery += inClause
+		}
 	}
 
-	// Verification status filter
+	// Verification status filter - support comma-separated values for multiple verification statuses
 	if verificationStatus, ok := filters["verification_status"].(string); ok && verificationStatus != "" {
-		query += fmt.Sprintf(" AND l.verification_status = $%d", argCount)
-		countQuery += fmt.Sprintf(" AND l.verification_status = $%d", argCount)
-		args = append(args, verificationStatus)
-		argCount++
+		verificationStatuses := strings.Split(verificationStatus, ",")
+		if len(verificationStatuses) == 1 {
+			query += fmt.Sprintf(" AND l.verification_status = $%d", argCount)
+			countQuery += fmt.Sprintf(" AND l.verification_status = $%d", argCount)
+			args = append(args, verificationStatuses[0])
+			argCount++
+		} else {
+			placeholders := make([]string, len(verificationStatuses))
+			for i, vs := range verificationStatuses {
+				placeholders[i] = fmt.Sprintf("$%d", argCount)
+				args = append(args, strings.TrimSpace(vs))
+				argCount++
+			}
+			inClause := fmt.Sprintf(" AND l.verification_status IN (%s)", strings.Join(placeholders, ","))
+			query += inClause
+			countQuery += inClause
+		}
 	}
 
 	// DPD range filter
@@ -1697,6 +1917,10 @@ func (r *DashboardRepository) GetFilterOptions(filterType string, filters map[st
 		return r.getOfficerOptions(filters)
 	case "statuses":
 		return r.getStatuses()
+	case "loan-types":
+		return r.getLoanTypes()
+	case "verification-statuses":
+		return r.getVerificationStatuses()
 	default:
 		return nil, fmt.Errorf("unknown filter type: %s", filterType)
 	}
@@ -1871,6 +2095,58 @@ func (r *DashboardRepository) getStatuses() ([]string, error) {
 	}
 
 	return statuses, nil
+}
+
+func (r *DashboardRepository) getLoanTypes() ([]string, error) {
+	query := `SELECT DISTINCT l.loan_type FROM loans l
+		INNER JOIN officers o ON l.officer_id = o.officer_id
+		WHERE l.loan_type IS NOT NULL
+		AND l.loan_type != ''
+		AND (o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT') OR o.user_type IS NULL)
+		ORDER BY l.loan_type`
+
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	loanTypes := []string{}
+	for rows.Next() {
+		var loanType string
+		if err := rows.Scan(&loanType); err != nil {
+			return nil, err
+		}
+		loanTypes = append(loanTypes, loanType)
+	}
+
+	return loanTypes, nil
+}
+
+func (r *DashboardRepository) getVerificationStatuses() ([]string, error) {
+	query := `SELECT DISTINCT l.verification_status FROM loans l
+		INNER JOIN officers o ON l.officer_id = o.officer_id
+		WHERE l.verification_status IS NOT NULL
+		AND l.verification_status != ''
+		AND (o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT') OR o.user_type IS NULL)
+		ORDER BY l.verification_status`
+
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	verificationStatuses := []string{}
+	for rows.Next() {
+		var status string
+		if err := rows.Scan(&status); err != nil {
+			return nil, err
+		}
+		verificationStatuses = append(verificationStatuses, status)
+	}
+
+	return verificationStatuses, nil
 }
 
 func (r *DashboardRepository) getOfficerOptions(filters map[string]interface{}) ([]*models.OfficerOption, error) {

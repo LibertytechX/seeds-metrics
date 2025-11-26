@@ -390,7 +390,7 @@ func (r *DjangoRepository) GetLoans(ctx context.Context, limit, offset int) ([]m
 			END as status,
 			l.performance_status,
 			l.loan_type,
-			l.verification_status,
+			l.verification_stage as verification_status,
 			l.created_at,
 			l.updated_at
 		FROM loans_ajoloan l
