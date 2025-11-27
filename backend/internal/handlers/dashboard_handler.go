@@ -1150,3 +1150,40 @@ func (h *DashboardHandler) UpdatePastMaturityStatus(c *gin.Context) {
 		},
 	})
 }
+
+// SyncNewRepayments handles POST /api/v1/sync/repayments
+// @Summary Sync new repayments incrementally
+// @Description Syncs only new repayments from Django (where ID > max existing ID). Much faster than full sync.
+// @Tags Sync
+// @Accept json
+// @Produce json
+// @Success 200 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
+// @Router /sync/repayments [post]
+func (h *DashboardHandler) SyncNewRepayments(c *gin.Context) {
+	log.Println("🔄 Starting incremental repayment sync...")
+
+	result, err := h.syncService.SyncNewRepayments(c.Request.Context())
+	if err != nil {
+		log.Printf("❌ Error syncing new repayments: %v", err)
+		c.JSON(http.StatusInternalServerError, models.APIResponse{
+			Status:  "error",
+			Message: "Failed to sync new repayments",
+			Error:   newAPIError("SYNC_ERROR", err.Error()),
+		})
+		return
+	}
+
+	log.Printf("✅ Incremental sync complete: %d synced, %d errors", result.TotalSynced, result.TotalErrors)
+
+	c.JSON(http.StatusOK, models.APIResponse{
+		Status:  "success",
+		Message: result.Message,
+		Data: map[string]interface{}{
+			"total_synced":    result.TotalSynced,
+			"total_errors":    result.TotalErrors,
+			"last_id_synced":  result.LastIDSynced,
+			"previous_max_id": result.PreviousMaxID,
+		},
+	})
+}

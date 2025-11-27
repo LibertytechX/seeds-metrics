@@ -66,6 +66,10 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	  const [updatingPastMaturity, setUpdatingPastMaturity] = useState(false);
 	  const [pastMaturityResult, setPastMaturityResult] = useState(null);
 
+	  // Sync repayments button state
+	  const [syncingRepayments, setSyncingRepayments] = useState(false);
+	  const [syncResult, setSyncResult] = useState(null);
+
   // Fetch dropdown options (regions, branches, products/loan types)
   useEffect(() => {
     const fetchFilterOptions = async () => {
@@ -504,6 +508,47 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
     }
   };
 
+  // Handler for syncing new repayments
+  const handleSyncRepayments = async () => {
+    if (syncingRepayments) return;
+
+    try {
+      setSyncingRepayments(true);
+      setSyncResult(null);
+
+      const API_BASE_URL = import.meta.env.VITE_API_URL ||
+        (import.meta.env.MODE === 'production' ? '/api/v1' : 'http://localhost:8081/api/v1');
+
+      const response = await fetch(`${API_BASE_URL}/sync/repayments`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.status === 'success') {
+        setSyncResult({
+          success: true,
+          message: `Synced ${data.data.total_synced} repayments`,
+        });
+        // Refresh the page data after sync
+        window.location.reload();
+      } else {
+        throw new Error(data.message || 'Failed to sync repayments');
+      }
+    } catch (err) {
+      console.error('Error syncing repayments:', err);
+      setSyncResult({
+        success: false,
+        message: err.message || 'Error syncing repayments',
+      });
+    } finally {
+      setSyncingRepayments(false);
+    }
+  };
+
   return (
     <div className="collections-page">
       <div className="collections-header">
@@ -525,6 +570,15 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
             title="Update Past Maturity statuses"
           >
             {updatingPastMaturity ? '...' : 'updpm'}
+          </button>
+          <button
+            type="button"
+            className="syncnew-btn"
+            onClick={handleSyncRepayments}
+            disabled={syncingRepayments}
+            title="Sync new repayments from Django"
+          >
+            {syncingRepayments ? '...' : 'syncnew'}
           </button>
         </div>
       </div>

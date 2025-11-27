@@ -122,3 +122,105 @@ func (s *SyncService) SyncLoanRepayments(ctx context.Context, loanID string) (*S
 
 	return result, nil
 }
+
+// SyncNewRepaymentsResult contains the result of syncing new repayments
+type SyncNewRepaymentsResult struct {
+	TotalSynced   int    `json:"total_synced"`
+	TotalErrors   int    `json:"total_errors"`
+	LastIDSynced  int64  `json:"last_id_synced"`
+	PreviousMaxID int64  `json:"previous_max_id"`
+	Message       string `json:"message"`
+}
+
+// SyncNewRepayments syncs only new repayments from Django that have ID > max existing ID
+func (s *SyncService) SyncNewRepayments(ctx context.Context) (*SyncNewRepaymentsResult, error) {
+	log.Printf("🔄 Starting incremental repayment sync...")
+
+	// Get the max repayment ID currently in seedsmetrics
+	maxID, err := s.repaymentRepo.GetMaxRepaymentID(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get max repayment ID: %w", err)
+	}
+	log.Printf("📊 Current max repayment ID in seedsmetrics: %d", maxID)
+
+	// Fetch new repayments from Django in batches
+	batchSize := 1000
+	totalSynced := 0
+	errorCount := 0
+	lastIDSynced := maxID
+
+	for {
+		repayments, err := s.djangoRepo.GetRepaymentsAfterID(ctx, lastIDSynced, batchSize)
+		if err != nil {
+			return nil, fmt.Errorf("failed to fetch new repayments from Django: %w", err)
+		}
+
+		if len(repayments) == 0 {
+			break
+		}
+
+		log.Printf("📦 Processing batch of %d new repayments (after ID %d)", len(repayments), lastIDSynced)
+
+		for _, repaymentData := range repayments {
+			repaymentID, _ := repaymentData["repayment_id"].(string)
+			repaymentIDInt, _ := repaymentData["repayment_id_int"].(int64)
+			loanIDStr, _ := repaymentData["loan_id"].(string)
+			paymentDate, _ := repaymentData["payment_date"].(string)
+			paymentAmount, _ := repaymentData["payment_amount"].(float64)
+			paymentMethod, _ := repaymentData["payment_method"].(string)
+
+			// Skip if essential fields are missing
+			if repaymentID == "" || loanIDStr == "" || paymentDate == "" || paymentAmount <= 0 {
+				errorCount++
+				continue
+			}
+
+			input := &models.RepaymentInput{
+				RepaymentID:   repaymentID,
+				LoanID:        loanIDStr,
+				PaymentDate:   paymentDate,
+				PaymentAmount: decimal.NewFromFloat(paymentAmount),
+				PrincipalPaid: decimal.NewFromFloat(paymentAmount),
+				InterestPaid:  decimal.Zero,
+				FeesPaid:      decimal.Zero,
+				PenaltyPaid:   decimal.Zero,
+				PaymentMethod: paymentMethod,
+				DPDAtPayment:  0,
+				IsBackdated:   false,
+				IsReversed:    false,
+				WaiverAmount:  decimal.Zero,
+			}
+
+			if err := s.repaymentRepo.Create(ctx, input); err != nil {
+				if err.Error() != "loan not found" {
+					log.Printf("❌ Failed to sync repayment %s: %v", input.RepaymentID, err)
+				}
+				errorCount++
+			} else {
+				totalSynced++
+			}
+
+			// Track the highest ID we've processed
+			if repaymentIDInt > lastIDSynced {
+				lastIDSynced = repaymentIDInt
+			}
+		}
+
+		// If we got fewer than batchSize, we're done
+		if len(repayments) < batchSize {
+			break
+		}
+	}
+
+	log.Printf("✅ Incremental sync complete: %d synced, %d errors (ID range: %d -> %d)", totalSynced, errorCount, maxID, lastIDSynced)
+
+	result := &SyncNewRepaymentsResult{
+		TotalSynced:   totalSynced,
+		TotalErrors:   errorCount,
+		LastIDSynced:  lastIDSynced,
+		PreviousMaxID: maxID,
+		Message:       fmt.Sprintf("Synced %d new repayments (%d errors). ID range: %d -> %d", totalSynced, errorCount, maxID, lastIDSynced),
+	}
+
+	return result, nil
+}

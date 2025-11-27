@@ -566,6 +566,72 @@ func (r *DjangoRepository) GetRepayments(ctx context.Context, limit, offset int)
 	return repayments, nil
 }
 
+// GetRepaymentsAfterID retrieves repayments from Django database where ID > afterID
+// This is used for incremental sync to fetch only new repayments
+func (r *DjangoRepository) GetRepaymentsAfterID(ctx context.Context, afterID int64, limit int) ([]map[string]interface{}, error) {
+	query := `
+		SELECT
+			r.id::VARCHAR(50) as repayment_id,
+			r.id as repayment_id_int,
+			r.ajo_loan_id::VARCHAR(50) as loan_id,
+			r.paid_date as payment_date,
+			r.repayment_amount as payment_amount,
+			COALESCE(r.repayment_type, 'TRANSFER') as payment_method,
+			r.created_at,
+			r.updated_at
+		FROM loans_ajoloanrepayment r
+		WHERE r.paid_date IS NOT NULL
+		  AND r.id > $1
+		ORDER BY r.id ASC
+		LIMIT $2
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, afterID, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query repayments after ID %d: %w", afterID, err)
+	}
+	defer rows.Close()
+
+	var repayments []map[string]interface{}
+	for rows.Next() {
+		repayment := make(map[string]interface{})
+		var repaymentID, loanID, paymentMethod string
+		var repaymentIDInt int64
+		var paymentDate, createdAt, updatedAt time.Time
+		var paymentAmount float64
+
+		if err := rows.Scan(
+			&repaymentID,
+			&repaymentIDInt,
+			&loanID,
+			&paymentDate,
+			&paymentAmount,
+			&paymentMethod,
+			&createdAt,
+			&updatedAt,
+		); err != nil {
+			return nil, fmt.Errorf("failed to scan repayment: %w", err)
+		}
+
+		repayment["repayment_id"] = repaymentID
+		repayment["repayment_id_int"] = repaymentIDInt
+		repayment["loan_id"] = loanID
+		repayment["payment_date"] = paymentDate.Format("2006-01-02")
+		repayment["payment_amount"] = paymentAmount
+		repayment["payment_method"] = paymentMethod
+		repayment["created_at"] = createdAt
+		repayment["updated_at"] = updatedAt
+
+		repayments = append(repayments, repayment)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating repayments: %w", err)
+	}
+
+	return repayments, nil
+}
+
 // GetRepaymentsByLoanID retrieves repayments for a specific loan from Django database
 func (r *DjangoRepository) GetRepaymentsByLoanID(ctx context.Context, loanID string) ([]map[string]interface{}, error) {
 	query := `

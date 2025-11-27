@@ -91,7 +91,7 @@ func (r *RepaymentRepository) Create(ctx context.Context, input *models.Repaymen
 // GetByID retrieves a repayment by ID
 func (r *RepaymentRepository) GetByID(ctx context.Context, repaymentID string) (*models.Repayment, error) {
 	query := `
-		SELECT 
+		SELECT
 			repayment_id, loan_id, payment_date, payment_amount,
 			principal_paid, interest_paid, fees_paid, penalty_paid,
 			payment_method, payment_reference, payment_channel,
@@ -127,7 +127,7 @@ func (r *RepaymentRepository) GetByID(ctx context.Context, repaymentID string) (
 // GetByLoanID retrieves all repayments for a loan
 func (r *RepaymentRepository) GetByLoanID(ctx context.Context, loanID string) ([]*models.Repayment, error) {
 	query := `
-		SELECT 
+		SELECT
 			repayment_id, loan_id, payment_date, payment_amount,
 			principal_paid, interest_paid, fees_paid, penalty_paid,
 			payment_method, payment_reference, payment_channel,
@@ -167,3 +167,20 @@ func (r *RepaymentRepository) GetByLoanID(ctx context.Context, loanID string) ([
 	return repayments, nil
 }
 
+// GetMaxRepaymentID returns the highest repayment_id (as integer) currently in the database
+// This is used for incremental sync to determine which repayments are new
+func (r *RepaymentRepository) GetMaxRepaymentID(ctx context.Context) (int64, error) {
+	query := `
+		SELECT COALESCE(MAX(CAST(repayment_id AS BIGINT)), 0)
+		FROM repayments
+		WHERE repayment_id ~ '^[0-9]+$'
+	`
+
+	var maxID int64
+	err := r.db.QueryRowContext(ctx, query).Scan(&maxID)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get max repayment ID: %w", err)
+	}
+
+	return maxID, nil
+}

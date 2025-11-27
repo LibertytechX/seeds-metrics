@@ -92,6 +92,29 @@
   cursor: not-allowed;
 }
 
+/* Sync New Repayments Button */
+.syncnew-btn {
+  padding: 6px 12px;
+  border-radius: 4px;
+  border: none;
+  background: #2196f3;
+  color: white;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  margin-left: 8px;
+}
+
+.syncnew-btn:hover:not(:disabled) {
+  background: #1976d2;
+}
+
+.syncnew-btn:disabled {
+  background: #ccc;
+  cursor: not-allowed;
+}
+
 /* Past Maturity Result Message */
 .past-maturity-result {
   margin-bottom: 16px;

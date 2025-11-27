@@ -189,6 +189,12 @@ func setupRouter(cfg *config.Config, etlHandler *handlers.ETLHandler, customerHa
 			loans.POST("/:loan_id/sync-repayments", dashboardHandler.SyncLoanRepayments)
 		}
 
+		// Sync endpoints
+		sync := v1.Group("/sync")
+		{
+			sync.POST("/repayments", dashboardHandler.SyncNewRepayments)
+		}
+
 		// Filter endpoints
 		filters := v1.Group("/filters")
 		{
