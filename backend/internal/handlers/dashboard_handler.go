@@ -1113,3 +1113,37 @@ func (h *DashboardHandler) SyncLoanRepayments(c *gin.Context) {
 		},
 	})
 }
+
+// UpdatePastMaturityStatus handles POST /api/v1/loans/update-past-maturity
+// @Summary Update past maturity loan statuses
+// @Description Updates django_status to 'PAST_MATURITY' for all loans where current date exceeds maturity_date
+// @Tags Loans
+// @Accept json
+// @Produce json
+// @Success 200 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
+// @Router /loans/update-past-maturity [post]
+func (h *DashboardHandler) UpdatePastMaturityStatus(c *gin.Context) {
+	log.Println("📅 Updating past maturity loan statuses...")
+
+	rowsUpdated, err := h.dashboardRepo.UpdatePastMaturityStatus()
+	if err != nil {
+		log.Printf("❌ Error updating past maturity status: %v", err)
+		c.JSON(http.StatusInternalServerError, models.APIResponse{
+			Status:  "error",
+			Message: "Failed to update past maturity statuses",
+			Error:   newAPIError("UPDATE_FAILED", err.Error()),
+		})
+		return
+	}
+
+	log.Printf("✅ Updated %d loans to PAST_MATURITY status", rowsUpdated)
+
+	c.JSON(http.StatusOK, models.APIResponse{
+		Status:  "success",
+		Message: fmt.Sprintf("Updated %d loans to PAST_MATURITY status", rowsUpdated),
+		Data: map[string]interface{}{
+			"loans_updated": rowsUpdated,
+		},
+	})
+}

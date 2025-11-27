@@ -185,6 +185,7 @@ func setupRouter(cfg *config.Config, etlHandler *handlers.ETLHandler, customerHa
 			loans.GET("", dashboardHandler.GetAllLoans)
 			loans.GET("/:loan_id/repayments", dashboardHandler.GetLoanRepayments)
 			loans.POST("/recalculate-fields", dashboardHandler.RecalculateAllLoanFields)
+			loans.POST("/update-past-maturity", dashboardHandler.UpdatePastMaturityStatus)
 			loans.POST("/:loan_id/sync-repayments", dashboardHandler.SyncLoanRepayments)
 		}
 

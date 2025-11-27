@@ -62,6 +62,10 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	  const [loadingDailyCollections, setLoadingDailyCollections] = useState(false);
 	  const [dailyCollectionsError, setDailyCollectionsError] = useState(null);
 
+	  // Past maturity update button state
+	  const [updatingPastMaturity, setUpdatingPastMaturity] = useState(false);
+	  const [pastMaturityResult, setPastMaturityResult] = useState(null);
+
   // Fetch dropdown options (regions, branches, products/loan types)
   useEffect(() => {
     const fetchFilterOptions = async () => {
@@ -450,6 +454,49 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
     console.log(`Collections Control Centre card clicked: ${target}`);
   };
 
+  // Handler for updating past maturity statuses
+  const handleUpdatePastMaturity = async () => {
+    if (updatingPastMaturity) return;
+
+    try {
+      setUpdatingPastMaturity(true);
+      setPastMaturityResult(null);
+
+      const API_BASE_URL = import.meta.env.VITE_API_URL ||
+        (import.meta.env.MODE === 'production' ? '/api/v1' : 'http://localhost:8081/api/v1');
+
+      const response = await fetch(`${API_BASE_URL}/loans/update-past-maturity`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+      });
+
+      const data = await response.json();
+
+      if (data.status === 'success') {
+        setPastMaturityResult({
+          success: true,
+          message: data.message,
+          loansUpdated: data.data?.loans_updated || 0,
+        });
+        // Refresh metrics after update
+        setFilters({ ...filters });
+      } else {
+        setPastMaturityResult({
+          success: false,
+          message: data.message || 'Failed to update past maturity statuses',
+        });
+      }
+    } catch (err) {
+      console.error('Error updating past maturity status:', err);
+      setPastMaturityResult({
+        success: false,
+        message: err.message || 'Error updating past maturity statuses',
+      });
+    } finally {
+      setUpdatingPastMaturity(false);
+    }
+  };
+
   return (
     <div className="collections-page">
       <div className="collections-header">
@@ -517,7 +564,27 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
             ))}
           </select>
         </div>
+
+        {/* Update Past Maturity Button */}
+        <div className="filter-group action-button-group">
+          <label>&nbsp;</label>
+          <button
+            type="button"
+            className="update-past-maturity-btn"
+            onClick={handleUpdatePastMaturity}
+            disabled={updatingPastMaturity}
+          >
+            {updatingPastMaturity ? 'Updating...' : 'Update Past Maturity'}
+          </button>
+        </div>
       </div>
+
+      {/* Past Maturity Update Result Message */}
+      {pastMaturityResult && (
+        <div className={`past-maturity-result ${pastMaturityResult.success ? 'success' : 'error'}`}>
+          {pastMaturityResult.message}
+        </div>
+      )}
 
       {error && (
         <div className="collections-error">
