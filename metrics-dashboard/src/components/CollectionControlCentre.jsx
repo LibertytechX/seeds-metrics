@@ -571,15 +571,6 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
           >
             {updatingPastMaturity ? '...' : 'updpm'}
           </button>
-          <button
-            type="button"
-            className="syncnew-btn"
-            onClick={handleSyncRepayments}
-            disabled={syncingRepayments}
-            title="Sync new repayments from Django"
-          >
-            {syncingRepayments ? '...' : 'syncnew'}
-          </button>
         </div>
       </div>
 
@@ -893,6 +884,15 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	              onClick={() => handleLeaderboardSort('today_rate')}
 	            >
 	              Sort Rate
+	            </button>
+	            <button
+	              type="button"
+	              className="refresh-branch-btn"
+	              onClick={handleSyncRepayments}
+	              disabled={syncingRepayments}
+	              title="Sync new repayments and refresh branch data"
+	            >
+	              {syncingRepayments ? '...' : 'Refresh Branch Data'}
 	            </button>
 	          </div>
 	        </div>
