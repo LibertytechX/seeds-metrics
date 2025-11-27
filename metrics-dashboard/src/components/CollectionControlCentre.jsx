@@ -1,15 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-	Bar,
-	CartesianGrid,
-	ComposedChart,
-	Legend,
-	ResponsiveContainer,
-	Tooltip as RechartsTooltip,
-	XAxis,
-	YAxis,
-	Line,
-} from 'recharts';
+		Bar,
+		CartesianGrid,
+		ComposedChart,
+		Legend,
+		ResponsiveContainer,
+		Tooltip as RechartsTooltip,
+		XAxis,
+		YAxis,
+		Line,
+		LabelList,
+	} from 'recharts';
 import './CollectionControlCentre.css';
 
 // Reuse the same sentinel value used in AllLoans and backend (MissingValueSentinel)
@@ -22,7 +23,7 @@ const PERIOD_OPTIONS = [
   { value: 'last_month', label: 'Last Month' },
 ];
 
-const CollectionControlCentre = () => {
+const CollectionControlCentre = ({ onNavigateToBranch }) => {
   const [filters, setFilters] = useState({
     period: 'today',
     region: '',
@@ -813,9 +814,21 @@ const CollectionControlCentre = () => {
 	                      const nplPercentage = (typeof b.npl_ratio === 'number' ? b.npl_ratio : 0) * 100;
 	                      const perfPercentage = 100 - nplPercentage;
 	                      const key = `${b.region || 'all'}-${b.branch || 'unknown'}`;
+	                      const branchSlug = (b.branch || 'unknown').toLowerCase().replace(/\s+/g, '-');
+
+	                      const handleRowClick = () => {
+	                        if (onNavigateToBranch && b.branch) {
+	                          onNavigateToBranch(branchSlug);
+	                        }
+	                      };
 
 	                      return (
-	                        <tr key={key}>
+	                        <tr
+	                          key={key}
+	                          className="branch-row-clickable"
+	                          onClick={handleRowClick}
+	                          style={{ cursor: b.branch ? 'pointer' : 'default' }}
+	                        >
 	                          <td>{b.branch || '-'}</td>
 	                          <td>{formatCurrency(b.portfolio_total)}</td>
 	                          <td>{formatCurrency(b.due_today)}</td>

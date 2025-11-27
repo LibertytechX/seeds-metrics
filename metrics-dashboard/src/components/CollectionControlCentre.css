@@ -243,6 +243,24 @@
   color: #666;
 }
 
+/* Clickable branch rows */
+.branch-row-clickable {
+  transition: background-color 0.15s ease;
+}
+
+.branch-row-clickable:hover {
+  background-color: #f3f4f6;
+}
+
+.branch-row-clickable td:first-child {
+  color: #2563eb;
+  font-weight: 500;
+}
+
+.branch-row-clickable:hover td:first-child {
+  text-decoration: underline;
+}
+
 .status-pill {
   display: inline-block;
   padding: 2px 8px;

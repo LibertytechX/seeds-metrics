@@ -8,6 +8,7 @@ import AgentPerformance from './components/AgentPerformance';
 import CreditHealthByBranch from './components/CreditHealthByBranch';
 import AllLoans from './components/AllLoans';
 import CollectionControlCentre from './components/CollectionControlCentre';
+import BranchDetail from './components/BranchDetail';
 import Login from './components/Login';
 import { TabHeader } from './components/Tooltip';
 import { formatTabTooltip } from './utils/metricInfo';
@@ -48,6 +49,7 @@ function App() {
   });
 
   const [activeTab, setActiveTab] = useState('performance');
+  const [branchSlug, setBranchSlug] = useState(null);
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [allLoansFilter, setAllLoansFilter] = useState(null);
   const [agentPerformanceFilter, setAgentPerformanceFilter] = useState(null);
@@ -259,17 +261,58 @@ function App() {
     setActiveTab('allLoans');
   };
 
-	  // Lightweight URL awareness for the Collections Control Centre route
-	  useEffect(() => {
-	    try {
-	      const path = window.location?.pathname || '';
-	      if (path.includes('/collections/control-centre')) {
-	        setActiveTab('collectionsControlCentre');
-	      }
-	    } catch (e) {
-	      // Ignore in non-browser environments
-	    }
-	  }, []);
+  // Lightweight URL awareness for routes
+  useEffect(() => {
+    const handleRouteChange = () => {
+      try {
+        const path = window.location?.pathname || '';
+        if (path.startsWith('/branches/')) {
+          const slug = path.replace('/branches/', '').split('/')[0];
+          setBranchSlug(slug);
+          setActiveTab('branchDetail');
+        } else if (path.includes('/collections/control-centre')) {
+          setBranchSlug(null);
+          setActiveTab('collectionsControlCentre');
+        }
+      } catch (e) {
+        // Ignore in non-browser environments
+      }
+    };
+
+    handleRouteChange();
+
+    // Listen for popstate events (browser back/forward)
+    window.addEventListener('popstate', handleRouteChange);
+    return () => window.removeEventListener('popstate', handleRouteChange);
+  }, []);
+
+  // Navigate to branch detail page
+  const navigateToBranch = (slug) => {
+    const newPath = `/branches/${slug}`;
+    try {
+      if (window.history && window.location?.pathname !== newPath) {
+        window.history.pushState({}, '', newPath);
+      }
+    } catch (e) {
+      // Ignore history errors
+    }
+    setBranchSlug(slug);
+    setActiveTab('branchDetail');
+  };
+
+  // Navigate back from branch detail to Collections Control Centre
+  const navigateBackToCollections = () => {
+    const newPath = '/collections/control-centre';
+    try {
+      if (window.history && window.location?.pathname !== newPath) {
+        window.history.pushState({}, '', newPath);
+      }
+    } catch (e) {
+      // Ignore history errors
+    }
+    setBranchSlug(null);
+    setActiveTab('collectionsControlCentre');
+  };
 
   // Handle login
   const handleLogin = () => {
@@ -474,7 +517,9 @@ function App() {
 	          ) : activeTab === 'creditHealthByBranch' ? (
 	            <CreditHealthByBranch branches={branches} />
 	          ) : activeTab === 'collectionsControlCentre' ? (
-	            <CollectionControlCentre />
+	            <CollectionControlCentre onNavigateToBranch={navigateToBranch} />
+	          ) : activeTab === 'branchDetail' ? (
+	            <BranchDetail branchSlug={branchSlug} onBack={navigateBackToCollections} />
 	          ) : activeTab === 'allLoans' ? (
 	            <AllLoans
 	              key={JSON.stringify(allLoansFilter)}
