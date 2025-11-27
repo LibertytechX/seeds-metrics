@@ -143,6 +143,30 @@
   margin-top: 32px;
 }
 
+.branch-leaderboard-split {
+  display: flex;
+  gap: 16px;
+  margin-top: 8px;
+  max-height: 420px;
+}
+
+.branch-leaderboard-main,
+.branch-leaderboard-side {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.branch-leaderboard-main {
+  flex: 3;
+  min-width: 0;
+}
+
+.branch-leaderboard-side {
+  flex: 1;
+  min-width: 0;
+}
+
 .branch-leaderboard-header {
   display: flex;
   justify-content: space-between;
@@ -184,8 +208,14 @@
 }
 
 .branch-leaderboard-table-wrapper {
-  overflow-x: auto;
-  margin-top: 8px;
+	overflow-x: auto;
+	margin-top: 8px;
+}
+
+/* Ensure the table area scrolls within the split layout */
+.branch-leaderboard-main .branch-leaderboard-table-wrapper {
+  flex: 1;
+  overflow: auto;
 }
 
 .branch-leaderboard-table {
@@ -266,6 +296,20 @@
   font-size: 11px;
   color: #555;
   white-space: nowrap;
+}
+
+.branch-leaderboard-side-content {
+  flex: 1;
+  border-radius: 8px;
+  border: 1px solid #e0e0e0;
+  background: #ffffff;
+  padding: 12px;
+  overflow-y: auto;
+}
+
+.branch-leaderboard-side-placeholder {
+  font-size: 13px;
+  color: #777;
 }
 
 .collections-error.small {

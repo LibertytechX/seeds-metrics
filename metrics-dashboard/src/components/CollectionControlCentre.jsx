@@ -509,81 +509,94 @@ const CollectionControlCentre = () => {
 	          </div>
 	        )}
 
-		        <div className="branch-leaderboard-table-wrapper">
-		          <table className="branch-leaderboard-table">
-		            <thead>
-		              <tr>
-		                <th>Branch</th>
-		                <th>Portfolio</th>
-		                <th>Due</th>
-		                <th>Coll.</th>
-		                <th>Today%</th>
-		                <th>MTD%</th>
-		                <th>Progress</th>
-		                <th>Missed</th>
-		                <th>Perf%</th>
-		                <th>NPL%</th>
-		                <th>Status</th>
-		              </tr>
-		            </thead>
-		            <tbody>
-		              {loadingBranches ? (
-		                <tr>
-		                  <td colSpan={11} className="branch-leaderboard-loading">
-		                    Loading branch leaderboard...
-		                  </td>
-		                </tr>
-		              ) : sortedBranchLeaderboard.length === 0 ? (
-		                <tr>
-		                  <td colSpan={11} className="branch-leaderboard-empty">
-		                    No branches found for the selected filters.
-		                  </td>
-		                </tr>
-		              ) : (
-		                sortedBranchLeaderboard.map((b) => {
-		                  const todayRatePercentage = (typeof b.today_rate === 'number' ? b.today_rate : 0) * 100;
-		                  const mtdRatePercentage = (typeof b.mtd_rate === 'number' ? b.mtd_rate : 0) * 100;
-                          const progressRatePercentage = (typeof b.progress_rate === 'number' ? b.progress_rate : 0) * 100;
-		                  const nplPercentage = (typeof b.npl_ratio === 'number' ? b.npl_ratio : 0) * 100;
-		                  const perfPercentage = 100 - nplPercentage;
-		                  const key = `${b.region || 'all'}-${b.branch || 'unknown'}`;
+	        <div className="branch-leaderboard-split">
+	          <div className="branch-leaderboard-main">
+	            <div className="branch-leaderboard-table-wrapper">
+	              <table className="branch-leaderboard-table">
+	                <thead>
+	                  <tr>
+	                    <th>Branch</th>
+	                    <th>Portfolio</th>
+	                    <th>Due</th>
+	                    <th>Coll.</th>
+	                    <th>Today%</th>
+	                    <th>MTD%</th>
+	                    <th>Progress</th>
+	                    <th>Missed</th>
+	                    <th>Perf%</th>
+	                    <th>NPL%</th>
+	                    <th>Status</th>
+	                  </tr>
+	                </thead>
+	                <tbody>
+	                  {loadingBranches ? (
+	                    <tr>
+	                      <td colSpan={11} className="branch-leaderboard-loading">
+	                        Loading branch leaderboard...
+	                      </td>
+	                    </tr>
+	                  ) : sortedBranchLeaderboard.length === 0 ? (
+	                    <tr>
+	                      <td colSpan={11} className="branch-leaderboard-empty">
+	                        No branches found for the selected filters.
+	                      </td>
+	                    </tr>
+	                  ) : (
+	                    sortedBranchLeaderboard.map((b) => {
+	                      const todayRatePercentage = (typeof b.today_rate === 'number' ? b.today_rate : 0) * 100;
+	                      const mtdRatePercentage = (typeof b.mtd_rate === 'number' ? b.mtd_rate : 0) * 100;
+	                      const progressRatePercentage = (typeof b.progress_rate === 'number' ? b.progress_rate : 0) * 100;
+	                      const nplPercentage = (typeof b.npl_ratio === 'number' ? b.npl_ratio : 0) * 100;
+	                      const perfPercentage = 100 - nplPercentage;
+	                      const key = `${b.region || 'all'}-${b.branch || 'unknown'}`;
 
-		                  return (
-		                    <tr key={key}>
-					              <td>{b.branch || ''}</td>
-		                      <td>{formatCurrency(b.portfolio_total)}</td>
-		                      <td>{formatCurrency(b.due_today)}</td>
-		                      <td>{formatCurrency(b.collected_today)}</td>
-		                      <td>{formatPercent(todayRatePercentage)}</td>
-		                      <td>{formatPercent(mtdRatePercentage)}</td>
-                              <td>
-                                <div className="progress-cell">
-                                  <div className="progress-bar">
-                                    <div
-                                      className="progress-bar-fill"
-                                      style={{ width: `${Math.max(0, Math.min(100, progressRatePercentage))}%` }}
-                                    />
-                                  </div>
-                                  <span className="progress-bar-label">
-                                    {formatPercent(progressRatePercentage)}
-                                  </span>
-                                </div>
-                              </td>
-		                      <td>{formatCurrency(b.missed_today)}</td>
-		                      <td>{formatPercent(perfPercentage)}</td>
-		                      <td>{formatPercent(nplPercentage)}</td>
-		                      <td>
-		                        <span className={`status-pill status-${(b.status || 'OK').toLowerCase()}`}>
-		                          {b.status || 'OK'}
-		                        </span>
-		                      </td>
-		                    </tr>
-		                  );
-		                })
-		              )}
-		            </tbody>
-		          </table>
-		        </div>
+	                      return (
+	                        <tr key={key}>
+	                          <td>{b.branch || '-'}</td>
+	                          <td>{formatCurrency(b.portfolio_total)}</td>
+	                          <td>{formatCurrency(b.due_today)}</td>
+	                          <td>{formatCurrency(b.collected_today)}</td>
+	                          <td>{formatPercent(todayRatePercentage)}</td>
+	                          <td>{formatPercent(mtdRatePercentage)}</td>
+	                          <td>
+	                            <div className="progress-cell">
+	                              <div className="progress-bar">
+	                                <div
+	                                  className="progress-bar-fill"
+	                                  style={{ width: `${Math.max(0, Math.min(100, progressRatePercentage))}%` }}
+	                                />
+	                              </div>
+	                              <span className="progress-bar-label">
+	                                {formatPercent(progressRatePercentage)}
+	                              </span>
+	                            </div>
+	                          </td>
+	                          <td>{formatCurrency(b.missed_today)}</td>
+	                          <td>{formatPercent(perfPercentage)}</td>
+	                          <td>{formatPercent(nplPercentage)}</td>
+	                          <td>
+	                            <span className={`status-pill status-${(b.status || 'OK').toLowerCase()}`}>
+	                              {b.status || 'OK'}
+	                            </span>
+	                          </td>
+	                        </tr>
+	                      );
+	                    })
+	                  )}
+	                </tbody>
+	              </table>
+	            </div>
+	          </div>
+
+	          <div className="branch-leaderboard-side">
+	            <div className="branch-leaderboard-side-content">
+	              <div className="branch-leaderboard-side-placeholder">
+	                {/* Placeholder for upcoming secondary view */}
+	                <p>Secondary view coming soon.</p>
+	              </div>
+	            </div>
+	          </div>
+	        </div>
 	      </div>
     </div>
   );
