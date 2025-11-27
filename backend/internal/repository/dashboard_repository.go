@@ -917,7 +917,17 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 			COALESCE(SUM(CASE WHEN l.repayment_delay_rate >= 80 THEN 1 ELSE 0 END), 0) as excellent_delay_count,
 			COALESCE(SUM(CASE WHEN l.repayment_delay_rate >= 40 AND l.repayment_delay_rate < 80 THEN 1 ELSE 0 END), 0) as okay_delay_count,
 			COALESCE(SUM(CASE WHEN l.repayment_delay_rate < 40 THEN 1 ELSE 0 END), 0) as critical_delay_count,
-			COALESCE(SUM(CASE WHEN l.actual_outstanding > 0 THEN l.daily_repayment_amount ELSE 0 END), 0) as total_due_for_today
+				COALESCE(SUM(CASE WHEN l.actual_outstanding > 0 THEN l.daily_repayment_amount ELSE 0 END), 0) as total_due_for_today,
+				COALESCE(SUM(
+					CASE
+						-- Past maturity outstanding: loans whose contractual end date has passed
+						-- (based on mirrored maturity_date from Django) and still have
+						-- positive actual_outstanding.
+						WHEN l.maturity_date IS NOT NULL AND l.maturity_date < CURRENT_DATE AND l.actual_outstanding > 0
+							THEN l.actual_outstanding
+						ELSE 0
+					END
+				), 0) as past_maturity_outstanding
 		FROM loans l
 		JOIN officers o ON l.officer_id = o.officer_id
 		WHERE 1=1
@@ -1207,7 +1217,7 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 
 	// Execute query
 	var totalLoans, atRiskCount, criticalCount, excellentDelayCount, okayDelayCount, criticalDelayCount int
-	var totalPortfolioAmount, atRiskAmount, atRiskOutstanding, totalAmountInDPD, totalDueForToday float64
+	var totalPortfolioAmount, atRiskAmount, atRiskOutstanding, totalAmountInDPD, totalDueForToday, pastMaturityOutstanding float64
 
 	err := r.db.QueryRow(query, args...).Scan(
 		&totalLoans,
@@ -1221,6 +1231,7 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 		&okayDelayCount,
 		&criticalDelayCount,
 		&totalDueForToday,
+		&pastMaturityOutstanding,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate summary metrics: %w", err)
@@ -1797,6 +1808,7 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 		"percentage_of_due_collected":   percentageDueCollected,
 		"missed_repayments_today":       missedAmountToday,
 		"missed_repayments_today_count": missedCountToday,
+		"past_maturity_outstanding":     pastMaturityOutstanding,
 	}
 
 	return metrics, nil

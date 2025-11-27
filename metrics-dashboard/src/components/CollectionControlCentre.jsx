@@ -176,18 +176,19 @@ const CollectionControlCentre = () => {
 
   const isLoading = loadingFilters || loadingMetrics;
 
-	  // Derived values from existing summary metrics
-	  const totalDueToday = summaryMetrics?.total_due_for_today ?? null;
-	  // For Collections Received, use the unrestricted "all repayments" value
-	  // when available; fall back to the restricted one if needed.
-	  const totalRepaidToday =
-	    totalRepaidTodayAll ?? summaryMetrics?.total_repayments_today ?? null;
-	  const collectionRateToday = summaryMetrics?.percentage_of_due_collected ?? null;
-	  const missedRepaymentsTodayAmount = summaryMetrics?.missed_repayments_today ?? null;
-	  const missedRepaymentsTodayCount = summaryMetrics?.missed_repayments_today_count ?? null;
-  const atRiskInfo = summaryMetrics?.at_risk_loans || null;
-  const totalPortfolioAmount = summaryMetrics?.total_portfolio_amount ?? null;
-  const totalInDPD = summaryMetrics?.total_amount_in_dpd ?? null;
+		  // Derived values from existing summary metrics
+		  const totalDueToday = summaryMetrics?.total_due_for_today ?? null;
+		  // For Collections Received, use the unrestricted "all repayments" value
+		  // when available; fall back to the restricted one if needed.
+		  const totalRepaidToday =
+		    totalRepaidTodayAll ?? summaryMetrics?.total_repayments_today ?? null;
+		  const collectionRateToday = summaryMetrics?.percentage_of_due_collected ?? null;
+		  const missedRepaymentsTodayAmount = summaryMetrics?.missed_repayments_today ?? null;
+		  const missedRepaymentsTodayCount = summaryMetrics?.missed_repayments_today_count ?? null;
+	  const atRiskInfo = summaryMetrics?.at_risk_loans || null;
+	  const totalPortfolioAmount = summaryMetrics?.total_portfolio_amount ?? null;
+	  const totalInDPD = summaryMetrics?.total_amount_in_dpd ?? null;
+	  const pastMaturityOutstanding = summaryMetrics?.past_maturity_outstanding ?? null;
 
   const handleCardClick = (target) => {
     // Placeholder click handlers – these will later open specific drilldown tables
@@ -325,16 +326,20 @@ const CollectionControlCentre = () => {
 	          </div>
         </button>
 
-        {/* 5. Past Maturity Outstanding – placeholder */}
-        <button
-          type="button"
-          className="collection-card kpi-red"
-          onClick={() => handleCardClick('past-maturity-outstanding')}
-        >
-          <div className="card-label">Past Maturity Outstanding</div>
-          <div className="card-value">Coming soon</div>
-          <div className="card-subtitle">Outstanding balance on loans past maturity date</div>
-        </button>
+	        {/* 5. Past Maturity Outstanding */}
+	        <button
+	          type="button"
+	          className="collection-card kpi-red"
+	          onClick={() => handleCardClick('past-maturity-outstanding')}
+	        >
+	          <div className="card-label">Past Maturity Outstanding</div>
+		          <div className="card-value">
+		            {pastMaturityOutstanding != null
+		              ? formatCurrency(pastMaturityOutstanding)
+		              : 'N/A'}
+		          </div>
+	          <div className="card-subtitle">Outstanding balance on loans past maturity date</div>
+	        </button>
 
         {/* 6. Portfolio Outstanding (using total portfolio for now) */}
         <button
