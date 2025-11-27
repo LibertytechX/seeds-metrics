@@ -30,12 +30,14 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
     region: '',
     branch: '',
     product: '',
+    wave: '',
   });
 
   const [filterOptions, setFilterOptions] = useState({
     regions: [],
     branches: [],
     products: [],
+    waves: [],
   });
 
 	  const [summaryMetrics, setSummaryMetrics] = useState(null);
@@ -70,41 +72,44 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	  const [syncingRepayments, setSyncingRepayments] = useState(false);
 	  const [syncResult, setSyncResult] = useState(null);
 
-  // Fetch dropdown options (regions, branches, products/loan types)
-  useEffect(() => {
-    const fetchFilterOptions = async () => {
-      try {
-        setLoadingFilters(true);
+	  // Fetch dropdown options (regions, branches, products/loan types, waves)
+	  useEffect(() => {
+	    const fetchFilterOptions = async () => {
+	      try {
+	        setLoadingFilters(true);
 
-        const API_BASE_URL = import.meta.env.VITE_API_URL ||
-          (import.meta.env.MODE === 'production' ? '/api/v1' : 'http://localhost:8081/api/v1');
+	        const API_BASE_URL = import.meta.env.VITE_API_URL ||
+	          (import.meta.env.MODE === 'production' ? '/api/v1' : 'http://localhost:8081/api/v1');
 
-        const [regionsRes, branchesRes, productsRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/filters/regions`),
-          fetch(`${API_BASE_URL}/filters/branches`),
-          fetch(`${API_BASE_URL}/filters/loan-types`),
-        ]);
+	        const [regionsRes, branchesRes, productsRes, wavesRes] = await Promise.all([
+	          fetch(`${API_BASE_URL}/filters/regions`),
+	          fetch(`${API_BASE_URL}/filters/branches`),
+	          fetch(`${API_BASE_URL}/filters/loan-types`),
+	          fetch(`${API_BASE_URL}/filters/waves`),
+	        ]);
 
-        const [regionsData, branchesData, productsData] = await Promise.all([
-          regionsRes.json(),
-          branchesRes.json(),
-          productsRes.json(),
-        ]);
+	        const [regionsData, branchesData, productsData, wavesData] = await Promise.all([
+	          regionsRes.json(),
+	          branchesRes.json(),
+	          productsRes.json(),
+	          wavesRes.json(),
+	        ]);
 
-        const regions = regionsData?.data?.regions || [];
-        const branches = (branchesData?.data?.branches || []).map((b) => b.branch || b);
-        const products = productsData?.data?.['loan-types'] || [];
+	        const regions = regionsData?.data?.regions || [];
+	        const branches = (branchesData?.data?.branches || []).map((b) => b.branch || b);
+	        const products = productsData?.data?.['loan-types'] || [];
+	        const waves = wavesData?.data?.waves || [];
 
-        setFilterOptions({ regions, branches, products });
-      } catch (err) {
-        console.error('Error fetching Collection Control Centre filter options:', err);
-      } finally {
-        setLoadingFilters(false);
-      }
-    };
+	        setFilterOptions({ regions, branches, products, waves });
+	      } catch (err) {
+	        console.error('Error fetching Collection Control Centre filter options:', err);
+	      } finally {
+	        setLoadingFilters(false);
+	      }
+	    };
 
-    fetchFilterOptions();
-  }, []);
+	    fetchFilterOptions();
+	  }, []);
 
 	  // Refresh collections metrics whenever filters change
 	  useEffect(() => {
@@ -130,6 +135,9 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	        if (filters.product) {
 	          baseParams.set('loan_type', filters.product);
 	        }
+		        if (filters.wave) {
+		          baseParams.set('wave', filters.wave);
+		        }
 	        if (filters.period) {
 	          baseParams.set('period', filters.period);
 	        }
@@ -185,8 +193,8 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	      }
 	    };
 
-	    fetchSummaryMetrics();
-	  }, [filters.branch, filters.region, filters.product, filters.period]);
+		    	fetchSummaryMetrics();
+		  }, [filters.branch, filters.region, filters.product, filters.wave, filters.period]);
 
 	  // Fetch branch collections leaderboard (per-branch breakdown) when filters change.
 	  useEffect(() => {
@@ -208,6 +216,9 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	        if (filters.product) {
 	          params.set('loan_type', filters.product);
 	        }
+		        if (filters.wave) {
+		          params.set('wave', filters.wave);
+		        }
 
 	        // Apply django_status filter based on period (today_only vs others)
 	        // This matches the same logic used for summary metrics so totals align
@@ -237,8 +248,8 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	      }
 	    };
 
-	    fetchBranchLeaderboard();
-	  }, [filters.branch, filters.region, filters.product, filters.period]);
+		    	fetchBranchLeaderboard();
+		  }, [filters.branch, filters.region, filters.product, filters.wave, filters.period]);
 
 		  // Fetch daily collections time series for the chart whenever core filters change.
 		  useEffect(() => {
@@ -263,6 +274,9 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 		        if (filters.product) {
 		          params.set('loan_type', filters.product);
 		        }
+		        if (filters.wave) {
+		          params.set('wave', filters.wave);
+		        }
 
 		        const queryString = params.toString();
 		        const url = queryString
@@ -285,8 +299,8 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 		      }
 		    };
 
-		    fetchDailyCollections();
-		  }, [filters.branch, filters.region, filters.product, filters.period]);
+			    fetchDailyCollections();
+			  }, [filters.branch, filters.region, filters.product, filters.wave, filters.period]);
 
   const handleFilterChange = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -625,6 +639,19 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
             ))}
           </select>
         </div>
+
+	        <div className="filter-group">
+	          <label>Wave</label>
+	          <select
+	            value={filters.wave}
+	            onChange={(e) => handleFilterChange('wave', e.target.value)}
+	          >
+	            <option value="">All Waves</option>
+	            {filterOptions.waves.map((wave) => (
+	              <option key={wave} value={wave}>{wave}</option>
+	            ))}
+	          </select>
+	        </div>
 
       </div>
 
