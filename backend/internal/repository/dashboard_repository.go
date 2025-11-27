@@ -904,41 +904,19 @@ func (r *DashboardRepository) GetEarlyIndicatorLoans(filters map[string]interfac
 
 // GetLoansSummaryMetrics calculates summary metrics for all loans matching the given filters
 func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interface{}) (map[string]interface{}, error) {
-	// Determine requested period for period-based metrics (repayments, past maturity, etc.).
-	// Defaults to "today" semantics if not specified.
+	// Determine requested period for period-based metrics (currently used for
+	// repayments-only aggregates further down). Defaults to "today" semantics
+	// if not specified.
 	period := ""
 	if p, ok := filters["period"].(string); ok {
 		period = strings.TrimSpace(strings.ToLower(p))
 	}
 
-	// Compute the start of the selected period. For Past Maturity Outstanding we
-	// include loans whose maturity_date is **after this start date** (i.e. they
-	// matured after the beginning of the selected window) and are already past
-	// maturity as of today.
-	periodStartExpr := "CURRENT_DATE"
-
-	switch period {
-	case "this_week":
-		// Start of the current week
-		periodStartExpr = "DATE_TRUNC('week', CURRENT_DATE)::date"
-	case "this_month":
-		// First day of the current month
-		periodStartExpr = "DATE_TRUNC('month', CURRENT_DATE)::date"
-	case "last_month":
-		// First day of the previous month
-		periodStartExpr = "(DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '1 month')::date"
-	default:
-		// "today" or any unrecognised value: treat start as today
-		periodStartExpr = "CURRENT_DATE"
-	}
-
-	// Base query for summary metrics. We embed the period start expression directly
-	// so that past_maturity_outstanding can be defined as:
-	//   loans with maturity_date >= period_start AND maturity_date < CURRENT_DATE
-	//   AND actual_outstanding > 0
-	// i.e. loans whose end date is after the start of the selected period and are
-	// already past maturity as of today.
-	query := fmt.Sprintf(`
+	// Base query for summary metrics. Past maturity outstanding here is defined
+	// purely as "all loans where today is past the maturity_date" (i.e.
+	// maturity_date < CURRENT_DATE) and actual_outstanding is still positive,
+	// independent of the selected period filter.
+	query := `
 		SELECT
 			COUNT(*) as total_loans,
 			COALESCE(SUM(l.loan_amount), 0) as total_portfolio_amount,
@@ -951,24 +929,23 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 			COALESCE(SUM(CASE WHEN l.repayment_delay_rate >= 40 AND l.repayment_delay_rate < 80 THEN 1 ELSE 0 END), 0) as okay_delay_count,
 			COALESCE(SUM(CASE WHEN l.repayment_delay_rate < 40 THEN 1 ELSE 0 END), 0) as critical_delay_count,
 				COALESCE(SUM(CASE WHEN l.actual_outstanding > 0 THEN l.daily_repayment_amount ELSE 0 END), 0) as total_due_for_today,
-				COALESCE(SUM(
-					CASE
-						-- Past maturity outstanding (period-aware): loans whose contractual end
-						-- date (maturity_date) is after the start of the selected period and that
-						-- are already past maturity as of today.
-						WHEN l.maturity_date IS NOT NULL
-							AND l.maturity_date >= %s
-							AND l.maturity_date < CURRENT_DATE
-							AND l.actual_outstanding > 0
-							THEN l.actual_outstanding
-						ELSE 0
-					END
-				), 0) as past_maturity_outstanding
-		FROM loans l
-		JOIN officers o ON l.officer_id = o.officer_id
-		WHERE 1=1
-			AND (o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT') OR o.user_type IS NULL)
-	`, periodStartExpr)
+					COALESCE(SUM(
+						CASE
+							-- Past maturity outstanding: all loans for which today is past
+							-- the contractual end date (maturity_date) and which still have a
+							-- positive actual_outstanding balance.
+							WHEN l.maturity_date IS NOT NULL
+								AND l.maturity_date < CURRENT_DATE
+								AND l.actual_outstanding > 0
+								THEN l.actual_outstanding
+							ELSE 0
+						END
+					), 0) as past_maturity_outstanding
+			FROM loans l
+			JOIN officers o ON l.officer_id = o.officer_id
+			WHERE 1=1
+				AND (o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT') OR o.user_type IS NULL)
+		`
 
 	args := []interface{}{}
 	argCount := 1
