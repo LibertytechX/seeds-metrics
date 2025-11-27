@@ -904,8 +904,41 @@ func (r *DashboardRepository) GetEarlyIndicatorLoans(filters map[string]interfac
 
 // GetLoansSummaryMetrics calculates summary metrics for all loans matching the given filters
 func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interface{}) (map[string]interface{}, error) {
-	// Base query for summary metrics
-	query := `
+	// Determine requested period for period-based metrics (repayments, past maturity, etc.).
+	// Defaults to "today" semantics if not specified.
+	period := ""
+	if p, ok := filters["period"].(string); ok {
+		period = strings.TrimSpace(strings.ToLower(p))
+	}
+
+	// Compute a date range [periodStart, periodEnd] for the selected period.
+	// This is used for period-aware aggregates such as past_maturity_outstanding.
+	periodStartExpr := "CURRENT_DATE"
+	periodEndExpr := "CURRENT_DATE"
+
+	switch period {
+	case "this_week":
+		// Week-to-date: from the start of the current week up to today
+		periodStartExpr = "DATE_TRUNC('week', CURRENT_DATE)::date"
+		periodEndExpr = "CURRENT_DATE"
+	case "this_month":
+		// Month-to-date: from the first day of the month up to today
+		periodStartExpr = "DATE_TRUNC('month', CURRENT_DATE)::date"
+		periodEndExpr = "CURRENT_DATE"
+	case "last_month":
+		// Full previous month
+		periodStartExpr = "(DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '1 month')::date"
+		periodEndExpr = "(DATE_TRUNC('month', CURRENT_DATE)::date - INTERVAL '1 day')"
+	default:
+		// "today" or any unrecognised value: treat as a single-day period (today)
+		periodStartExpr = "CURRENT_DATE"
+		periodEndExpr = "CURRENT_DATE"
+	}
+
+	// Base query for summary metrics. We embed the period expressions directly to keep
+	// the CASE expression for past_maturity_outstanding period-aware while still
+	// using the current snapshot of actual_outstanding.
+	query := fmt.Sprintf(`
 		SELECT
 			COUNT(*) as total_loans,
 			COALESCE(SUM(l.loan_amount), 0) as total_portfolio_amount,
@@ -920,10 +953,13 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 				COALESCE(SUM(CASE WHEN l.actual_outstanding > 0 THEN l.daily_repayment_amount ELSE 0 END), 0) as total_due_for_today,
 				COALESCE(SUM(
 					CASE
-						-- Past maturity outstanding: loans whose contractual end date has passed
-						-- (based on mirrored maturity_date from Django) and still have
-						-- positive actual_outstanding.
-						WHEN l.maturity_date IS NOT NULL AND l.maturity_date < CURRENT_DATE AND l.actual_outstanding > 0
+						-- Past maturity outstanding (period-aware): loans whose contractual end date
+						-- (maturity_date) falls within the selected period and still have positive
+						-- actual_outstanding as of today.
+						WHEN l.maturity_date IS NOT NULL
+							AND l.maturity_date >= %s
+							AND l.maturity_date <= %s
+							AND l.actual_outstanding > 0
 							THEN l.actual_outstanding
 						ELSE 0
 					END
@@ -932,7 +968,7 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 		JOIN officers o ON l.officer_id = o.officer_id
 		WHERE 1=1
 			AND (o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT') OR o.user_type IS NULL)
-	`
+	`, periodStartExpr, periodEndExpr)
 
 	args := []interface{}{}
 	argCount := 1
@@ -1235,12 +1271,6 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate summary metrics: %w", err)
-	}
-
-	// Determine requested period for repayments summary. Defaults to "today" if not specified.
-	period := ""
-	if p, ok := filters["period"].(string); ok {
-		period = strings.TrimSpace(strings.ToLower(p))
 	}
 
 	// Build a query to sum repayments made in the requested period for loans matching the filters
