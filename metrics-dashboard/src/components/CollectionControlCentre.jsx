@@ -205,14 +205,12 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	          params.set('loan_type', filters.product);
 	        }
 
-	        // Apply django_status filter based on period (today vs today_only)
-	        if (filters.period === 'today_only') {
-	          // Today Only: only OPEN loans
-	          params.set('django_status', 'OPEN');
-	        } else if (filters.period === 'today') {
-	          // Today: OPEN, PAST_MATURITY, or missing
-	          params.set('django_status', `OPEN,PAST_MATURITY,${MISSING_VALUE}`);
-	        }
+	        // Apply django_status filter based on period (today_only vs others)
+	        // This matches the same logic used for summary metrics so totals align
+	        const djangoStatusFilter = filters.period === 'today_only'
+	          ? 'OPEN'
+	          : `OPEN,PAST_MATURITY,${MISSING_VALUE}`;
+	        params.set('django_status', djangoStatusFilter);
 
 	        const queryString = params.toString();
 	        const url = queryString
