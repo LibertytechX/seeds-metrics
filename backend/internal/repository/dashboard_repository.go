@@ -941,8 +941,8 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 						ELSE 0
 					END
 				), 0) as past_maturity_outstanding,
-				COALESCE(SUM(CASE WHEN l.performance_status = 'performing' THEN 1 ELSE 0 END), 0) as performing_loans_count,
-				COALESCE(SUM(CASE WHEN l.performance_status = 'performing' THEN l.actual_outstanding ELSE 0 END), 0) as performing_actual_outstanding
+				COALESCE(SUM(CASE WHEN UPPER(l.performance_status) = 'PERFORMING' THEN 1 ELSE 0 END), 0) as performing_loans_count,
+				COALESCE(SUM(CASE WHEN UPPER(l.performance_status) = 'PERFORMING' THEN l.actual_outstanding ELSE 0 END), 0) as performing_actual_outstanding
 			FROM loans l
 			JOIN officers o ON l.officer_id = o.officer_id
 			WHERE 1=1
