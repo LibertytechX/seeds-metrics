@@ -2924,6 +2924,305 @@ func (r *DashboardRepository) getBranches(filters map[string]interface{}) ([]str
 	return branches, nil
 }
 
+// GetDailyCollections returns a per-day time series of collections amounts for the
+// Collections Control Centre daily chart. It aggregates repayments by payment_date
+// and applies the same officer and loan filters as other collections metrics.
+func (r *DashboardRepository) GetDailyCollections(filters map[string]interface{}) ([]*models.DailyCollectionsPoint, error) {
+	// Determine requested period, defaulting to "today".
+	period := "today"
+	if p, ok := filters["period"].(string); ok && strings.TrimSpace(p) != "" {
+		period = strings.ToLower(strings.TrimSpace(p))
+	}
+
+	query := `
+		SELECT
+			DATE(r.payment_date) AS payment_date,
+			COALESCE(SUM(r.payment_amount), 0) AS collected_amount,
+			COUNT(*) AS repayments_count
+		FROM repayments r
+		INNER JOIN loans l ON r.loan_id = l.loan_id
+		INNER JOIN officers o ON l.officer_id = o.officer_id
+		WHERE r.is_reversed = false
+			AND (o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT') OR o.user_type IS NULL)
+	`
+
+	// Apply period restriction on repayment dates.
+	switch period {
+	case "this_week":
+		query += `
+			AND DATE(r.payment_date) >= DATE_TRUNC('week', CURRENT_DATE)::date
+			AND DATE(r.payment_date) <= CURRENT_DATE
+		`
+	case "this_month":
+		query += `
+			AND DATE(r.payment_date) >= DATE_TRUNC('month', CURRENT_DATE)::date
+			AND DATE(r.payment_date) <= CURRENT_DATE
+		`
+	case "last_month":
+		query += `
+			AND DATE(r.payment_date) >= (DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '1 month')::date
+			AND DATE(r.payment_date) < DATE_TRUNC('month', CURRENT_DATE)::date
+		`
+	default: // "today" or any unrecognised value
+		query += `
+			AND DATE(r.payment_date) = CURRENT_DATE
+		`
+	}
+
+	args := []interface{}{}
+	argCount := 1
+
+	// Apply the same filters as other collections repayments aggregations so that
+	// the chart stays aligned with the KPI cards.
+	if officerID, ok := filters["officer_id"].(string); ok && officerID != "" {
+		query += fmt.Sprintf(" AND l.officer_id = $%d", argCount)
+		args = append(args, officerID)
+		argCount++
+	}
+
+	if branch, ok := filters["branch"].(string); ok && branch != "" {
+		query += fmt.Sprintf(" AND l.branch = $%d", argCount)
+		args = append(args, branch)
+		argCount++
+	}
+
+	if region, ok := filters["region"].(string); ok && region != "" {
+		regions := strings.Split(region, ",")
+		if len(regions) == 1 {
+			query += fmt.Sprintf(" AND l.region = $%d", argCount)
+			args = append(args, regions[0])
+			argCount++
+		} else {
+			placeholders := []string{}
+			for _, rgn := range regions {
+				placeholders = append(placeholders, fmt.Sprintf("$%d", argCount))
+				args = append(args, strings.TrimSpace(rgn))
+				argCount++
+			}
+			query += fmt.Sprintf(" AND l.region IN (%s)", strings.Join(placeholders, ", "))
+		}
+	}
+
+	if channel, ok := filters["channel"].(string); ok && channel != "" {
+		query += fmt.Sprintf(" AND l.channel = $%d", argCount)
+		args = append(args, channel)
+		argCount++
+	}
+
+	if status, ok := filters["status"].(string); ok && status != "" {
+		statuses := strings.Split(status, ",")
+		if len(statuses) == 1 {
+			query += fmt.Sprintf(" AND l.status = $%d", argCount)
+			args = append(args, statuses[0])
+			argCount++
+		} else {
+			placeholders := []string{}
+			for _, s := range statuses {
+				placeholders = append(placeholders, fmt.Sprintf("$%d", argCount))
+				args = append(args, strings.TrimSpace(s))
+				argCount++
+			}
+			query += fmt.Sprintf(" AND l.status IN (%s)", strings.Join(placeholders, ", "))
+		}
+	}
+
+	// Django status filter with MissingValueSentinel support.
+	if djangoStatus, ok := filters["django_status"].(string); ok && djangoStatus != "" {
+		statuses := strings.Split(djangoStatus, ",")
+		nonMissing := []string{}
+		includeMissing := false
+
+		for _, s := range statuses {
+			value := strings.TrimSpace(s)
+			if value == "" {
+				continue
+			}
+			if value == MissingValueSentinel {
+				includeMissing = true
+			} else {
+				nonMissing = append(nonMissing, value)
+			}
+		}
+
+		conditions := []string{}
+		if len(nonMissing) == 1 {
+			conditions = append(conditions, fmt.Sprintf("l.django_status = $%d", argCount))
+			args = append(args, nonMissing[0])
+			argCount++
+		} else if len(nonMissing) > 1 {
+			placeholders := make([]string, len(nonMissing))
+			for i, s := range nonMissing {
+				placeholders[i] = fmt.Sprintf("$%d", argCount)
+				args = append(args, s)
+				argCount++
+			}
+			conditions = append(conditions, fmt.Sprintf("l.django_status IN (%s)", strings.Join(placeholders, ",")))
+		}
+
+		if includeMissing {
+			conditions = append(conditions, "(l.django_status IS NULL OR l.django_status = '')")
+		}
+
+		if len(conditions) > 0 {
+			query += " AND (" + strings.Join(conditions, " OR ") + ")"
+		}
+	}
+
+	if performanceStatus, ok := filters["performance_status"].(string); ok && performanceStatus != "" {
+		performanceStatuses := strings.Split(performanceStatus, ",")
+		if len(performanceStatuses) == 1 {
+			query += fmt.Sprintf(" AND l.performance_status = $%d", argCount)
+			args = append(args, performanceStatuses[0])
+			argCount++
+		} else {
+			placeholders := []string{}
+			for _, ps := range performanceStatuses {
+				placeholders = append(placeholders, fmt.Sprintf("$%d", argCount))
+				args = append(args, strings.TrimSpace(ps))
+				argCount++
+			}
+			query += fmt.Sprintf(" AND l.performance_status IN (%s)", strings.Join(placeholders, ", "))
+		}
+	}
+
+	if wave, ok := filters["wave"].(string); ok && wave != "" {
+		query += fmt.Sprintf(" AND l.wave = $%d", argCount)
+		args = append(args, wave)
+		argCount++
+	}
+
+	if customerPhone, ok := filters["customer_phone"].(string); ok && customerPhone != "" {
+		query += fmt.Sprintf(" AND l.customer_phone LIKE $%d", argCount)
+		args = append(args, "%"+customerPhone+"%")
+		argCount++
+	}
+
+	if verticalLeadEmail, ok := filters["vertical_lead_email"].(string); ok && verticalLeadEmail != "" {
+		query += fmt.Sprintf(" AND l.vertical_lead_email = $%d", argCount)
+		args = append(args, verticalLeadEmail)
+		argCount++
+	}
+
+	if loanType, ok := filters["loan_type"].(string); ok && loanType != "" {
+		loanTypes := strings.Split(loanType, ",")
+		nonMissing := []string{}
+		includeMissing := false
+
+		for _, lt := range loanTypes {
+			value := strings.TrimSpace(lt)
+			if value == "" {
+				continue
+			}
+			if value == MissingValueSentinel {
+				includeMissing = true
+			} else {
+				nonMissing = append(nonMissing, value)
+			}
+		}
+
+		conditions := []string{}
+		if len(nonMissing) == 1 {
+			conditions = append(conditions, fmt.Sprintf("l.loan_type = $%d", argCount))
+			args = append(args, nonMissing[0])
+			argCount++
+		} else if len(nonMissing) > 1 {
+			placeholders := make([]string, len(nonMissing))
+			for i, lt := range nonMissing {
+				placeholders[i] = fmt.Sprintf("$%d", argCount)
+				args = append(args, lt)
+				argCount++
+			}
+			conditions = append(conditions, fmt.Sprintf("l.loan_type IN (%s)", strings.Join(placeholders, ",")))
+		}
+
+		if includeMissing {
+			conditions = append(conditions, "(l.loan_type IS NULL OR l.loan_type = '')")
+		}
+
+		if len(conditions) > 0 {
+			query += " AND (" + strings.Join(conditions, " OR ") + ")"
+		}
+	}
+
+	if verificationStatus, ok := filters["verification_status"].(string); ok && verificationStatus != "" {
+		verificationStatuses := strings.Split(verificationStatus, ",")
+		nonMissing := []string{}
+		includeMissing := false
+
+		for _, vs := range verificationStatuses {
+			value := strings.TrimSpace(vs)
+			if value == "" {
+				continue
+			}
+			if value == MissingValueSentinel {
+				includeMissing = true
+			} else {
+				nonMissing = append(nonMissing, value)
+			}
+		}
+
+		conditions := []string{}
+		if len(nonMissing) == 1 {
+			conditions = append(conditions, fmt.Sprintf("l.verification_status = $%d", argCount))
+			args = append(args, nonMissing[0])
+			argCount++
+		} else if len(nonMissing) > 1 {
+			placeholders := make([]string, len(nonMissing))
+			for i, vs := range nonMissing {
+				placeholders[i] = fmt.Sprintf("$%d", argCount)
+				args = append(args, vs)
+				argCount++
+			}
+			conditions = append(conditions, fmt.Sprintf("l.verification_status IN (%s)", strings.Join(placeholders, ",")))
+		}
+
+		if includeMissing {
+			conditions = append(conditions, "(l.verification_status IS NULL OR l.verification_status = '')")
+		}
+
+		if len(conditions) > 0 {
+			query += " AND (" + strings.Join(conditions, " OR ") + ")"
+		}
+	}
+
+	if dpdMin, ok := filters["dpd_min"].(int); ok {
+		query += fmt.Sprintf(" AND l.current_dpd >= $%d", argCount)
+		args = append(args, dpdMin)
+		argCount++
+	}
+
+	if dpdMax, ok := filters["dpd_max"].(int); ok {
+		query += fmt.Sprintf(" AND l.current_dpd <= $%d", argCount)
+		args = append(args, dpdMax)
+		argCount++
+	}
+
+	query += `
+		GROUP BY DATE(r.payment_date)
+		ORDER BY DATE(r.payment_date)
+	`
+
+	rows, err := r.db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to retrieve daily collections: %w", err)
+	}
+	defer rows.Close()
+
+	results := []*models.DailyCollectionsPoint{}
+	for rows.Next() {
+		point := &models.DailyCollectionsPoint{}
+		if err := rows.Scan(&point.Date, &point.CollectedAmount, &point.RepaymentsCount); err != nil {
+			return nil, fmt.Errorf("failed to scan daily collections row: %w", err)
+		}
+		results = append(results, point)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate daily collections rows: %w", err)
+	}
+
+	return results, nil
+}
+
 func (r *DashboardRepository) getRegions() ([]string, error) {
 	query := `SELECT DISTINCT l.region FROM loans l
 		INNER JOIN officers o ON l.officer_id = o.officer_id

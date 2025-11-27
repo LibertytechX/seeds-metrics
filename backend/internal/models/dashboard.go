@@ -216,6 +216,14 @@ type BranchCollectionsLeaderboardRow struct {
 	Status         string  `json:"status"`
 }
 
+// DailyCollectionsPoint represents a single day in the collections time series
+// used by the Collections Control Centre daily chart.
+type DailyCollectionsPoint struct {
+	Date            string  `json:"date"`
+	CollectedAmount float64 `json:"collected_amount"`
+	RepaymentsCount int     `json:"repayments_count"`
+}
+
 // TeamMember represents a team member for audit assignment
 type TeamMember struct {
 	ID   interface{} `json:"id"` // Can be int, string, or 0

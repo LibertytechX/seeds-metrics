@@ -1,4 +1,15 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import {
+	Bar,
+	CartesianGrid,
+	ComposedChart,
+	Legend,
+	ResponsiveContainer,
+	Tooltip as RechartsTooltip,
+	XAxis,
+	YAxis,
+	Line,
+} from 'recharts';
 import './CollectionControlCentre.css';
 
 // Reuse the same sentinel value used in AllLoans and backend (MissingValueSentinel)
@@ -44,6 +55,10 @@ const CollectionControlCentre = () => {
 	  const [loadingMetrics, setLoadingMetrics] = useState(false);
 	  const [error, setError] = useState(null);
 	  const [lastUpdated, setLastUpdated] = useState(null);
+
+	  const [dailyCollections, setDailyCollections] = useState([]);
+	  const [loadingDailyCollections, setLoadingDailyCollections] = useState(false);
+	  const [dailyCollectionsError, setDailyCollectionsError] = useState(null);
 
   // Fetch dropdown options (regions, branches, products/loan types)
   useEffect(() => {
@@ -205,6 +220,54 @@ const CollectionControlCentre = () => {
 	    fetchBranchLeaderboard();
 	  }, [filters.branch, filters.region, filters.product]);
 
+	  // Fetch daily collections time series for the chart whenever core filters change.
+	  useEffect(() => {
+	    const fetchDailyCollections = async () => {
+	      try {
+	        setLoadingDailyCollections(true);
+	        setDailyCollectionsError(null);
+
+	        const API_BASE_URL = import.meta.env.VITE_API_URL ||
+	          (import.meta.env.MODE === 'production' ? '/api/v1' : 'http://localhost:8081/api/v1');
+
+	        const params = new URLSearchParams();
+	        if (filters.period) {
+	          params.set('period', filters.period);
+	        }
+	        if (filters.region) {
+	          params.set('region', filters.region);
+	        }
+	        if (filters.branch) {
+	          params.set('branch', filters.branch);
+	        }
+	        if (filters.product) {
+	          params.set('loan_type', filters.product);
+	        }
+
+	        const queryString = params.toString();
+	        const url = queryString
+	          ? `${API_BASE_URL}/collections/daily?${queryString}`
+	          : `${API_BASE_URL}/collections/daily`;
+
+	        const res = await fetch(url);
+	        const data = await res.json();
+	        if (data.status !== 'success') {
+	          throw new Error(data.message || 'Failed to load daily collections');
+	        }
+
+	        setDailyCollections(data.data?.points || []);
+	      } catch (err) {
+	        console.error('Error fetching daily collections:', err);
+	        setDailyCollectionsError(err.message || 'Error fetching daily collections');
+	        setDailyCollections([]);
+	      } finally {
+	        setLoadingDailyCollections(false);
+	      }
+	    };
+
+	    fetchDailyCollections();
+	  }, [filters.branch, filters.region, filters.product, filters.period]);
+
   const handleFilterChange = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
   };
@@ -239,10 +302,24 @@ const CollectionControlCentre = () => {
     return `${safe.toFixed(1)}%`;
   };
 
+	  const formatShortCurrency = (value) => {
+	    if (typeof value !== 'number' || Number.isNaN(value)) return '₦0';
+	    const abs = Math.abs(value);
+	    if (abs >= 1_000_000_000) return `₦${(value / 1_000_000_000).toFixed(1)}B`;
+	    if (abs >= 1_000_000) return `₦${(value / 1_000_000).toFixed(1)}M`;
+	    if (abs >= 1_000) return `₦${(value / 1_000).toFixed(1)}k`;
+	    return formatCurrency(value);
+	  };
+
   const lastUpdatedLabel = useMemo(() => {
     if (!lastUpdated) return '—';
     return lastUpdated.toLocaleTimeString();
   }, [lastUpdated]);
+
+	  const periodLabel = useMemo(() => {
+	    const match = PERIOD_OPTIONS.find((p) => p.value === filters.period);
+	    return match ? match.label : 'Period';
+	  }, [filters.period]);
 
 	  const isLoading = loadingFilters || loadingMetrics;
 
@@ -261,23 +338,60 @@ const CollectionControlCentre = () => {
 	    return rows;
 	  }, [branchLeaderboard, branchSort]);
 
-			  // Derived values from existing summary metrics
-			  const totalDueToday = summaryMetrics?.total_due_for_today ?? null;
-			  // For Collections Received, use the unrestricted "all repayments" value
-			  // when available; fall back to the restricted one if needed.
-			  const totalRepaidToday =
-			    totalRepaidTodayAll ?? summaryMetrics?.total_repayments_today ?? null;
-			  const collectionRateToday = summaryMetrics?.percentage_of_due_collected ?? null;
-			  const missedRepaymentsTodayAmount = summaryMetrics?.missed_repayments_today ?? null;
-			  const missedRepaymentsTodayCount = summaryMetrics?.missed_repayments_today_count ?? null;
-		  const atRiskInfo = summaryMetrics?.at_risk_loans || null;
-		  const totalPortfolioAmount = summaryMetrics?.total_portfolio_amount ?? null;
-		  const totalInDPD = summaryMetrics?.total_amount_in_dpd ?? null;
-		  const pastMaturityOutstanding = summaryMetrics?.past_maturity_outstanding ?? null;
-		  const portfolioHealthAmount =
-		    summaryMetrics?.portfolio_health?.performing_actual_outstanding ?? null;
-		  const portfolioHealthCount =
-		    summaryMetrics?.portfolio_health?.performing_loans_count ?? null;
+	  const dailyCollectionsSeries = useMemo(() => {
+	    if (!dailyCollections || dailyCollections.length === 0) return [];
+
+	    let windowSum = 0;
+	    const amounts = dailyCollections.map((point) =>
+	      typeof point.collected_amount === 'number' ? point.collected_amount : 0,
+	    );
+
+	    return dailyCollections.map((point, index) => {
+	      const value = amounts[index];
+	      windowSum += value;
+	      if (index >= 7) {
+	        windowSum -= amounts[index - 7];
+	      }
+	      const windowSize = Math.min(index + 1, 7);
+	      const movingAverage = windowSize > 0 ? windowSum / windowSize : 0;
+
+	      let dateLabel = point.date;
+	      if (point.date) {
+	        const asDate = new Date(point.date);
+	        if (!Number.isNaN(asDate.getTime())) {
+	          dateLabel = asDate.toLocaleDateString('en-NG', {
+	            month: 'short',
+	            day: 'numeric',
+	          });
+	        }
+	      }
+
+	      return {
+	        ...point,
+	        collected_amount: value,
+	        moving_average: movingAverage,
+	        date_label: dateLabel,
+	      };
+	    });
+	  }, [dailyCollections]);
+
+				  // Derived values from existing summary metrics
+				  const totalDueToday = summaryMetrics?.total_due_for_today ?? null;
+				  // For Collections Received, use the unrestricted "all repayments" value
+				  // when available; fall back to the restricted one if needed.
+				  const totalRepaidToday =
+				    totalRepaidTodayAll ?? summaryMetrics?.total_repayments_today ?? null;
+				  const collectionRateToday = summaryMetrics?.percentage_of_due_collected ?? null;
+				  const missedRepaymentsTodayAmount = summaryMetrics?.missed_repayments_today ?? null;
+				  const missedRepaymentsTodayCount = summaryMetrics?.missed_repayments_today_count ?? null;
+			  const atRiskInfo = summaryMetrics?.at_risk_loans || null;
+			  const totalPortfolioAmount = summaryMetrics?.total_portfolio_amount ?? null;
+			  const totalInDPD = summaryMetrics?.total_amount_in_dpd ?? null;
+			  const pastMaturityOutstanding = summaryMetrics?.past_maturity_outstanding ?? null;
+			  const portfolioHealthAmount =
+			    summaryMetrics?.portfolio_health?.performing_actual_outstanding ?? null;
+			  const portfolioHealthCount =
+			    summaryMetrics?.portfolio_health?.performing_loans_count ?? null;
 
   const handleCardClick = (target) => {
     // Placeholder click handlers – these will later open specific drilldown tables
@@ -489,7 +603,91 @@ const CollectionControlCentre = () => {
         </button>
       </div>
 
-	      <div className="branch-leaderboard-section">
+	      <div className="collections-daily-row">
+	        <div className="collections-daily-card">
+	          <div className="collections-daily-card-header">
+	            <div>
+	              <h3 className="collections-daily-card-title">Daily Collections</h3>
+	              <p className="collections-daily-card-subtitle">
+	                {`Trend of repayments ${periodLabel.toLowerCase()} by day`}
+	              </p>
+	            </div>
+	          </div>
+	          <div className="collections-daily-card-body">
+	            {loadingDailyCollections ? (
+	              <div className="collections-daily-placeholder">Loading daily collections...</div>
+	            ) : !dailyCollectionsSeries.length ? (
+	              <div className="collections-daily-placeholder">
+	                No collections recorded for this period and filters.
+	              </div>
+	            ) : (
+	              <ResponsiveContainer width="100%" height="100%">
+	                <ComposedChart
+	                  data={dailyCollectionsSeries}
+	                  margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
+	                >
+	                  <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+	                  <XAxis dataKey="date_label" tick={{ fontSize: 11 }} />
+	                  <YAxis
+	                    tickFormatter={formatShortCurrency}
+	                    tick={{ fontSize: 11 }}
+	                  />
+	                  <RechartsTooltip
+	                    formatter={(value, name) => {
+	                      if (name === 'Collected') {
+	                        return [formatCurrency(value), 'Collected'];
+	                      }
+	                      if (name === '7-day avg') {
+	                        return [formatCurrency(value), '7-day avg'];
+	                      }
+	                      return [value, name];
+	                    }}
+	                    labelFormatter={(label, payload) => {
+	                      const raw =
+	                        payload &&
+	                        payload[0] &&
+	                        payload[0].payload &&
+	                        payload[0].payload.date;
+	                      if (!raw) return label;
+	                      const asDate = new Date(raw);
+	                      if (Number.isNaN(asDate.getTime())) return raw;
+	                      return asDate.toLocaleDateString('en-NG', {
+	                        weekday: 'short',
+	                        year: 'numeric',
+	                        month: 'short',
+	                        day: 'numeric',
+	                      });
+	                    }}
+	                  />
+	                  <Legend />
+	                  <Bar
+	                    dataKey="collected_amount"
+	                    name="Collected"
+	                    barSize={16}
+	                    fill="#4caf50"
+	                    radius={[4, 4, 0, 0]}
+	                  />
+	                  <Line
+	                    type="monotone"
+	                    dataKey="moving_average"
+	                    name="7-day avg"
+	                    stroke="#1976d2"
+	                    strokeWidth={2}
+	                    dot={false}
+	                  />
+	                </ComposedChart>
+	              </ResponsiveContainer>
+	            )}
+	          </div>
+	          {dailyCollectionsError && (
+	            <div className="collections-error small">
+	              Failed to load daily collections: {dailyCollectionsError}
+	            </div>
+	          )}
+	        </div>
+	      </div>
+
+		      <div className="branch-leaderboard-section">
 	        <div className="branch-leaderboard-header">
 	          <div>
 	            <h3>Branch Leaderboard</h3>
