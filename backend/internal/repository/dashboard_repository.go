@@ -2595,6 +2595,253 @@ func (r *DashboardRepository) GetBranches(filters map[string]interface{}) ([]*mo
 	return branches, nil
 }
 
+// GetBranchCollectionsLeaderboard returns per-branch collections metrics for the
+// Collections Control Centre "Branch Leaderboard" table. It focuses on
+// "today" collections behaviour (expected due today vs collected today) and
+// a simple NPL proxy based on PAR15 (overdue >= 15 days / portfolio).
+func (r *DashboardRepository) GetBranchCollectionsLeaderboard(filters map[string]interface{}) ([]*models.BranchCollectionsLeaderboardRow, error) {
+	// --- First query: loan-based metrics per branch (portfolio, due today, PAR15) ---
+	loanQuery := `
+		SELECT
+			l.branch,
+			l.region,
+			COALESCE(SUM(l.principal_outstanding), 0) AS portfolio_total,
+			COALESCE(SUM(CASE WHEN l.actual_outstanding > 0 THEN l.daily_repayment_amount ELSE 0 END), 0) AS due_today,
+			COALESCE(SUM(CASE WHEN l.current_dpd >= 15 THEN l.principal_outstanding ELSE 0 END), 0) AS overdue_15d
+		FROM loans l
+		JOIN officers o ON l.officer_id = o.officer_id
+		WHERE 1=1
+			AND (o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT') OR o.user_type IS NULL)
+	`
+
+	loanArgs := []interface{}{}
+	loanArgCount := 1
+
+	// Apply filters (same semantics as Collections Control Centre where relevant).
+	if branch, ok := filters["branch"].(string); ok && branch != "" {
+		loanQuery += fmt.Sprintf(" AND l.branch = $%d", loanArgCount)
+		loanArgs = append(loanArgs, branch)
+		loanArgCount++
+	}
+
+	if region, ok := filters["region"].(string); ok && region != "" {
+		regions := strings.Split(region, ",")
+		if len(regions) == 1 {
+			loanQuery += fmt.Sprintf(" AND l.region = $%d", loanArgCount)
+			loanArgs = append(loanArgs, regions[0])
+			loanArgCount++
+		} else {
+			placeholders := []string{}
+			for _, rgn := range regions {
+				placeholders = append(placeholders, fmt.Sprintf("$%d", loanArgCount))
+				loanArgs = append(loanArgs, strings.TrimSpace(rgn))
+				loanArgCount++
+			}
+			loanQuery += fmt.Sprintf(" AND l.region IN (%s)", strings.Join(placeholders, ", "))
+		}
+	}
+
+	if channel, ok := filters["channel"].(string); ok && channel != "" {
+		loanQuery += fmt.Sprintf(" AND l.channel = $%d", loanArgCount)
+		loanArgs = append(loanArgs, channel)
+		loanArgCount++
+	}
+
+	if wave, ok := filters["wave"].(string); ok && wave != "" {
+		loanQuery += fmt.Sprintf(" AND l.wave = $%d", loanArgCount)
+		loanArgs = append(loanArgs, wave)
+		loanArgCount++
+	}
+
+	if loanType, ok := filters["loan_type"].(string); ok && loanType != "" {
+		// Support comma-separated loan types for multi-select
+		loanTypes := strings.Split(loanType, ",")
+		if len(loanTypes) == 1 {
+			loanQuery += fmt.Sprintf(" AND l.loan_type = $%d", loanArgCount)
+			loanArgs = append(loanArgs, strings.TrimSpace(loanTypes[0]))
+			loanArgCount++
+		} else {
+			placeholders := make([]string, len(loanTypes))
+			for i, lt := range loanTypes {
+				placeholders[i] = fmt.Sprintf("$%d", loanArgCount)
+				loanArgs = append(loanArgs, strings.TrimSpace(lt))
+				loanArgCount++
+			}
+			loanQuery += fmt.Sprintf(" AND l.loan_type IN (%s)", strings.Join(placeholders, ", "))
+		}
+	}
+
+	loanQuery += " GROUP BY l.branch, l.region"
+
+	loanRows, err := r.db.Query(loanQuery, loanArgs...)
+	if err != nil {
+		return nil, err
+	}
+	defer loanRows.Close()
+
+	branchMap := make(map[string]*models.BranchCollectionsLeaderboardRow)
+
+	for loanRows.Next() {
+		row := &models.BranchCollectionsLeaderboardRow{}
+		if err := loanRows.Scan(
+			&row.Branch,
+			&row.Region,
+			&row.PortfolioTotal,
+			&row.DueToday,
+			&row.Overdue15d,
+		); err != nil {
+			return nil, err
+		}
+
+		// Initialise numeric fields explicitly (Go defaults to zero, but keep clear)
+		row.CollectedToday = 0
+		row.TodayRate = 0
+		row.MTDRate = 0
+		row.ProgressRate = 0
+		row.MissedToday = 0
+		row.NPLRatio = 0
+		row.Status = ""
+
+		branchMap[row.Branch] = row
+	}
+
+	// --- Second query: repayment-based metrics per branch (collections today) ---
+	repayQuery := `
+		SELECT
+			l.branch,
+			COALESCE(SUM(r.payment_amount), 0) AS collected_today
+		FROM repayments r
+		JOIN loans l ON r.loan_id = l.loan_id
+		JOIN officers o ON l.officer_id = o.officer_id
+		WHERE 1=1
+			AND (o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT') OR o.user_type IS NULL)
+			AND r.is_reversed = FALSE
+			AND r.payment_date::date = CURRENT_DATE
+	`
+
+	repayArgs := []interface{}{}
+	repayArgCount := 1
+
+	if branch, ok := filters["branch"].(string); ok && branch != "" {
+		repayQuery += fmt.Sprintf(" AND l.branch = $%d", repayArgCount)
+		repayArgs = append(repayArgs, branch)
+		repayArgCount++
+	}
+
+	if region, ok := filters["region"].(string); ok && region != "" {
+		regions := strings.Split(region, ",")
+		if len(regions) == 1 {
+			repayQuery += fmt.Sprintf(" AND l.region = $%d", repayArgCount)
+			repayArgs = append(repayArgs, regions[0])
+			repayArgCount++
+		} else {
+			placeholders := []string{}
+			for _, rgn := range regions {
+				placeholders = append(placeholders, fmt.Sprintf("$%d", repayArgCount))
+				repayArgs = append(repayArgs, strings.TrimSpace(rgn))
+				repayArgCount++
+			}
+			repayQuery += fmt.Sprintf(" AND l.region IN (%s)", strings.Join(placeholders, ", "))
+		}
+	}
+
+	if channel, ok := filters["channel"].(string); ok && channel != "" {
+		repayQuery += fmt.Sprintf(" AND l.channel = $%d", repayArgCount)
+		repayArgs = append(repayArgs, channel)
+		repayArgCount++
+	}
+
+	if wave, ok := filters["wave"].(string); ok && wave != "" {
+		repayQuery += fmt.Sprintf(" AND l.wave = $%d", repayArgCount)
+		repayArgs = append(repayArgs, wave)
+		repayArgCount++
+	}
+
+	if loanType, ok := filters["loan_type"].(string); ok && loanType != "" {
+		loanTypes := strings.Split(loanType, ",")
+		if len(loanTypes) == 1 {
+			repayQuery += fmt.Sprintf(" AND l.loan_type = $%d", repayArgCount)
+			repayArgs = append(repayArgs, strings.TrimSpace(loanTypes[0]))
+			repayArgCount++
+		} else {
+			placeholders := make([]string, len(loanTypes))
+			for i, lt := range loanTypes {
+				placeholders[i] = fmt.Sprintf("$%d", repayArgCount)
+				repayArgs = append(repayArgs, strings.TrimSpace(lt))
+				repayArgCount++
+			}
+			repayQuery += fmt.Sprintf(" AND l.loan_type IN (%s)", strings.Join(placeholders, ", "))
+		}
+	}
+
+	repayQuery += " GROUP BY l.branch"
+
+	repayRows, err := r.db.Query(repayQuery, repayArgs...)
+	if err != nil {
+		return nil, err
+	}
+	defer repayRows.Close()
+
+	for repayRows.Next() {
+		var branchName string
+		var collectedToday float64
+		if err := repayRows.Scan(&branchName, &collectedToday); err != nil {
+			return nil, err
+		}
+
+		row, exists := branchMap[branchName]
+		if !exists {
+			row = &models.BranchCollectionsLeaderboardRow{Branch: branchName}
+			branchMap[branchName] = row
+		}
+		row.CollectedToday = collectedToday
+	}
+
+	// --- Finalise metrics: rates, missed amount, NPL proxy & status ---
+	result := make([]*models.BranchCollectionsLeaderboardRow, 0, len(branchMap))
+	for _, row := range branchMap {
+		if row.DueToday > 0 {
+			row.TodayRate = row.CollectedToday / row.DueToday
+			if row.TodayRate < 0 {
+				row.TodayRate = 0
+			}
+		} else if row.CollectedToday > 0 {
+			// No explicit due but collections recorded; treat as fully collected.
+			row.TodayRate = 1
+		} else {
+			row.TodayRate = 0
+		}
+
+		// For now, use today's collection rate as both MTD and progress indicators.
+		row.MTDRate = row.TodayRate
+		row.ProgressRate = row.TodayRate
+
+		row.MissedToday = row.DueToday - row.CollectedToday
+		if row.MissedToday < 0 {
+			row.MissedToday = 0
+		}
+
+		if row.PortfolioTotal > 0 {
+			row.NPLRatio = row.Overdue15d / row.PortfolioTotal
+		} else {
+			row.NPLRatio = 0
+		}
+
+		// Simple status banding based on NPL ratio (inspired by sample: OK/Watch/Critical).
+		if row.NPLRatio < 0.12 {
+			row.Status = "OK"
+		} else if row.NPLRatio < 0.18 {
+			row.Status = "Watch"
+		} else {
+			row.Status = "Critical"
+		}
+
+		result = append(result, row)
+	}
+
+	return result, nil
+}
+
 // GetFilterOptions retrieves filter dropdown options
 func (r *DashboardRepository) GetFilterOptions(filterType string, filters map[string]interface{}) (interface{}, error) {
 	switch filterType {

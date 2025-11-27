@@ -30,10 +30,20 @@ const CollectionControlCentre = () => {
 	  // not restricted to collections-specific django_status values.
 	  // We'll fetch this alongside the restricted metrics.
 	  const [totalRepaidTodayAll, setTotalRepaidTodayAll] = useState(null);
-  const [loadingFilters, setLoadingFilters] = useState(false);
-  const [loadingMetrics, setLoadingMetrics] = useState(false);
-  const [error, setError] = useState(null);
-  const [lastUpdated, setLastUpdated] = useState(null);
+
+	  // Branch collections leaderboard (per-branch breakdown under the cards)
+	  const [branchLeaderboard, setBranchLeaderboard] = useState([]);
+	  const [loadingBranches, setLoadingBranches] = useState(false);
+	  const [branchesError, setBranchesError] = useState(null);
+	  const [branchSort, setBranchSort] = useState({
+	    key: 'npl_ratio',
+	    direction: 'desc',
+	  });
+
+	  const [loadingFilters, setLoadingFilters] = useState(false);
+	  const [loadingMetrics, setLoadingMetrics] = useState(false);
+	  const [error, setError] = useState(null);
+	  const [lastUpdated, setLastUpdated] = useState(null);
 
   // Fetch dropdown options (regions, branches, products/loan types)
   useEffect(() => {
@@ -150,9 +160,69 @@ const CollectionControlCentre = () => {
 	    fetchSummaryMetrics();
 	  }, [filters.branch, filters.region, filters.product, filters.period]);
 
+	  // Fetch branch collections leaderboard (per-branch breakdown) when filters change.
+	  useEffect(() => {
+	    const fetchBranchLeaderboard = async () => {
+	      try {
+	        setLoadingBranches(true);
+	        setBranchesError(null);
+
+	        const API_BASE_URL = import.meta.env.VITE_API_URL ||
+	          (import.meta.env.MODE === 'production' ? '/api/v1' : 'http://localhost:8081/api/v1');
+
+	        const params = new URLSearchParams();
+	        if (filters.region) {
+	          params.set('region', filters.region);
+	        }
+	        if (filters.branch) {
+	          params.set('branch', filters.branch);
+	        }
+	        if (filters.product) {
+	          params.set('loan_type', filters.product);
+	        }
+
+	        const queryString = params.toString();
+	        const url = queryString
+	          ? `${API_BASE_URL}/collections/branches?${queryString}`
+	          : `${API_BASE_URL}/collections/branches`;
+
+	        const res = await fetch(url);
+	        const data = await res.json();
+	        if (data.status !== 'success') {
+	          throw new Error(data.message || 'Failed to load branch leaderboard');
+	        }
+
+	        setBranchLeaderboard(data.data?.branches || []);
+	      } catch (err) {
+	        console.error('Error fetching branch collections leaderboard:', err);
+	        setBranchesError(err.message || 'Error fetching branch leaderboard');
+	        setBranchLeaderboard([]);
+	      } finally {
+	        setLoadingBranches(false);
+	      }
+	    };
+
+	    fetchBranchLeaderboard();
+	  }, [filters.branch, filters.region, filters.product]);
+
   const handleFilterChange = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
   };
+
+	  const handleLeaderboardSort = (key) => {
+	    setBranchSort((prev) => {
+	      if (prev.key === key) {
+	        return {
+	          key,
+	          direction: prev.direction === 'asc' ? 'desc' : 'asc',
+	        };
+	      }
+	      return {
+	        key,
+	        direction: 'desc',
+	      };
+	    });
+	  };
 
   const formatCurrency = (value) => {
     const safe = typeof value === 'number' ? value : 0;
@@ -174,7 +244,22 @@ const CollectionControlCentre = () => {
     return lastUpdated.toLocaleTimeString();
   }, [lastUpdated]);
 
-  const isLoading = loadingFilters || loadingMetrics;
+	  const isLoading = loadingFilters || loadingMetrics;
+
+	  const sortedBranchLeaderboard = useMemo(() => {
+	    if (!branchLeaderboard || branchLeaderboard.length === 0) return [];
+	    const rows = [...branchLeaderboard];
+	    rows.sort((a, b) => {
+	      const aVal = typeof a[branchSort.key] === 'number' ? a[branchSort.key] : 0;
+	      const bVal = typeof b[branchSort.key] === 'number' ? b[branchSort.key] : 0;
+	      if (aVal === bVal) return 0;
+	      if (branchSort.direction === 'asc') {
+	        return aVal - bVal;
+	      }
+	      return bVal - aVal;
+	    });
+	    return rows;
+	  }, [branchLeaderboard, branchSort]);
 
 		  // Derived values from existing summary metrics
 		  const totalDueToday = summaryMetrics?.total_due_for_today ?? null;
@@ -391,6 +476,103 @@ const CollectionControlCentre = () => {
           <div className="card-subtitle">Provisional, to be aligned with your exact NPL definition</div>
         </button>
       </div>
+
+	      <div className="branch-leaderboard-section">
+	        <div className="branch-leaderboard-header">
+	          <div>
+	            <h3>Branch Leaderboard</h3>
+	            <p className="branch-leaderboard-subtitle">
+	              Breakdown of expected due today and collections today by branch.
+	            </p>
+	          </div>
+	          <div className="branch-leaderboard-actions">
+	            <button
+	              type="button"
+	              className={`leaderboard-sort-button ${branchSort.key === 'npl_ratio' ? 'active' : ''}`}
+	              onClick={() => handleLeaderboardSort('npl_ratio')}
+	            >
+	              Sort NPL
+	            </button>
+	            <button
+	              type="button"
+	              className={`leaderboard-sort-button ${branchSort.key === 'today_rate' ? 'active' : ''}`}
+	              onClick={() => handleLeaderboardSort('today_rate')}
+	            >
+	              Sort Rate
+	            </button>
+	          </div>
+	        </div>
+
+	        {branchesError && (
+	          <div className="collections-error small">
+	            Failed to load branch leaderboard: {branchesError}
+	          </div>
+	        )}
+
+		        <div className="branch-leaderboard-table-wrapper">
+		          <table className="branch-leaderboard-table">
+		            <thead>
+		              <tr>
+		                <th>Branch</th>
+		                <th>Portfolio</th>
+		                <th>Due</th>
+		                <th>Coll.</th>
+		                <th>Today%</th>
+		                <th>MTD%</th>
+		                <th>Progress</th>
+		                <th>Missed</th>
+		                <th>Perf%</th>
+		                <th>NPL%</th>
+		                <th>Status</th>
+		              </tr>
+		            </thead>
+		            <tbody>
+		              {loadingBranches ? (
+		                <tr>
+		                  <td colSpan={11} className="branch-leaderboard-loading">
+		                    Loading branch leaderboard...
+		                  </td>
+		                </tr>
+		              ) : sortedBranchLeaderboard.length === 0 ? (
+		                <tr>
+		                  <td colSpan={11} className="branch-leaderboard-empty">
+		                    No branches found for the selected filters.
+		                  </td>
+		                </tr>
+		              ) : (
+		                sortedBranchLeaderboard.map((b) => {
+		                  const todayRatePercentage = (typeof b.today_rate === 'number' ? b.today_rate : 0) * 100;
+		                  const mtdRatePercentage = (typeof b.mtd_rate === 'number' ? b.mtd_rate : 0) * 100;
+		                  const progressRatePercentage = (typeof b.progress_rate === 'number' ? b.progress_rate : 0) * 100;
+		                  const nplPercentage = (typeof b.npl_ratio === 'number' ? b.npl_ratio : 0) * 100;
+		                  const perfPercentage = 100 - nplPercentage;
+		                  const key = `${b.region || 'all'}-${b.branch || 'unknown'}`;
+
+		                  return (
+		                    <tr key={key}>
+					              <td>{b.branch || ''}</td>
+		                      <td>{formatCurrency(b.portfolio_total)}</td>
+		                      <td>{formatCurrency(b.due_today)}</td>
+		                      <td>{formatCurrency(b.collected_today)}</td>
+		                      <td>{formatPercent(todayRatePercentage)}</td>
+		                      <td>{formatPercent(mtdRatePercentage)}</td>
+		                      <td>{formatPercent(progressRatePercentage)}</td>
+		                      <td>{formatCurrency(b.missed_today)}</td>
+		                      <td>{formatPercent(perfPercentage)}</td>
+		                      <td>{formatPercent(nplPercentage)}</td>
+		                      <td>
+		                        <span className={`status-pill status-${(b.status || 'OK').toLowerCase()}`}>
+		                          {b.status || 'OK'}
+		                        </span>
+		                      </td>
+		                    </tr>
+		                  );
+		                })
+		              )}
+		            </tbody>
+		          </table>
+		        </div>
+	      </div>
     </div>
   );
 };

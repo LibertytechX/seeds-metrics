@@ -199,6 +199,23 @@ type DashboardBranchMetrics struct {
 	AvgRepaymentDelayRate float64 `json:"avg_repayment_delay_rate"`
 }
 
+// BranchCollectionsLeaderboardRow represents per-branch collections metrics for the
+// Collections Control Centre "Branch Leaderboard" table.
+type BranchCollectionsLeaderboardRow struct {
+	Branch         string  `json:"branch"`
+	Region         string  `json:"region"`
+	PortfolioTotal float64 `json:"portfolio_total"`
+	Overdue15d     float64 `json:"overdue_15d"`
+	DueToday       float64 `json:"due_today"`
+	CollectedToday float64 `json:"collected_today"`
+	TodayRate      float64 `json:"today_rate"`
+	MTDRate        float64 `json:"mtd_rate"`
+	ProgressRate   float64 `json:"progress_rate"`
+	MissedToday    float64 `json:"missed_today"`
+	NPLRatio       float64 `json:"npl_ratio"`
+	Status         string  `json:"status"`
+}
+
 // TeamMember represents a team member for audit assignment
 type TeamMember struct {
 	ID   interface{} `json:"id"` // Can be int, string, or 0

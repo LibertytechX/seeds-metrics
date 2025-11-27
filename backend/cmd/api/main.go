@@ -142,6 +142,12 @@ func setupRouter(cfg *config.Config, etlHandler *handlers.ETLHandler, customerHa
 			metrics.GET("/portfolio", dashboardHandler.GetPortfolioMetrics)
 		}
 
+		// Collections endpoints
+		collections := v1.Group("/collections")
+		{
+			collections.GET("/branches", dashboardHandler.GetBranchCollectionsLeaderboard)
+		}
+
 		// Officer endpoints
 		officers := v1.Group("/officers")
 		{
