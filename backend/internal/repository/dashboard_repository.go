@@ -2963,11 +2963,11 @@ func (r *DashboardRepository) GetDailyCollections(filters map[string]interface{}
 				AND DATE(r.payment_date) >= (DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '1 month')::date
 				AND DATE(r.payment_date) < DATE_TRUNC('month', CURRENT_DATE)::date
 			`
-	case "last_5_days":
+	case "last_7_days":
 		// Custom period for the Collections Control Centre daily chart:
-		// always show the last 5 calendar days (including today).
+		// always show the last 7 calendar days (including today).
 		query += `
-				AND DATE(r.payment_date) >= (CURRENT_DATE - INTERVAL '4 days')
+				AND DATE(r.payment_date) >= (CURRENT_DATE - INTERVAL '6 days')
 				AND DATE(r.payment_date) <= CURRENT_DATE
 			`
 	default: // "today" or any unrecognised value

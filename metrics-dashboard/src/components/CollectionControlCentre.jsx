@@ -231,9 +231,9 @@ const CollectionControlCentre = () => {
 		          (import.meta.env.MODE === 'production' ? '/api/v1' : 'http://localhost:8081/api/v1');
 
 		        const params = new URLSearchParams();
-		        // For the daily collections chart we always want the last 5 days window,
+		        // For the daily collections chart we always want the last 7 days window,
 		        // independent of the headline period filter.
-		        params.set('period', 'last_5_days');
+		        params.set('period', 'last_7_days');
 		        if (filters.region) {
 		          params.set('region', filters.region);
 		        }
@@ -368,9 +368,9 @@ const CollectionControlCentre = () => {
 		      });
 		    }
 
-		    // Construct exactly the last 5 calendar days (oldest to newest).
+		    // Construct exactly the last 7 calendar days (oldest to newest).
 		    const baseSeries = [];
-		    for (let offset = 4; offset >= 0; offset -= 1) {
+		    for (let offset = 6; offset >= 0; offset -= 1) {
 		      const d = new Date();
 		      d.setDate(d.getDate() - offset);
 		      const key = d.toISOString().slice(0, 10);
@@ -384,7 +384,7 @@ const CollectionControlCentre = () => {
 		      });
 		    }
 
-		    // Compute a 7-day moving average over the (up to) 5 available points.
+		    // Compute a 7-day moving average over the (up to) 7 available points.
 		    let windowSum = 0;
 		    const amounts = baseSeries.map((p) => p.collected_amount || 0);
 
@@ -409,11 +409,15 @@ const CollectionControlCentre = () => {
 		      const dueAmount =
 		        point.isToday && typeof totalDueToday === 'number' ? totalDueToday : 0;
 
+		      const collectionRatePercent =
+		        dueAmount > 0 && value >= 0 ? (value / dueAmount) * 100 : null;
+
 		      return {
 		        ...point,
 		        moving_average: movingAverage,
 		        date_label: dateLabel,
 		        due_amount: dueAmount,
+		        collection_rate_percent: collectionRatePercent,
 		      };
 		    });
 		  }, [dailyCollections, totalDueToday]);
@@ -649,7 +653,7 @@ const CollectionControlCentre = () => {
 	            <div>
 	              <h3 className="collections-daily-card-title">Daily Collections</h3>
 	              <p className="collections-daily-card-subtitle">
-	                Collections due vs collected over the last 5 days
+	                Collections due vs collected over the last 7 days
 	              </p>
 	            </div>
 	          </div>
@@ -658,7 +662,7 @@ const CollectionControlCentre = () => {
 	              <div className="collections-daily-placeholder">Loading daily collections...</div>
 	            ) : !dailyCollectionsSeries.length ? (
 	              <div className="collections-daily-placeholder">
-	                No collections recorded for the last 5 days with these filters.
+	                No collections recorded for the last 7 days with these filters.
 	              </div>
 	            ) : (
 	              <ResponsiveContainer width="100%" height="100%">
@@ -706,17 +710,25 @@ const CollectionControlCentre = () => {
 	                  <Bar
 	                    dataKey="due_amount"
 	                    name="Due"
-	                    barSize={14}
+	                    barSize={20}
 	                    fill="#ff9800"
 	                    radius={[4, 4, 0, 0]}
 	                  />
 	                  <Bar
 	                    dataKey="collected_amount"
 	                    name="Collected"
-	                    barSize={14}
+	                    barSize={20}
 	                    fill="#4caf50"
 	                    radius={[4, 4, 0, 0]}
-	                  />
+	                  >
+	                    <LabelList
+	                      dataKey="collection_rate_percent"
+	                      position="top"
+	                      formatter={(value) =>
+	                        typeof value === 'number' ? `${value.toFixed(0)}%` : ''
+	                      }
+	                    />
+	                  </Bar>
 	                </ComposedChart>
 	              </ResponsiveContainer>
 	            )}
