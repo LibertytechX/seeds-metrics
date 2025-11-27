@@ -69,28 +69,25 @@
   font-size: 14px;
 }
 
-/* Update Past Maturity Button */
-.action-button-group {
-  justify-content: flex-end;
-}
-
-.update-past-maturity-btn {
-  padding: 8px 16px;
+/* Update Past Maturity Button (updpm) in header */
+.updpm-btn {
+  padding: 6px 12px;
   border-radius: 4px;
   border: none;
   background: #ff9800;
   color: white;
-  font-size: 13px;
+  font-size: 12px;
   font-weight: 600;
   cursor: pointer;
   transition: background 0.2s ease;
+  margin-left: 12px;
 }
 
-.update-past-maturity-btn:hover:not(:disabled) {
+.updpm-btn:hover:not(:disabled) {
   background: #f57c00;
 }
 
-.update-past-maturity-btn:disabled {
+.updpm-btn:disabled {
   background: #ccc;
   cursor: not-allowed;
 }

@@ -510,6 +510,15 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
         <div className="collections-meta">
           <span className="last-updated">Last updated: {lastUpdatedLabel}</span>
           {isLoading && <span className="loading-indicator">Refreshing...</span>}
+          <button
+            type="button"
+            className="updpm-btn"
+            onClick={handleUpdatePastMaturity}
+            disabled={updatingPastMaturity}
+            title="Update Past Maturity statuses"
+          >
+            {updatingPastMaturity ? '...' : 'updpm'}
+          </button>
         </div>
       </div>
 
@@ -565,18 +574,6 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
           </select>
         </div>
 
-        {/* Update Past Maturity Button */}
-        <div className="filter-group action-button-group">
-          <label>&nbsp;</label>
-          <button
-            type="button"
-            className="update-past-maturity-btn"
-            onClick={handleUpdatePastMaturity}
-            disabled={updatingPastMaturity}
-          >
-            {updatingPastMaturity ? 'Updating...' : 'Update Past Maturity'}
-          </button>
-        </div>
       </div>
 
       {/* Past Maturity Update Result Message */}
