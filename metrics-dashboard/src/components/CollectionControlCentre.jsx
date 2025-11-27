@@ -591,8 +591,8 @@ const CollectionControlCentre = () => {
 	          <div className="branch-leaderboard-side">
 	            <div className="branch-leaderboard-side-content">
 	              <div className="branch-leaderboard-side-placeholder">
-	                {/* Placeholder for upcoming secondary view */}
-	                <p>Secondary view coming soon.</p>
+	                <h4>Agent Activity</h4>
+	                <p><strong>Coming soon</strong></p>
 	              </div>
 	            </div>
 	          </div>
