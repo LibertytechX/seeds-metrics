@@ -2609,11 +2609,12 @@ func (r *DashboardRepository) GetBranches(filters map[string]interface{}) ([]*mo
 // a simple NPL proxy based on PAR15 (overdue >= 15 days / portfolio).
 func (r *DashboardRepository) GetBranchCollectionsLeaderboard(filters map[string]interface{}) ([]*models.BranchCollectionsLeaderboardRow, error) {
 	// --- First query: loan-based metrics per branch (portfolio, due today, PAR15) ---
+	// NOTE: Group by branch only. Use MODE() to get the most common region for display.
 	loanQuery := `
 		SELECT
 			l.branch,
-			l.region,
-				COALESCE(SUM(l.repayment_amount), 0) AS portfolio_total,
+			MODE() WITHIN GROUP (ORDER BY l.region) AS region,
+			COALESCE(SUM(l.repayment_amount), 0) AS portfolio_total,
 			COALESCE(SUM(CASE WHEN l.actual_outstanding > 0 THEN l.daily_repayment_amount ELSE 0 END), 0) AS due_today,
 			COALESCE(SUM(CASE WHEN l.current_dpd >= 15 THEN l.principal_outstanding ELSE 0 END), 0) AS overdue_15d
 		FROM loans l
@@ -2717,7 +2718,7 @@ func (r *DashboardRepository) GetBranchCollectionsLeaderboard(filters map[string
 		}
 	}
 
-	loanQuery += " GROUP BY l.branch, l.region"
+	loanQuery += " GROUP BY l.branch"
 
 	loanRows, err := r.db.Query(loanQuery, loanArgs...)
 	if err != nil {
