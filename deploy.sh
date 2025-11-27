@@ -77,7 +77,7 @@ deploy_backend() {
         git pull origin main
 
         echo "🔨 Building backend binary on server..."
-        go build -o seeds-metrics-api cmd/api/main.go
+        /usr/local/go/bin/go build -o seeds-metrics-api cmd/api/main.go
 
         echo "✅ Build successful"
         ls -lh seeds-metrics-api
