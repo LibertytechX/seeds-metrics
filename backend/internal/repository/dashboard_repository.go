@@ -2605,7 +2605,7 @@ func (r *DashboardRepository) GetBranchCollectionsLeaderboard(filters map[string
 		SELECT
 			l.branch,
 			l.region,
-			COALESCE(SUM(l.principal_outstanding), 0) AS portfolio_total,
+				COALESCE(SUM(l.repayment_amount), 0) AS portfolio_total,
 			COALESCE(SUM(CASE WHEN l.actual_outstanding > 0 THEN l.daily_repayment_amount ELSE 0 END), 0) AS due_today,
 			COALESCE(SUM(CASE WHEN l.current_dpd >= 15 THEN l.principal_outstanding ELSE 0 END), 0) AS overdue_15d
 		FROM loans l
