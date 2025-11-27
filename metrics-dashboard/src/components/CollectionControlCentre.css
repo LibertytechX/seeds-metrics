@@ -237,6 +237,37 @@
   color: #c62828;
 }
 
+/* Progress bar styling for Branch Leaderboard "Progress" column */
+.progress-cell {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 6px;
+  min-width: 120px;
+}
+
+.progress-bar {
+  position: relative;
+  flex: 0 0 80px;
+  height: 8px;
+  border-radius: 999px;
+  background: #f1f1f1;
+  overflow: hidden;
+}
+
+.progress-bar-fill {
+  height: 100%;
+  border-radius: 999px;
+  background: #4caf50;
+  transition: width 0.25s ease-out;
+}
+
+.progress-bar-label {
+  font-size: 11px;
+  color: #555;
+  white-space: nowrap;
+}
+
 .collections-error.small {
   margin-top: 8px;
   font-size: 12px;

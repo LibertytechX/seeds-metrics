@@ -543,7 +543,7 @@ const CollectionControlCentre = () => {
 		                sortedBranchLeaderboard.map((b) => {
 		                  const todayRatePercentage = (typeof b.today_rate === 'number' ? b.today_rate : 0) * 100;
 		                  const mtdRatePercentage = (typeof b.mtd_rate === 'number' ? b.mtd_rate : 0) * 100;
-		                  const progressRatePercentage = (typeof b.progress_rate === 'number' ? b.progress_rate : 0) * 100;
+                          const progressRatePercentage = (typeof b.progress_rate === 'number' ? b.progress_rate : 0) * 100;
 		                  const nplPercentage = (typeof b.npl_ratio === 'number' ? b.npl_ratio : 0) * 100;
 		                  const perfPercentage = 100 - nplPercentage;
 		                  const key = `${b.region || 'all'}-${b.branch || 'unknown'}`;
@@ -556,7 +556,19 @@ const CollectionControlCentre = () => {
 		                      <td>{formatCurrency(b.collected_today)}</td>
 		                      <td>{formatPercent(todayRatePercentage)}</td>
 		                      <td>{formatPercent(mtdRatePercentage)}</td>
-		                      <td>{formatPercent(progressRatePercentage)}</td>
+                              <td>
+                                <div className="progress-cell">
+                                  <div className="progress-bar">
+                                    <div
+                                      className="progress-bar-fill"
+                                      style={{ width: `${Math.max(0, Math.min(100, progressRatePercentage))}%` }}
+                                    />
+                                  </div>
+                                  <span className="progress-bar-label">
+                                    {formatPercent(progressRatePercentage)}
+                                  </span>
+                                </div>
+                              </td>
 		                      <td>{formatCurrency(b.missed_today)}</td>
 		                      <td>{formatPercent(perfPercentage)}</td>
 		                      <td>{formatPercent(nplPercentage)}</td>
