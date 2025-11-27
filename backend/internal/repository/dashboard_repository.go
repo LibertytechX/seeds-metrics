@@ -2679,6 +2679,44 @@ func (r *DashboardRepository) GetBranchCollectionsLeaderboard(filters map[string
 		}
 	}
 
+	// Django status filter - supports comma-separated values and optional missing sentinel
+	if djangoStatus, ok := filters["django_status"].(string); ok && djangoStatus != "" {
+		statuses := strings.Split(djangoStatus, ",")
+		nonMissing := []string{}
+		includeMissing := false
+		for _, s := range statuses {
+			trimmed := strings.TrimSpace(s)
+			if trimmed == "__MISSING__" {
+				includeMissing = true
+			} else if trimmed != "" {
+				nonMissing = append(nonMissing, trimmed)
+			}
+		}
+
+		conditions := []string{}
+		if len(nonMissing) == 1 {
+			conditions = append(conditions, fmt.Sprintf("l.django_status = $%d", loanArgCount))
+			loanArgs = append(loanArgs, nonMissing[0])
+			loanArgCount++
+		} else if len(nonMissing) > 1 {
+			placeholders := []string{}
+			for _, s := range nonMissing {
+				placeholders = append(placeholders, fmt.Sprintf("$%d", loanArgCount))
+				loanArgs = append(loanArgs, s)
+				loanArgCount++
+			}
+			conditions = append(conditions, fmt.Sprintf("l.django_status IN (%s)", strings.Join(placeholders, ",")))
+		}
+
+		if includeMissing {
+			conditions = append(conditions, "(l.django_status IS NULL OR l.django_status = '')")
+		}
+
+		if len(conditions) > 0 {
+			loanQuery += " AND (" + strings.Join(conditions, " OR ") + ")"
+		}
+	}
+
 	loanQuery += " GROUP BY l.branch, l.region"
 
 	loanRows, err := r.db.Query(loanQuery, loanArgs...)
@@ -2779,6 +2817,44 @@ func (r *DashboardRepository) GetBranchCollectionsLeaderboard(filters map[string
 				repayArgCount++
 			}
 			repayQuery += fmt.Sprintf(" AND l.loan_type IN (%s)", strings.Join(placeholders, ", "))
+		}
+	}
+
+	// Django status filter for repayments - supports comma-separated values and optional missing sentinel
+	if djangoStatus, ok := filters["django_status"].(string); ok && djangoStatus != "" {
+		statuses := strings.Split(djangoStatus, ",")
+		nonMissing := []string{}
+		includeMissing := false
+		for _, s := range statuses {
+			trimmed := strings.TrimSpace(s)
+			if trimmed == "__MISSING__" {
+				includeMissing = true
+			} else if trimmed != "" {
+				nonMissing = append(nonMissing, trimmed)
+			}
+		}
+
+		conditions := []string{}
+		if len(nonMissing) == 1 {
+			conditions = append(conditions, fmt.Sprintf("l.django_status = $%d", repayArgCount))
+			repayArgs = append(repayArgs, nonMissing[0])
+			repayArgCount++
+		} else if len(nonMissing) > 1 {
+			placeholders := []string{}
+			for _, s := range nonMissing {
+				placeholders = append(placeholders, fmt.Sprintf("$%d", repayArgCount))
+				repayArgs = append(repayArgs, s)
+				repayArgCount++
+			}
+			conditions = append(conditions, fmt.Sprintf("l.django_status IN (%s)", strings.Join(placeholders, ",")))
+		}
+
+		if includeMissing {
+			conditions = append(conditions, "(l.django_status IS NULL OR l.django_status = '')")
+		}
+
+		if len(conditions) > 0 {
+			repayQuery += " AND (" + strings.Join(conditions, " OR ") + ")"
 		}
 	}
 

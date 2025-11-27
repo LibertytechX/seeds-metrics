@@ -205,6 +205,15 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	          params.set('loan_type', filters.product);
 	        }
 
+	        // Apply django_status filter based on period (today vs today_only)
+	        if (filters.period === 'today_only') {
+	          // Today Only: only OPEN loans
+	          params.set('django_status', 'OPEN');
+	        } else if (filters.period === 'today') {
+	          // Today: OPEN, PAST_MATURITY, or missing
+	          params.set('django_status', `OPEN,PAST_MATURITY,${MISSING_VALUE}`);
+	        }
+
 	        const queryString = params.toString();
 	        const url = queryString
 	          ? `${API_BASE_URL}/collections/branches?${queryString}`
@@ -227,7 +236,7 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	    };
 
 	    fetchBranchLeaderboard();
-	  }, [filters.branch, filters.region, filters.product]);
+	  }, [filters.branch, filters.region, filters.product, filters.period]);
 
 		  // Fetch daily collections time series for the chart whenever core filters change.
 		  useEffect(() => {
