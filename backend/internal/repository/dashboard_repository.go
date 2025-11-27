@@ -2950,23 +2950,30 @@ func (r *DashboardRepository) GetDailyCollections(filters map[string]interface{}
 	switch period {
 	case "this_week":
 		query += `
-			AND DATE(r.payment_date) >= DATE_TRUNC('week', CURRENT_DATE)::date
-			AND DATE(r.payment_date) <= CURRENT_DATE
-		`
+				AND DATE(r.payment_date) >= DATE_TRUNC('week', CURRENT_DATE)::date
+				AND DATE(r.payment_date) <= CURRENT_DATE
+			`
 	case "this_month":
 		query += `
-			AND DATE(r.payment_date) >= DATE_TRUNC('month', CURRENT_DATE)::date
-			AND DATE(r.payment_date) <= CURRENT_DATE
-		`
+				AND DATE(r.payment_date) >= DATE_TRUNC('month', CURRENT_DATE)::date
+				AND DATE(r.payment_date) <= CURRENT_DATE
+			`
 	case "last_month":
 		query += `
-			AND DATE(r.payment_date) >= (DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '1 month')::date
-			AND DATE(r.payment_date) < DATE_TRUNC('month', CURRENT_DATE)::date
-		`
+				AND DATE(r.payment_date) >= (DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '1 month')::date
+				AND DATE(r.payment_date) < DATE_TRUNC('month', CURRENT_DATE)::date
+			`
+	case "last_5_days":
+		// Custom period for the Collections Control Centre daily chart:
+		// always show the last 5 calendar days (including today).
+		query += `
+				AND DATE(r.payment_date) >= (CURRENT_DATE - INTERVAL '4 days')
+				AND DATE(r.payment_date) <= CURRENT_DATE
+			`
 	default: // "today" or any unrecognised value
 		query += `
-			AND DATE(r.payment_date) = CURRENT_DATE
-		`
+				AND DATE(r.payment_date) = CURRENT_DATE
+			`
 	}
 
 	args := []interface{}{}

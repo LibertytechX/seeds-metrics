@@ -220,53 +220,53 @@ const CollectionControlCentre = () => {
 	    fetchBranchLeaderboard();
 	  }, [filters.branch, filters.region, filters.product]);
 
-	  // Fetch daily collections time series for the chart whenever core filters change.
-	  useEffect(() => {
-	    const fetchDailyCollections = async () => {
-	      try {
-	        setLoadingDailyCollections(true);
-	        setDailyCollectionsError(null);
+		  // Fetch daily collections time series for the chart whenever core filters change.
+		  useEffect(() => {
+		    const fetchDailyCollections = async () => {
+		      try {
+		        setLoadingDailyCollections(true);
+		        setDailyCollectionsError(null);
 
-	        const API_BASE_URL = import.meta.env.VITE_API_URL ||
-	          (import.meta.env.MODE === 'production' ? '/api/v1' : 'http://localhost:8081/api/v1');
+		        const API_BASE_URL = import.meta.env.VITE_API_URL ||
+		          (import.meta.env.MODE === 'production' ? '/api/v1' : 'http://localhost:8081/api/v1');
 
-	        const params = new URLSearchParams();
-	        if (filters.period) {
-	          params.set('period', filters.period);
-	        }
-	        if (filters.region) {
-	          params.set('region', filters.region);
-	        }
-	        if (filters.branch) {
-	          params.set('branch', filters.branch);
-	        }
-	        if (filters.product) {
-	          params.set('loan_type', filters.product);
-	        }
+		        const params = new URLSearchParams();
+		        // For the daily collections chart we always want the last 5 days window,
+		        // independent of the headline period filter.
+		        params.set('period', 'last_5_days');
+		        if (filters.region) {
+		          params.set('region', filters.region);
+		        }
+		        if (filters.branch) {
+		          params.set('branch', filters.branch);
+		        }
+		        if (filters.product) {
+		          params.set('loan_type', filters.product);
+		        }
 
-	        const queryString = params.toString();
-	        const url = queryString
-	          ? `${API_BASE_URL}/collections/daily?${queryString}`
-	          : `${API_BASE_URL}/collections/daily`;
+		        const queryString = params.toString();
+		        const url = queryString
+		          ? `${API_BASE_URL}/collections/daily?${queryString}`
+		          : `${API_BASE_URL}/collections/daily`;
 
-	        const res = await fetch(url);
-	        const data = await res.json();
-	        if (data.status !== 'success') {
-	          throw new Error(data.message || 'Failed to load daily collections');
-	        }
+		        const res = await fetch(url);
+		        const data = await res.json();
+		        if (data.status !== 'success') {
+		          throw new Error(data.message || 'Failed to load daily collections');
+		        }
 
-	        setDailyCollections(data.data?.points || []);
-	      } catch (err) {
-	        console.error('Error fetching daily collections:', err);
-	        setDailyCollectionsError(err.message || 'Error fetching daily collections');
-	        setDailyCollections([]);
-	      } finally {
-	        setLoadingDailyCollections(false);
-	      }
-	    };
+		        setDailyCollections(data.data?.points || []);
+		      } catch (err) {
+		        console.error('Error fetching daily collections:', err);
+		        setDailyCollectionsError(err.message || 'Error fetching daily collections');
+		        setDailyCollections([]);
+		      } finally {
+		        setLoadingDailyCollections(false);
+		      }
+		    };
 
-	    fetchDailyCollections();
-	  }, [filters.branch, filters.region, filters.product, filters.period]);
+		    fetchDailyCollections();
+		  }, [filters.branch, filters.region, filters.product, filters.period]);
 
   const handleFilterChange = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -316,14 +316,14 @@ const CollectionControlCentre = () => {
     return lastUpdated.toLocaleTimeString();
   }, [lastUpdated]);
 
-	  const periodLabel = useMemo(() => {
-	    const match = PERIOD_OPTIONS.find((p) => p.value === filters.period);
-	    return match ? match.label : 'Period';
-	  }, [filters.period]);
+		  const periodLabel = useMemo(() => {
+		    const match = PERIOD_OPTIONS.find((p) => p.value === filters.period);
+		    return match ? match.label : 'Period';
+		  }, [filters.period]);
 
 	  const isLoading = loadingFilters || loadingMetrics;
 
-	  const sortedBranchLeaderboard = useMemo(() => {
+		  const sortedBranchLeaderboard = useMemo(() => {
 	    if (!branchLeaderboard || branchLeaderboard.length === 0) return [];
 	    const rows = [...branchLeaderboard];
 	    rows.sort((a, b) => {
@@ -335,48 +335,88 @@ const CollectionControlCentre = () => {
 	      }
 	      return bVal - aVal;
 	    });
-	    return rows;
-	  }, [branchLeaderboard, branchSort]);
+		    return rows;
+		  }, [branchLeaderboard, branchSort]);
 
-	  const dailyCollectionsSeries = useMemo(() => {
-	    if (!dailyCollections || dailyCollections.length === 0) return [];
+					  // Derived values from existing summary metrics
+					  const totalDueToday = summaryMetrics?.total_due_for_today ?? null;
 
-	    let windowSum = 0;
-	    const amounts = dailyCollections.map((point) =>
-	      typeof point.collected_amount === 'number' ? point.collected_amount : 0,
-	    );
+		  const dailyCollectionsSeries = useMemo(() => {
+		    // Build a map of collected amounts per calendar date (YYYY-MM-DD)
+		    const byDate = new Map();
+		    if (Array.isArray(dailyCollections)) {
+		      dailyCollections.forEach((point) => {
+		        if (!point || !point.date) return;
+		        let key = point.date;
+		        const asDate = new Date(point.date);
+		        if (!Number.isNaN(asDate.getTime())) {
+		          key = asDate.toISOString().slice(0, 10);
+		        } else if (typeof key === 'string') {
+		          key = key.slice(0, 10);
+		        }
 
-	    return dailyCollections.map((point, index) => {
-	      const value = amounts[index];
-	      windowSum += value;
-	      if (index >= 7) {
-	        windowSum -= amounts[index - 7];
-	      }
-	      const windowSize = Math.min(index + 1, 7);
-	      const movingAverage = windowSize > 0 ? windowSum / windowSize : 0;
+		        const collected =
+		          typeof point.collected_amount === 'number' ? point.collected_amount : 0;
+		        const count =
+		          typeof point.repayments_count === 'number' ? point.repayments_count : 0;
 
-	      let dateLabel = point.date;
-	      if (point.date) {
-	        const asDate = new Date(point.date);
-	        if (!Number.isNaN(asDate.getTime())) {
-	          dateLabel = asDate.toLocaleDateString('en-NG', {
-	            month: 'short',
-	            day: 'numeric',
-	          });
-	        }
-	      }
+		        byDate.set(key, {
+		          date: key,
+		          collected_amount: collected,
+		          repayments_count: count,
+		        });
+		      });
+		    }
 
-	      return {
-	        ...point,
-	        collected_amount: value,
-	        moving_average: movingAverage,
-	        date_label: dateLabel,
-	      };
-	    });
-	  }, [dailyCollections]);
+		    // Construct exactly the last 5 calendar days (oldest to newest).
+		    const baseSeries = [];
+		    for (let offset = 4; offset >= 0; offset -= 1) {
+		      const d = new Date();
+		      d.setDate(d.getDate() - offset);
+		      const key = d.toISOString().slice(0, 10);
+		      const existing = byDate.get(key);
 
-				  // Derived values from existing summary metrics
-				  const totalDueToday = summaryMetrics?.total_due_for_today ?? null;
+		      baseSeries.push({
+		        date: key,
+		        collected_amount: existing ? existing.collected_amount : 0,
+		        repayments_count: existing ? existing.repayments_count : 0,
+		        isToday: offset === 0,
+		      });
+		    }
+
+		    // Compute a 7-day moving average over the (up to) 5 available points.
+		    let windowSum = 0;
+		    const amounts = baseSeries.map((p) => p.collected_amount || 0);
+
+		    return baseSeries.map((point, index) => {
+		      const value = amounts[index];
+		      windowSum += value;
+		      if (index >= 7) {
+		        windowSum -= amounts[index - 7];
+		      }
+		      const windowSize = Math.min(index + 1, 7);
+		      const movingAverage = windowSize > 0 ? windowSum / windowSize : 0;
+
+		      let dateLabel = point.date;
+		      const asDate = new Date(point.date);
+		      if (!Number.isNaN(asDate.getTime())) {
+		        dateLabel = asDate.toLocaleDateString('en-NG', {
+		          month: 'short',
+		          day: 'numeric',
+		        });
+		      }
+
+		      const dueAmount =
+		        point.isToday && typeof totalDueToday === 'number' ? totalDueToday : 0;
+
+		      return {
+		        ...point,
+		        moving_average: movingAverage,
+		        date_label: dateLabel,
+		        due_amount: dueAmount,
+		      };
+		    });
+		  }, [dailyCollections, totalDueToday]);
 				  // For Collections Received, use the unrestricted "all repayments" value
 				  // when available; fall back to the restricted one if needed.
 				  const totalRepaidToday =
@@ -609,7 +649,7 @@ const CollectionControlCentre = () => {
 	            <div>
 	              <h3 className="collections-daily-card-title">Daily Collections</h3>
 	              <p className="collections-daily-card-subtitle">
-	                {`Trend of repayments ${periodLabel.toLowerCase()} by day`}
+	                Collections due vs collected over the last 5 days
 	              </p>
 	            </div>
 	          </div>
@@ -618,7 +658,7 @@ const CollectionControlCentre = () => {
 	              <div className="collections-daily-placeholder">Loading daily collections...</div>
 	            ) : !dailyCollectionsSeries.length ? (
 	              <div className="collections-daily-placeholder">
-	                No collections recorded for this period and filters.
+	                No collections recorded for the last 5 days with these filters.
 	              </div>
 	            ) : (
 	              <ResponsiveContainer width="100%" height="100%">
@@ -634,13 +674,16 @@ const CollectionControlCentre = () => {
 	                  />
 	                  <RechartsTooltip
 	                    formatter={(value, name) => {
+	                      if (name === 'Due') {
+	                        return [formatCurrency(value), 'Due (expected)'];
+	                      }
 	                      if (name === 'Collected') {
 	                        return [formatCurrency(value), 'Collected'];
 	                      }
 	                      if (name === '7-day avg') {
 	                        return [formatCurrency(value), '7-day avg'];
 	                      }
-	                      return [value, name];
+	                      return [formatCurrency(value), name];
 	                    }}
 	                    labelFormatter={(label, payload) => {
 	                      const raw =
@@ -661,19 +704,18 @@ const CollectionControlCentre = () => {
 	                  />
 	                  <Legend />
 	                  <Bar
-	                    dataKey="collected_amount"
-	                    name="Collected"
-	                    barSize={16}
-	                    fill="#4caf50"
+	                    dataKey="due_amount"
+	                    name="Due"
+	                    barSize={14}
+	                    fill="#ff9800"
 	                    radius={[4, 4, 0, 0]}
 	                  />
-	                  <Line
-	                    type="monotone"
-	                    dataKey="moving_average"
-	                    name="7-day avg"
-	                    stroke="#1976d2"
-	                    strokeWidth={2}
-	                    dot={false}
+	                  <Bar
+	                    dataKey="collected_amount"
+	                    name="Collected"
+	                    barSize={14}
+	                    fill="#4caf50"
+	                    radius={[4, 4, 0, 0]}
 	                  />
 	                </ComposedChart>
 	              </ResponsiveContainer>
