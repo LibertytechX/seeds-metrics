@@ -17,6 +17,7 @@ const MISSING_VALUE = '__MISSING__';
 
 const PERIOD_OPTIONS = [
   { value: 'today', label: 'Today' },
+  { value: 'today_only', label: 'Today Only' },
   { value: 'this_week', label: 'This Week' },
   { value: 'this_month', label: 'This Month' },
   { value: 'last_month', label: 'Last Month' },
@@ -129,8 +130,11 @@ const BranchDetail = ({ branchSlug, onBack }) => {
         if (filters.product) baseParams.set('loan_type', filters.product);
         if (filters.period) baseParams.set('period', filters.period);
 
+        // For "today_only" period, only show OPEN loans
         const restrictedParams = new URLSearchParams(baseParams.toString());
-        const djangoStatusFilter = ['OPEN', 'PAST_MATURITY', MISSING_VALUE].join(',');
+        const djangoStatusFilter = filters.period === 'today_only'
+          ? 'OPEN'
+          : ['OPEN', 'PAST_MATURITY', MISSING_VALUE].join(',');
         restrictedParams.set('django_status', djangoStatusFilter);
 
         const unrestrictedParams = new URLSearchParams(baseParams.toString());

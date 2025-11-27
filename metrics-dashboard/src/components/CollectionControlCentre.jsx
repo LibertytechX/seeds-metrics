@@ -18,6 +18,7 @@ const MISSING_VALUE = '__MISSING__';
 
 const PERIOD_OPTIONS = [
   { value: 'today', label: 'Today' },
+  { value: 'today_only', label: 'Today Only' },
   { value: 'this_week', label: 'This Week' },
   { value: 'this_month', label: 'This Month' },
   { value: 'last_month', label: 'Last Month' },
@@ -129,11 +130,14 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	        // Per collections requirements, restrict to loans that are relevant
 	        // for collections work:
 	        //   - django_status = OPEN
-	        //   - django_status = PAST_MATURITY
-	        //   - Missing django_status (NULL / empty), via sentinel
+	        //   - django_status = PAST_MATURITY (unless "today_only" period)
+	        //   - Missing django_status (NULL / empty), via sentinel (unless "today_only")
 	        // This uses the same MissingValueSentinel logic as AllLoans/backend.
+	        // For "today_only" period, we only want OPEN loans.
 	        const restrictedParams = new URLSearchParams(baseParams.toString());
-	        const djangoStatusFilter = ['OPEN', 'PAST_MATURITY', MISSING_VALUE].join(',');
+	        const djangoStatusFilter = filters.period === 'today_only'
+	          ? 'OPEN'
+	          : ['OPEN', 'PAST_MATURITY', MISSING_VALUE].join(',');
 	        restrictedParams.set('django_status', djangoStatusFilter);
 
 	        // Unrestricted metrics (for Collections Received): all repayments,
