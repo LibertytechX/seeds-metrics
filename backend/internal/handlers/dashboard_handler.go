@@ -647,6 +647,9 @@ func (h *DashboardHandler) GetBranchCollectionsLeaderboard(c *gin.Context) {
 	if loanType := c.Query("loan_type"); loanType != "" {
 		filters["loan_type"] = loanType
 	}
+	if djangoStatus := c.Query("django_status"); djangoStatus != "" {
+		filters["django_status"] = djangoStatus
+	}
 
 	branches, err := h.dashboardRepo.GetBranchCollectionsLeaderboard(filters)
 	if err != nil {
