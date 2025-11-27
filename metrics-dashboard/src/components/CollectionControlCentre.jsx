@@ -261,19 +261,23 @@ const CollectionControlCentre = () => {
 	    return rows;
 	  }, [branchLeaderboard, branchSort]);
 
-		  // Derived values from existing summary metrics
-		  const totalDueToday = summaryMetrics?.total_due_for_today ?? null;
-		  // For Collections Received, use the unrestricted "all repayments" value
-		  // when available; fall back to the restricted one if needed.
-		  const totalRepaidToday =
-		    totalRepaidTodayAll ?? summaryMetrics?.total_repayments_today ?? null;
-		  const collectionRateToday = summaryMetrics?.percentage_of_due_collected ?? null;
-		  const missedRepaymentsTodayAmount = summaryMetrics?.missed_repayments_today ?? null;
-		  const missedRepaymentsTodayCount = summaryMetrics?.missed_repayments_today_count ?? null;
-	  const atRiskInfo = summaryMetrics?.at_risk_loans || null;
-	  const totalPortfolioAmount = summaryMetrics?.total_portfolio_amount ?? null;
-	  const totalInDPD = summaryMetrics?.total_amount_in_dpd ?? null;
-	  const pastMaturityOutstanding = summaryMetrics?.past_maturity_outstanding ?? null;
+			  // Derived values from existing summary metrics
+			  const totalDueToday = summaryMetrics?.total_due_for_today ?? null;
+			  // For Collections Received, use the unrestricted "all repayments" value
+			  // when available; fall back to the restricted one if needed.
+			  const totalRepaidToday =
+			    totalRepaidTodayAll ?? summaryMetrics?.total_repayments_today ?? null;
+			  const collectionRateToday = summaryMetrics?.percentage_of_due_collected ?? null;
+			  const missedRepaymentsTodayAmount = summaryMetrics?.missed_repayments_today ?? null;
+			  const missedRepaymentsTodayCount = summaryMetrics?.missed_repayments_today_count ?? null;
+		  const atRiskInfo = summaryMetrics?.at_risk_loans || null;
+		  const totalPortfolioAmount = summaryMetrics?.total_portfolio_amount ?? null;
+		  const totalInDPD = summaryMetrics?.total_amount_in_dpd ?? null;
+		  const pastMaturityOutstanding = summaryMetrics?.past_maturity_outstanding ?? null;
+		  const portfolioHealthAmount =
+		    summaryMetrics?.portfolio_health?.performing_actual_outstanding ?? null;
+		  const portfolioHealthCount =
+		    summaryMetrics?.portfolio_health?.performing_loans_count ?? null;
 
   const handleCardClick = (target) => {
     // Placeholder click handlers – these will later open specific drilldown tables
@@ -437,16 +441,24 @@ const CollectionControlCentre = () => {
           <div className="card-subtitle">Total portfolio amount for selected filters</div>
         </button>
 
-        {/* 7. Portfolio Health – placeholder derived from at-risk share later */}
-        <button
-          type="button"
-          className="collection-card kpi-green"
-          onClick={() => handleCardClick('portfolio-health')}
-        >
-          <div className="card-label">Portfolio Health</div>
-          <div className="card-value">Coming soon</div>
-          <div className="card-subtitle">Summary view of healthy vs at-risk portfolio</div>
-        </button>
+	        {/* 7. Portfolio Health – performing loans outstanding */}
+	        <button
+	          type="button"
+	          className="collection-card kpi-green"
+	          onClick={() => handleCardClick('portfolio-health')}
+	        >
+	          <div className="card-label">Portfolio Health</div>
+	          <div className="card-value">
+	            {portfolioHealthAmount != null
+	              ? formatCurrency(portfolioHealthAmount)
+	              : '—'}
+	          </div>
+	          <div className="card-subtitle">
+	            {portfolioHealthCount != null
+	              ? `${portfolioHealthCount.toLocaleString()} performing loans`
+	              : 'Count of performing loans in selected portfolio'}
+	          </div>
+	        </button>
 
         {/* 8. At-Risk Portfolio */}
         <button

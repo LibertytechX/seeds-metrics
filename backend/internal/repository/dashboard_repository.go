@@ -917,35 +917,37 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 	// maturity_date < CURRENT_DATE) and actual_outstanding is still positive,
 	// independent of the selected period filter.
 	query := `
-		SELECT
-			COUNT(*) as total_loans,
-			COALESCE(SUM(l.loan_amount), 0) as total_portfolio_amount,
-			COALESCE(SUM(CASE WHEN l.current_dpd > 14 THEN 1 ELSE 0 END), 0) as at_risk_count,
-			COALESCE(SUM(CASE WHEN l.current_dpd > 14 THEN l.loan_amount ELSE 0 END), 0) as at_risk_amount,
-			COALESCE(SUM(CASE WHEN l.current_dpd > 14 THEN l.actual_outstanding ELSE 0 END), 0) as at_risk_outstanding,
-			COALESCE(SUM(CASE WHEN l.current_dpd > 0 THEN l.actual_outstanding ELSE 0 END), 0) as total_amount_in_dpd,
-			COALESCE(SUM(CASE WHEN l.current_dpd > 21 THEN 1 ELSE 0 END), 0) as critical_count,
-			COALESCE(SUM(CASE WHEN l.repayment_delay_rate >= 80 THEN 1 ELSE 0 END), 0) as excellent_delay_count,
-			COALESCE(SUM(CASE WHEN l.repayment_delay_rate >= 40 AND l.repayment_delay_rate < 80 THEN 1 ELSE 0 END), 0) as okay_delay_count,
-			COALESCE(SUM(CASE WHEN l.repayment_delay_rate < 40 THEN 1 ELSE 0 END), 0) as critical_delay_count,
+			SELECT
+				COUNT(*) as total_loans,
+				COALESCE(SUM(l.loan_amount), 0) as total_portfolio_amount,
+				COALESCE(SUM(CASE WHEN l.current_dpd > 14 THEN 1 ELSE 0 END), 0) as at_risk_count,
+				COALESCE(SUM(CASE WHEN l.current_dpd > 14 THEN l.loan_amount ELSE 0 END), 0) as at_risk_amount,
+				COALESCE(SUM(CASE WHEN l.current_dpd > 14 THEN l.actual_outstanding ELSE 0 END), 0) as at_risk_outstanding,
+				COALESCE(SUM(CASE WHEN l.current_dpd > 0 THEN l.actual_outstanding ELSE 0 END), 0) as total_amount_in_dpd,
+				COALESCE(SUM(CASE WHEN l.current_dpd > 21 THEN 1 ELSE 0 END), 0) as critical_count,
+				COALESCE(SUM(CASE WHEN l.repayment_delay_rate >= 80 THEN 1 ELSE 0 END), 0) as excellent_delay_count,
+				COALESCE(SUM(CASE WHEN l.repayment_delay_rate >= 40 AND l.repayment_delay_rate < 80 THEN 1 ELSE 0 END), 0) as okay_delay_count,
+				COALESCE(SUM(CASE WHEN l.repayment_delay_rate < 40 THEN 1 ELSE 0 END), 0) as critical_delay_count,
 				COALESCE(SUM(CASE WHEN l.actual_outstanding > 0 THEN l.daily_repayment_amount ELSE 0 END), 0) as total_due_for_today,
-					COALESCE(SUM(
-						CASE
-							-- Past maturity outstanding: all loans for which today is past
-							-- the contractual end date (maturity_date) and which still have a
-							-- positive actual_outstanding balance.
-							WHEN l.maturity_date IS NOT NULL
-								AND l.maturity_date < CURRENT_DATE
-								AND l.actual_outstanding > 0
-								THEN l.actual_outstanding
-							ELSE 0
-						END
-					), 0) as past_maturity_outstanding
+				COALESCE(SUM(
+					CASE
+						-- Past maturity outstanding: all loans for which today is past
+						-- the contractual end date (maturity_date) and which still have a
+						-- positive actual_outstanding balance.
+						WHEN l.maturity_date IS NOT NULL
+							AND l.maturity_date < CURRENT_DATE
+							AND l.actual_outstanding > 0
+							THEN l.actual_outstanding
+						ELSE 0
+					END
+				), 0) as past_maturity_outstanding,
+				COALESCE(SUM(CASE WHEN l.performance_status = 'performing' THEN 1 ELSE 0 END), 0) as performing_loans_count,
+				COALESCE(SUM(CASE WHEN l.performance_status = 'performing' THEN l.actual_outstanding ELSE 0 END), 0) as performing_actual_outstanding
 			FROM loans l
 			JOIN officers o ON l.officer_id = o.officer_id
 			WHERE 1=1
 				AND (o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT') OR o.user_type IS NULL)
-		`
+			`
 
 	args := []interface{}{}
 	argCount := 1
@@ -1229,8 +1231,8 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 	}
 
 	// Execute query
-	var totalLoans, atRiskCount, criticalCount, excellentDelayCount, okayDelayCount, criticalDelayCount int
-	var totalPortfolioAmount, atRiskAmount, atRiskOutstanding, totalAmountInDPD, totalDueForToday, pastMaturityOutstanding float64
+	var totalLoans, atRiskCount, criticalCount, excellentDelayCount, okayDelayCount, criticalDelayCount, performingLoansCount int
+	var totalPortfolioAmount, atRiskAmount, atRiskOutstanding, totalAmountInDPD, totalDueForToday, pastMaturityOutstanding, performingActualOutstanding float64
 
 	err := r.db.QueryRow(query, args...).Scan(
 		&totalLoans,
@@ -1245,6 +1247,8 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 		&criticalDelayCount,
 		&totalDueForToday,
 		&pastMaturityOutstanding,
+		&performingLoansCount,
+		&performingActualOutstanding,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate summary metrics: %w", err)
@@ -1799,6 +1803,10 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 			"amount":             atRiskAmount,
 			"actual_outstanding": atRiskOutstanding,
 			"percentage":         atRiskPercentage,
+		},
+		"portfolio_health": map[string]interface{}{
+			"performing_loans_count":        performingLoansCount,
+			"performing_actual_outstanding": performingActualOutstanding,
 		},
 		"total_amount_in_dpd": totalAmountInDPD,
 		"critical_loans": map[string]interface{}{
