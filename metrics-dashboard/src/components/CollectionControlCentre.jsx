@@ -830,35 +830,15 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 
 		      <div className="collections-daily-row">
 		        <div className="collections-daily-card">
-	          <div className="collections-daily-card-header">
-	            <div>
-	              <h3 className="collections-daily-card-title">Daily Collections</h3>
-	              <p className="collections-daily-card-subtitle">
-	                Collections due vs collected over the last 7 days
-	              </p>
-		        </div>
-		        {/* Repayments status Categories card */}
-		        <div className="collections-daily-status-card">
-		          <div className="collections-daily-status-header">
-		            <h3 className="collections-daily-status-title">repayments status Categories</h3>
+		          <div className="collections-daily-card-header">
+		            <div>
+		              <h3 className="collections-daily-card-title">Daily Collections</h3>
+		              <p className="collections-daily-card-subtitle">
+		                Collections due vs collected over the last 7 days
+		              </p>
+		            </div>
 		          </div>
-		          <div className="collections-daily-status-body">
-		            {repaymentsStatusCategories.length === 0 ? (
-			              <div className="collections-daily-status-empty">
-			                No repayments recorded for this period with these filters.
-			              </div>
-			            ) : (
-			              repaymentsStatusCategories.map((item) => (
-			                <div key={item.key} className="status-tile glass">
-			                  <div className="status-tile-label">{item.label}</div>
-			                  <div className="status-tile-amount">{formatCurrency(item.amount)}</div>
-			                </div>
-			              ))
-			            )}
-		          </div>
-		        </div>
-		      </div>
-	          <div className="collections-daily-card-body">
+		          <div className="collections-daily-card-body">
 	            {loadingDailyCollections ? (
 	              <div className="collections-daily-placeholder">Loading daily collections...</div>
 	            ) : !dailyCollectionsSeries.length ? (
@@ -939,8 +919,28 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	              Failed to load daily collections: {dailyCollectionsError}
 	            </div>
 	          )}
-	        </div>
-	      </div>
+			        </div>
+			        {/* Repayments status Categories card */}
+			        <div className="collections-daily-status-card">
+			          <div className="collections-daily-status-header">
+			            <h3 className="collections-daily-status-title">repayments status Categories</h3>
+			          </div>
+			          <div className="collections-daily-status-body">
+			            {repaymentsStatusCategories.length === 0 ? (
+				              <div className="collections-daily-status-empty">
+				                No repayments recorded for this period with these filters.
+				              </div>
+				            ) : (
+				              repaymentsStatusCategories.map((item) => (
+				                <div key={item.key} className="status-tile glass">
+				                  <div className="status-tile-label">{item.label}</div>
+				                  <div className="status-tile-amount">{formatCurrency(item.amount)}</div>
+				                </div>
+				              ))
+				            )}
+			          </div>
+			        </div>
+			      </div>
 
 		      <div className="branch-leaderboard-section">
 	        <div className="branch-leaderboard-header">
