@@ -628,8 +628,9 @@ func (r *DashboardRepository) GetFIMRLoans(filters map[string]interface{}) ([]*m
 			l.principal_outstanding as outstanding_balance,
 			l.current_dpd,
 			l.channel,
-			l.status,
-			l.fimr_tagged as fimr_tagged
+				l.status,
+				l.django_status,
+				l.fimr_tagged as fimr_tagged
 		FROM loans l
 		JOIN officers o ON l.officer_id = o.officer_id
 		WHERE l.fimr_tagged = true
@@ -753,6 +754,7 @@ func (r *DashboardRepository) GetFIMRLoans(filters map[string]interface{}) ([]*m
 		var firstPaymentDueDate sql.NullString
 		var firstPaymentReceivedDate sql.NullString
 		var daysSinceDue sql.NullInt64
+		var djangoStatus sql.NullString
 		err := rows.Scan(
 			&loan.LoanID,
 			&loan.OfficerID,
@@ -773,6 +775,7 @@ func (r *DashboardRepository) GetFIMRLoans(filters map[string]interface{}) ([]*m
 			&loan.CurrentDPD,
 			&loan.Channel,
 			&loan.Status,
+			&djangoStatus,
 			&loan.FIMRTagged,
 		)
 		if err != nil {
@@ -787,6 +790,9 @@ func (r *DashboardRepository) GetFIMRLoans(filters map[string]interface{}) ([]*m
 		if daysSinceDue.Valid {
 			days := int(daysSinceDue.Int64)
 			loan.DaysSinceDue = &days
+		}
+		if djangoStatus.Valid {
+			loan.DjangoStatus = djangoStatus.String
 		}
 		loans = append(loans, loan)
 	}

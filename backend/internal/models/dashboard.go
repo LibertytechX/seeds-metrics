@@ -156,6 +156,7 @@ type FIMRLoan struct {
 	CurrentDPD               int     `json:"current_dpd"`
 	Channel                  string  `json:"channel"`
 	Status                   string  `json:"status"`
+	DjangoStatus             string  `json:"django_status,omitempty"`
 	FIMRTagged               bool    `json:"fimr_tagged"`
 }
 

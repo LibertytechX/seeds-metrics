@@ -183,7 +183,8 @@ class ApiService {
       amountPaid: loan.amount_paid,
       outstandingBalance: loan.outstanding_balance, // Match mock data format
       currentDPD: loan.current_dpd,
-      status: loan.status,
+	      status: loan.status,
+	      djangoStatus: loan.django_status,
       fimrTagged: loan.fimr_tagged,
     };
   }

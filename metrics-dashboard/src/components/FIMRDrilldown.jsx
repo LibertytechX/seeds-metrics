@@ -315,8 +315,9 @@ const FIMRDrilldown = ({ loans }) => {
               <th onClick={() => handleSort('amountPaid')}>Amount Paid</th>
               <th onClick={() => handleSort('outstandingBalance')}>Outstanding Balance</th>
               <th onClick={() => handleSort('currentDPD')}>Current DPD</th>
-              <th onClick={() => handleSort('channel')}>Channel</th>
-              <th onClick={() => handleSort('status')}>Status</th>
+	              <th onClick={() => handleSort('channel')}>Channel</th>
+	              <th onClick={() => handleSort('djangoStatus')}>django_status</th>
+	              <th onClick={() => handleSort('status')}>Status</th>
               <th onClick={() => handleSort('fimrTagged')}>FIMR Tagged</th>
               <th>Actions</th>
             </tr>
@@ -339,6 +340,7 @@ const FIMRDrilldown = ({ loans }) => {
                 <td className="amount">{formatCurrency(loan.outstandingBalance)}</td>
                 <td className="dpd">{loan.currentDPD}</td>
                 <td>{loan.channel}</td>
+	                <td>{loan.djangoStatus || ''}</td>
                 <td>
                   <span className={`status-badge ${getStatusColor(loan.status)}`}>
                     {loan.status}
