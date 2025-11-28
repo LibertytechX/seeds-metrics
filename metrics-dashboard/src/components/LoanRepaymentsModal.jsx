@@ -4,7 +4,18 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import './LoanRepaymentsModal.css';
 
-const LoanRepaymentsModal = ({ isOpen, onClose, loanId, customerName }) => {
+const LoanRepaymentsModal = ({
+  isOpen,
+  onClose,
+  loanId,
+  customerName,
+  repaymentAmount,
+  loanAmount,
+  totalOutstanding,
+  actualOutstanding,
+  maturityDate,
+  firstPaymentDueDate,
+}) => {
   const [repayments, setRepayments] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -71,6 +82,18 @@ const LoanRepaymentsModal = ({ isOpen, onClose, loanId, customerName }) => {
 
     return sorted;
   }, [repayments, sortConfig]);
+
+  const totalRepaymentsAmount = React.useMemo(() => {
+    if (!repayments || repayments.length === 0) return 0;
+
+    return repayments
+      .filter(r => !r.is_reversed)
+      .reduce((sum, r) => {
+        const amt = Number(r.payment_amount ?? 0);
+        if (Number.isNaN(amt)) return sum;
+        return sum + amt;
+      }, 0);
+  }, [repayments]);
 
   const formatCurrency = (value) => {
     return new Intl.NumberFormat('en-NG', {
@@ -171,6 +194,50 @@ const LoanRepaymentsModal = ({ isOpen, onClose, loanId, customerName }) => {
             <p className="loan-repayments-subtitle">
               Loan: <strong>{loanId}</strong> | Customer: <strong>{customerName}</strong>
             </p>
+            <div className="loan-repayments-summary">
+              <div className="loan-repayments-summary-row">
+                {(repaymentAmount != null || loanAmount != null) && (
+                  <span className="loan-repayments-summary-item">
+                    <span className="loan-repayments-summary-label">Repayment Amount:</span>
+                    <span className="loan-repayments-summary-value">
+                      {formatCurrency(
+                        repaymentAmount != null ? repaymentAmount : loanAmount
+                      )}
+                    </span>
+                  </span>
+                )}
+                {totalOutstanding != null && (
+                  <span className="loan-repayments-summary-item">
+                    <span className="loan-repayments-summary-label">Outstanding:</span>
+                    <span className="loan-repayments-summary-value">{formatCurrency(totalOutstanding)}</span>
+                  </span>
+                )}
+                {actualOutstanding != null && (
+                  <span className="loan-repayments-summary-item">
+                    <span className="loan-repayments-summary-label">Actual Outstanding:</span>
+                    <span className="loan-repayments-summary-value">{formatCurrency(actualOutstanding)}</span>
+                  </span>
+                )}
+              </div>
+              <div className="loan-repayments-summary-row">
+                <span className="loan-repayments-summary-item">
+                  <span className="loan-repayments-summary-label">Sum of all repayments:</span>
+                  <span className="loan-repayments-summary-value">{formatCurrency(totalRepaymentsAmount)}</span>
+                </span>
+                {maturityDate && (
+                  <span className="loan-repayments-summary-item">
+                    <span className="loan-repayments-summary-label">Maturity Date:</span>
+                    <span className="loan-repayments-summary-value">{formatDate(maturityDate)}</span>
+                  </span>
+                )}
+                {firstPaymentDueDate && (
+                  <span className="loan-repayments-summary-item">
+                    <span className="loan-repayments-summary-label">First Payment Due Date:</span>
+                    <span className="loan-repayments-summary-value">{formatDate(firstPaymentDueDate)}</span>
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
           <button className="loan-repayments-close-btn" onClick={onClose}>
             <X size={24} />

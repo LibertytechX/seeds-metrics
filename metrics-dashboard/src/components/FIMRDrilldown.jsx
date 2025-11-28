@@ -384,6 +384,12 @@ const FIMRDrilldown = ({ loans }) => {
         onClose={() => setRepaymentsModalOpen(false)}
         loanId={selectedLoan?.loanId || ''}
         customerName={selectedLoan?.customerName || ''}
+        loanAmount={selectedLoan?.loanAmount}
+        repaymentAmount={selectedLoan?.amountDue1stInstallment}
+        totalOutstanding={selectedLoan?.outstandingBalance}
+        actualOutstanding={selectedLoan?.actualOutstanding}
+        maturityDate={selectedLoan?.maturityDate}
+        firstPaymentDueDate={selectedLoan?.firstPaymentDueDate}
       />
     </div>
   );

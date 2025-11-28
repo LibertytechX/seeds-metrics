@@ -147,12 +147,15 @@ type FIMRLoan struct {
 	CustomerPhone            string  `json:"customer_phone"`
 	DisbursementDate         string  `json:"disbursement_date"`
 	LoanAmount               float64 `json:"loan_amount"`
+	MaturityDate             string  `json:"maturity_date"`
 	FirstPaymentDueDate      string  `json:"first_payment_due_date"`
 	FirstPaymentReceivedDate *string `json:"first_payment_received_date,omitempty"`
 	DaysSinceDue             *int    `json:"days_since_due,omitempty"`
 	AmountDue1stInstallment  float64 `json:"amount_due_1st_installment"`
 	AmountPaid               float64 `json:"amount_paid"`
+	ActualOutstanding        float64 `json:"actual_outstanding"`
 	OutstandingBalance       float64 `json:"outstanding_balance"`
+	TotalRepayments          float64 `json:"total_repayments"`
 	CurrentDPD               int     `json:"current_dpd"`
 	Channel                  string  `json:"channel"`
 	Status                   string  `json:"status"`

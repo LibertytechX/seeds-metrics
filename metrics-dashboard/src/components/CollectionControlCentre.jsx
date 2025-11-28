@@ -726,8 +726,16 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
         >
           <div className="card-label">Collections Received ({PERIOD_OPTIONS.find(p => p.value === filters.period)?.label || 'Period'})</div>
           <div className="card-value">{totalRepaidToday != null ? formatCurrency(totalRepaidToday) : '—'}</div>
-          <div className="card-subtitle">Cash collected from repayments in the period</div>
-        </button>
+	          <div className="card-subtitle">Cash collected from repayments in the period</div>
+	          <div className="card-submetric">
+	            <span className="card-submetric-label">Collections (filtered)</span>
+	            <span className="card-submetric-value">
+	              {totalRepaidTodayFiltered != null
+	                ? formatCurrency(totalRepaidTodayFiltered)
+	                : ''}
+	            </span>
+	          </div>
+	        </button>
 
         {/* 3. Collection Rate (Period) */}
         <button

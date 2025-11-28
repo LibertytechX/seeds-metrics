@@ -497,7 +497,8 @@
 }
 
 .collections-daily-metric {
-  text-align: right;
+	  text-align: right;
+	  display: none;
 }
 
 .collections-daily-metric-label {
@@ -512,6 +513,28 @@
   font-size: 14px;
   font-weight: 700;
   color: #1a1a1a;
+}
+
+/* Sub-metric styling for KPI cards (e.g. Collections Received (Period)) */
+.card-submetric {
+	  margin-top: 6px;
+	  display: flex;
+	  justify-content: space-between;
+	  align-items: baseline;
+}
+
+.card-submetric-label {
+	  font-size: 11px;
+	  font-weight: 600;
+	  color: #555;
+	  text-transform: uppercase;
+	  letter-spacing: 0.5px;
+}
+
+.card-submetric-value {
+	  font-size: 13px;
+	  font-weight: 700;
+	  color: #1a1a1a;
 }
 
 .collections-daily-card-body {

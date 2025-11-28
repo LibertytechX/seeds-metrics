@@ -178,10 +178,13 @@ class ApiService {
       loanAmount: loan.loan_amount,
       disbursementDate: loan.disbursement_date?.split('T')[0] || loan.disbursement_date,
       firstPaymentDueDate: loan.first_payment_due_date?.split('T')[0] || loan.first_payment_due_date,
+      maturityDate: loan.maturity_date?.split('T')[0] || loan.maturity_date,
       daysSinceDue: loan.days_since_due, // Match mock data format
       amountDue1stInstallment: loan.amount_due_1st_installment,
       amountPaid: loan.amount_paid,
       outstandingBalance: loan.outstanding_balance, // Match mock data format
+      actualOutstanding: loan.actual_outstanding,
+      totalRepayments: loan.total_repayments,
       currentDPD: loan.current_dpd,
 	      status: loan.status,
 	      djangoStatus: loan.django_status,

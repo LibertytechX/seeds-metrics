@@ -23,7 +23,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     performance_statuses: [], // Multi-select performance status filter
 	    django_statuses: [], // Multi-select raw Django status filter
     customer_phone: '',
-    vertical_lead_email: '',
+		vertical_lead_email: [],
     loan_type: initialFilter?.loan_type || '', // 'active' or 'inactive'
     rot_type: initialFilter?.rot_type || '', // 'early' or 'late'
     delay_type: initialFilter?.delay_type || '', // 'risky' for high delay loans
@@ -53,8 +53,10 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
   const loanTypeDropdownRef = useRef(null);
   const [isVerificationStatusDropdownOpen, setIsVerificationStatusDropdownOpen] = useState(false);
   const verificationStatusDropdownRef = useRef(null);
-	  const [isDjangoStatusDropdownOpen, setIsDjangoStatusDropdownOpen] = useState(false);
-	  const djangoStatusDropdownRef = useRef(null);
+		  const [isDjangoStatusDropdownOpen, setIsDjangoStatusDropdownOpen] = useState(false);
+		  const djangoStatusDropdownRef = useRef(null);
+		  const [isVerticalLeadDropdownOpen, setIsVerticalLeadDropdownOpen] = useState(false);
+		  const verticalLeadDropdownRef = useRef(null);
   const [filterLabel, setFilterLabel] = useState(
     initialFilter?.officer_name ? `Officer: ${initialFilter.officer_name}` :
     initialFilter?.label ? initialFilter.label : ''
@@ -103,9 +105,12 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       if (verificationStatusDropdownRef.current && !verificationStatusDropdownRef.current.contains(event.target)) {
         setIsVerificationStatusDropdownOpen(false);
       }
-	      if (djangoStatusDropdownRef.current && !djangoStatusDropdownRef.current.contains(event.target)) {
-	        setIsDjangoStatusDropdownOpen(false);
-	      }
+			      if (djangoStatusDropdownRef.current && !djangoStatusDropdownRef.current.contains(event.target)) {
+			        setIsDjangoStatusDropdownOpen(false);
+			      }
+			      if (verticalLeadDropdownRef.current && !verticalLeadDropdownRef.current.contains(event.target)) {
+			        setIsVerticalLeadDropdownOpen(false);
+			      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -116,50 +121,54 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     try {
       const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8081/api/v1';
 
-	      // Fetch branches, regions, channels, waves, statuses, officers, loan types, verification statuses, and Django statuses from API
-	      const [
-	        branchesRes,
-	        regionsRes,
-	        channelsRes,
-	        wavesRes,
-	        statusesRes,
-	        officersRes,
-	        loanTypesRes,
-	        verificationStatusesRes,
-	        djangoStatusesRes,
-	      ] = await Promise.all([
-        fetch(`${API_BASE_URL}/filters/branches`),
-        fetch(`${API_BASE_URL}/filters/regions`),
-        fetch(`${API_BASE_URL}/filters/channels`),
-        fetch(`${API_BASE_URL}/filters/waves`),
-        fetch(`${API_BASE_URL}/filters/statuses`),
-        fetch(`${API_BASE_URL}/filters/officers`),
-        fetch(`${API_BASE_URL}/filters/loan-types`),
-        fetch(`${API_BASE_URL}/filters/verification-statuses`),
-	        fetch(`${API_BASE_URL}/filters/django-statuses`),
-      ]);
+			      // Fetch branches, regions, channels, waves, statuses, officers, loan types, verification statuses, Django statuses, and vertical leads from API
+			      const [
+			        branchesRes,
+			        regionsRes,
+			        channelsRes,
+			        wavesRes,
+			        statusesRes,
+			        officersRes,
+			        loanTypesRes,
+			        verificationStatusesRes,
+			        djangoStatusesRes,
+			        verticalLeadsRes,
+			      ] = await Promise.all([
+		        fetch(`${API_BASE_URL}/filters/branches`),
+		        fetch(`${API_BASE_URL}/filters/regions`),
+		        fetch(`${API_BASE_URL}/filters/channels`),
+		        fetch(`${API_BASE_URL}/filters/waves`),
+		        fetch(`${API_BASE_URL}/filters/statuses`),
+		        fetch(`${API_BASE_URL}/filters/officers`),
+		        fetch(`${API_BASE_URL}/filters/loan-types`),
+		        fetch(`${API_BASE_URL}/filters/verification-statuses`),
+			        fetch(`${API_BASE_URL}/filters/django-statuses`),
+			        fetch(`${API_BASE_URL}/filters/vertical-leads`),
+		      ]);
 
-	      const [
-	        branchesData,
-	        regionsData,
-	        channelsData,
-	        wavesData,
-	        statusesData,
-	        officersData,
-	        loanTypesData,
-	        verificationStatusesData,
-	        djangoStatusesData,
-	      ] = await Promise.all([
-        branchesRes.json(),
-        regionsRes.json(),
-        channelsRes.json(),
-        wavesRes.json(),
-        statusesRes.json(),
-        officersRes.json(),
-        loanTypesRes.json(),
-        verificationStatusesRes.json(),
-	        djangoStatusesRes.json(),
-      ]);
+			      const [
+			        branchesData,
+			        regionsData,
+			        channelsData,
+			        wavesData,
+			        statusesData,
+			        officersData,
+			        loanTypesData,
+			        verificationStatusesData,
+			        djangoStatusesData,
+			        verticalLeadsData,
+			      ] = await Promise.all([
+		        branchesRes.json(),
+		        regionsRes.json(),
+		        channelsRes.json(),
+		        wavesRes.json(),
+		        statusesRes.json(),
+		        officersRes.json(),
+		        loanTypesRes.json(),
+		        verificationStatusesRes.json(),
+			        djangoStatusesRes.json(),
+			        verticalLeadsRes.json(),
+		      ]);
 
       if (branchesData.status === 'success') {
         setAllBranches(branchesData.data.branches || []);
@@ -185,21 +194,24 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       if (verificationStatusesData.status === 'success') {
         setAllVerificationStatuses(verificationStatusesData.data['verification-statuses'] || []);
       }
-	      if (djangoStatusesData.status === 'success') {
-	        setAllDjangoStatuses(djangoStatusesData.data['django-statuses'] || []);
-	      }
+		      if (djangoStatusesData.status === 'success') {
+		        setAllDjangoStatuses(djangoStatusesData.data['django-statuses'] || []);
+		      }
+		      if (verticalLeadsData.status === 'success') {
+		        setAllVerticalLeads(verticalLeadsData.data['vertical-leads'] || []);
+		      }
     } catch (error) {
       console.error('Error fetching filter options:', error);
     }
   };
 
-  // Fetch loans from API
+	  // Fetch loans from API
   const fetchLoans = async () => {
     setLoading(true);
     try {
       console.log('🔍 AllLoans: fetchLoans called with filters:', filters);
 
-      // Exclude loan_type, rot_type, delay_type, regions, statuses, performance_statuses, django_loan_types, and django_verification_statuses from API params (will handle arrays separately)
+	    	  // Exclude loan_type, rot_type, delay_type, regions, statuses, performance_statuses, django_loan_types, django_verification_statuses, django_statuses, and vertical_lead_email from API params (will handle arrays separately)
       // Include customer_phone and DPD filters for server-side filtering
       const apiFilters = Object.fromEntries(
         Object.entries(filters)
@@ -213,7 +225,8 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
 	            k !== 'performance_statuses' &&
 	            k !== 'django_loan_types' &&
 	            k !== 'django_verification_statuses' &&
-	            k !== 'django_statuses'
+	    		        k !== 'django_statuses' &&
+	    		        k !== 'vertical_lead_email'
 	          )
       );
 
@@ -253,10 +266,15 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
         apiFilters.performance_status = filters.performance_statuses.join(',');
       }
 
-	      // Convert django_statuses array (raw Django status) to comma-separated string
-	      if (filters.django_statuses && filters.django_statuses.length > 0) {
-	        apiFilters.django_status = filters.django_statuses.join(',');
-	      }
+	    	      // Convert django_statuses array (raw Django status) to comma-separated string
+	    	      if (filters.django_statuses && filters.django_statuses.length > 0) {
+	    	        apiFilters.django_status = filters.django_statuses.join(',');
+	    	      }
+
+	    	      // Convert vertical_lead_email array (multi-select vertical leads) to comma-separated string
+	    	      if (filters.vertical_lead_email && filters.vertical_lead_email.length > 0) {
+	    	        apiFilters.vertical_lead_email = filters.vertical_lead_email.join(',');
+	    	      }
 
       const params = new URLSearchParams({
         page: pagination.page,
@@ -279,18 +297,11 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
         // pagination totals, summary metrics, and CSV exports all use the same
         // set of loans.
 
-        setLoans(fetchedLoans);
+	        setLoans(fetchedLoans);
 
-        // Extract unique vertical leads from fetched loans
-        const uniqueVerticalLeads = [...new Set(
-          fetchedLoans
-            .map(loan => loan.vertical_lead_email)
-            .filter(email => email != null && email !== '')
-        )].sort();
-        setAllVerticalLeads(uniqueVerticalLeads);
-
-        // Note: loan types and verification statuses are now fetched from API in fetchFilterOptions()
-        // No need to extract them from fetched loans
+	        // Note: loan types, verification statuses, and vertical leads are now fetched
+	        // from the filters API in fetchFilterOptions(). No need to extract them
+	        // from fetched loans here.
 
         // Use backend total for pagination, not client-side filtered count
         // The backend total represents the actual number of records matching server-side filters
@@ -349,9 +360,9 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
         statuses: [],
         performance_statuses: [],
 	        django_statuses: [],
-        customer_phone: '',
-        vertical_lead_email: '',
-        loan_type: initialFilter.loan_type || '',
+	        customer_phone: '',
+	        vertical_lead_email: [],
+	        loan_type: initialFilter.loan_type || '',
         rot_type: initialFilter.rot_type || '',
         delay_type: initialFilter.delay_type || '',
         dpd_min: '',
@@ -458,6 +469,15 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     setPagination(prev => ({ ...prev, page: 1 })); // Reset to first page
   };
 
+	  const handleVerticalLeadToggle = (email) => {
+	    const currentVerticalLeads = filters.vertical_lead_email || [];
+	    const newVerticalLeads = currentVerticalLeads.includes(email)
+	      ? currentVerticalLeads.filter(e => e !== email)
+	      : [...currentVerticalLeads, email];
+	    setFilters(prev => ({ ...prev, vertical_lead_email: newVerticalLeads }));
+	    setPagination(prev => ({ ...prev, page: 1 })); // Reset to first page
+	  };
+
   const clearFilters = () => {
     setFilters({
       officer_id: '',
@@ -468,9 +488,9 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       statuses: [],
       performance_statuses: [],
 	      django_statuses: [],
-      customer_phone: '',
-      vertical_lead_email: '',
-      loan_type: '',
+	      customer_phone: '',
+	      vertical_lead_email: [],
+	      loan_type: '',
       rot_type: '',
       delay_type: '',
       dpd_min: '',
@@ -810,25 +830,25 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
   };
 
   // Count only filters that are actually "set": non-empty strings or non-empty arrays.
-  const activeFilterCount = [
-    filters.officer_id,
-    filters.branch,
-    filters.wave,
-    filters.channel,
-    filters.customer_phone,
-    filters.vertical_lead_email,
-    filters.loan_type,
-    filters.rot_type,
-    filters.delay_type,
-    filters.dpd_min,
-    filters.dpd_max,
-    (filters.regions && filters.regions.length > 0) ? 'regions' : '',
-    (filters.statuses && filters.statuses.length > 0) ? 'statuses' : '',
-    (filters.performance_statuses && filters.performance_statuses.length > 0) ? 'performance_statuses' : '',
-	    (filters.django_statuses && filters.django_statuses.length > 0) ? 'django_statuses' : '',
-    (filters.django_loan_types && filters.django_loan_types.length > 0) ? 'django_loan_types' : '',
-    (filters.django_verification_statuses && filters.django_verification_statuses.length > 0) ? 'django_verification_statuses' : '',
-  ].filter(Boolean).length;
+	  const activeFilterCount = [
+	    filters.officer_id,
+	    filters.branch,
+	    filters.wave,
+	    filters.channel,
+	    filters.customer_phone,
+	    (filters.vertical_lead_email && filters.vertical_lead_email.length > 0) ? 'vertical_lead_email' : '',
+	    filters.loan_type,
+	    filters.rot_type,
+	    filters.delay_type,
+	    filters.dpd_min,
+	    filters.dpd_max,
+	    (filters.regions && filters.regions.length > 0) ? 'regions' : '',
+	    (filters.statuses && filters.statuses.length > 0) ? 'statuses' : '',
+	    (filters.performance_statuses && filters.performance_statuses.length > 0) ? 'performance_statuses' : '',
+		    (filters.django_statuses && filters.django_statuses.length > 0) ? 'django_statuses' : '',
+	    (filters.django_loan_types && filters.django_loan_types.length > 0) ? 'django_loan_types' : '',
+	    (filters.django_verification_statuses && filters.django_verification_statuses.length > 0) ? 'django_verification_statuses' : '',
+	  ].filter(Boolean).length;
 
   const handleViewRepayments = (loan) => {
     setSelectedLoan(loan);
@@ -1145,17 +1165,45 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                 ))}
               </select>
             </div>
-            <div className="filter-group">
-              <select
-                value={filters.vertical_lead_email}
-                onChange={(e) => handleFilterChange('vertical_lead_email', e.target.value)}
-              >
-                <option value="">All Vertical Leads</option>
-                {filterOptions.verticalLeads.map(email => (
-                  <option key={email} value={email}>{email}</option>
-                ))}
-              </select>
-            </div>
+	            <div className="filter-group multi-select-wrapper" ref={verticalLeadDropdownRef}>
+	              <button
+	                className="multi-select-button"
+	                onClick={() => setIsVerticalLeadDropdownOpen(!isVerticalLeadDropdownOpen)}
+	              >
+	                <span>
+	                  {filters.vertical_lead_email && filters.vertical_lead_email.length > 0
+	                    ? `${filters.vertical_lead_email.length} Vertical Lead${filters.vertical_lead_email.length > 1 ? 's' : ''} Selected`
+	                    : 'All Vertical Leads'}
+	                </span>
+	                <ChevronDown size={16} />
+	              </button>
+	              {isVerticalLeadDropdownOpen && (
+	                <div className="multi-select-dropdown">
+	                  <div className="multi-select-option" onClick={() => setFilters(prev => ({ ...prev, vertical_lead_email: [] }))}>
+	                    <input
+	                      type="checkbox"
+	                      checked={!filters.vertical_lead_email || filters.vertical_lead_email.length === 0}
+	                      readOnly
+	                    />
+	                    <span>All Vertical Leads</span>
+	                  </div>
+	                  {filterOptions.verticalLeads.map(email => (
+	                    <div
+	                      key={email}
+	                      className="multi-select-option"
+	                      onClick={() => handleVerticalLeadToggle(email)}
+	                    >
+	                      <input
+	                        type="checkbox"
+	                        checked={filters.vertical_lead_email && filters.vertical_lead_email.includes(email)}
+	                        readOnly
+	                      />
+	                      <span>{email}</span>
+	                    </div>
+	                  ))}
+	                </div>
+	              )}
+	            </div>
             <div className="filter-group multi-select-wrapper" ref={loanTypeDropdownRef}>
               <button
                 className="multi-select-button"
@@ -1608,6 +1656,12 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
         onClose={() => setRepaymentsModalOpen(false)}
         loanId={selectedLoan?.loan_id || ''}
         customerName={selectedLoan?.customer_name || ''}
+        loanAmount={selectedLoan?.loan_amount}
+        repaymentAmount={selectedLoan?.repayment_amount}
+        totalOutstanding={selectedLoan?.total_outstanding}
+        actualOutstanding={selectedLoan?.actual_outstanding}
+        maturityDate={selectedLoan?.maturity_date}
+        firstPaymentDueDate={selectedLoan?.first_payment_due_date}
       />
     </div>
   );

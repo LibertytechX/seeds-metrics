@@ -616,8 +616,11 @@ func (r *DashboardRepository) GetFIMRLoans(filters map[string]interface{}) ([]*m
 			l.customer_name,
 			l.customer_phone,
 			l.disbursement_date,
-			l.loan_amount,
-			l.first_payment_due_date as first_payment_due_date,
+				l.loan_amount,
+				l.maturity_date,
+				l.actual_outstanding,
+				l.total_repayments,
+				l.first_payment_due_date as first_payment_due_date,
 			l.first_payment_received_date,
 			l.days_since_due,
 			CASE
@@ -752,6 +755,7 @@ func (r *DashboardRepository) GetFIMRLoans(filters map[string]interface{}) ([]*m
 	for rows.Next() {
 		loan := &models.FIMRLoan{}
 		var firstPaymentDueDate sql.NullString
+		var maturityDate sql.NullString
 		var firstPaymentReceivedDate sql.NullString
 		var daysSinceDue sql.NullInt64
 		var djangoStatus sql.NullString
@@ -766,6 +770,9 @@ func (r *DashboardRepository) GetFIMRLoans(filters map[string]interface{}) ([]*m
 			&loan.CustomerPhone,
 			&loan.DisbursementDate,
 			&loan.LoanAmount,
+			&maturityDate,
+			&loan.ActualOutstanding,
+			&loan.TotalRepayments,
 			&firstPaymentDueDate,
 			&firstPaymentReceivedDate,
 			&daysSinceDue,
@@ -783,6 +790,9 @@ func (r *DashboardRepository) GetFIMRLoans(filters map[string]interface{}) ([]*m
 		}
 		if firstPaymentDueDate.Valid {
 			loan.FirstPaymentDueDate = firstPaymentDueDate.String
+		}
+		if maturityDate.Valid {
+			loan.MaturityDate = maturityDate.String
 		}
 		if firstPaymentReceivedDate.Valid {
 			loan.FirstPaymentReceivedDate = &firstPaymentReceivedDate.String
@@ -2144,11 +2154,25 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 		argCount++
 	}
 
+	// Vertical lead filter - support comma-separated values for multi-select
 	if verticalLeadEmail, ok := filters["vertical_lead_email"].(string); ok && verticalLeadEmail != "" {
-		query += fmt.Sprintf(" AND l.vertical_lead_email = $%d", argCount)
-		countQuery += fmt.Sprintf(" AND l.vertical_lead_email = $%d", argCount)
-		args = append(args, verticalLeadEmail)
-		argCount++
+		emails := strings.Split(verticalLeadEmail, ",")
+		if len(emails) == 1 {
+			query += fmt.Sprintf(" AND l.vertical_lead_email = $%d", argCount)
+			countQuery += fmt.Sprintf(" AND l.vertical_lead_email = $%d", argCount)
+			args = append(args, strings.TrimSpace(emails[0]))
+			argCount++
+		} else {
+			placeholders := []string{}
+			for _, e := range emails {
+				placeholders = append(placeholders, fmt.Sprintf("$%d", argCount))
+				args = append(args, strings.TrimSpace(e))
+				argCount++
+			}
+			inClause := fmt.Sprintf(" AND l.vertical_lead_email IN (%s)", strings.Join(placeholders, ", "))
+			query += inClause
+			countQuery += inClause
+		}
 	}
 
 	// Loan type filter - support comma-separated values for multiple loan types, including a sentinel for missing values
@@ -3360,6 +3384,8 @@ func (r *DashboardRepository) GetFilterOptions(filterType string, filters map[st
 		return r.getVerificationStatuses()
 	case "django-statuses":
 		return r.getDjangoStatuses()
+	case "vertical-leads":
+		return r.getVerticalLeads()
 	default:
 		return nil, fmt.Errorf("unknown filter type: %s", filterType)
 	}
@@ -3892,6 +3918,33 @@ func (r *DashboardRepository) getVerificationStatuses() ([]string, error) {
 	}
 
 	return verificationStatuses, nil
+}
+
+// getVerticalLeads returns the distinct vertical lead emails used on loans
+func (r *DashboardRepository) getVerticalLeads() ([]string, error) {
+	query := `SELECT DISTINCT l.vertical_lead_email FROM loans l
+		INNER JOIN officers o ON l.officer_id = o.officer_id
+		WHERE l.vertical_lead_email IS NOT NULL
+		AND l.vertical_lead_email != ''
+		AND (o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT') OR o.user_type IS NULL)
+		ORDER BY l.vertical_lead_email`
+
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	verticalLeads := []string{}
+	for rows.Next() {
+		var email string
+		if err := rows.Scan(&email); err != nil {
+			return nil, err
+		}
+		verticalLeads = append(verticalLeads, email)
+	}
+
+	return verticalLeads, nil
 }
 
 // getDjangoStatuses returns the distinct raw Django status values stored on loans.django_status
