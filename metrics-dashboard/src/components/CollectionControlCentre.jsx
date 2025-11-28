@@ -40,11 +40,13 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
     waves: [],
   });
 
-	  const [summaryMetrics, setSummaryMetrics] = useState(null);
-	  // For Collections Received we want "all repayments" for the period,
-	  // not restricted to collections-specific django_status values.
-	  // We'll fetch this alongside the restricted metrics.
-	  const [totalRepaidTodayAll, setTotalRepaidTodayAll] = useState(null);
+			const [summaryMetrics, setSummaryMetrics] = useState(null);
+			// For Collections Received we want "all repayments" for the period,
+			// not restricted to collections-specific django_status values.
+			// We'll fetch this alongside the restricted metrics.
+			const [totalRepaidTodayAll, setTotalRepaidTodayAll] = useState(null);
+			// Repayments breakdown by django_status (from unrestricted metrics)
+			const [repaymentsByStatus, setRepaymentsByStatus] = useState([]);
 
 	  // Branch collections leaderboard (per-branch breakdown under the cards)
 	  const [branchLeaderboard, setBranchLeaderboard] = useState([]);
@@ -178,10 +180,16 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	          throw new Error(unrestrictedData.message || 'Failed to load collections received metrics');
 	        }
 
-	        setSummaryMetrics(restrictedData.data?.summary_metrics || null);
-	        setTotalRepaidTodayAll(
-	          unrestrictedData.data?.summary_metrics?.total_repayments_today ?? null,
-	        );
+					setSummaryMetrics(restrictedData.data?.summary_metrics || null);
+					const unrestrictedSummary = unrestrictedData.data?.summary_metrics || null;
+					setTotalRepaidTodayAll(
+					  unrestrictedSummary?.total_repayments_today ?? null,
+					);
+					setRepaymentsByStatus(
+					  Array.isArray(unrestrictedSummary?.repayments_by_django_status)
+					    ? unrestrictedSummary.repayments_by_django_status
+					    : [],
+					);
 	        setLastUpdated(new Date());
 	      } catch (err) {
 	        console.error('Error fetching collections summary metrics:', err);
@@ -357,7 +365,7 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 
 	  const isLoading = loadingFilters || loadingMetrics;
 
-		  const sortedBranchLeaderboard = useMemo(() => {
+				  const sortedBranchLeaderboard = useMemo(() => {
 	    if (!branchLeaderboard || branchLeaderboard.length === 0) return [];
 	    const rows = [...branchLeaderboard];
 	    rows.sort((a, b) => {
@@ -372,8 +380,33 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 		    return rows;
 		  }, [branchLeaderboard, branchSort]);
 
-					  // Derived values from existing summary metrics
-					  const totalDueToday = summaryMetrics?.total_due_for_today ?? null;
+						  // Derived values from existing summary metrics
+						  const totalDueToday = summaryMetrics?.total_due_for_today ?? null;
+						  const repaymentsStatusCategories = useMemo(() => {
+						    if (!Array.isArray(repaymentsByStatus) || repaymentsByStatus.length === 0) {
+						      return [];
+						    }
+						    return repaymentsByStatus.map((row) => {
+						      const rawStatus = row.django_status;
+						      const amount = typeof row.amount === 'number' ? row.amount : 0;
+						      let label;
+						      if (!rawStatus || rawStatus === MISSING_VALUE) {
+						        label = 'Payments from Loans with Missing Status';
+						      } else if (rawStatus === 'OPEN') {
+						        label = 'Payments from Open Loans';
+						      } else if (rawStatus === 'PAST_MATURITY') {
+						        label = 'Payments from Past Maturity Loans';
+						      } else {
+						        label = `Payments from ${rawStatus.replace(/_/g, ' ')} Loans`;
+						      }
+						      return {
+						        key: rawStatus || MISSING_VALUE,
+						        status: rawStatus,
+						        label,
+						        amount,
+						      };
+						    });
+						  }, [repaymentsByStatus]);
 
 		  const dailyCollectionsSeries = useMemo(() => {
 		    // Build a map of collected amounts per calendar date (YYYY-MM-DD)
@@ -795,16 +828,36 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
         </button>
       </div>
 
-	      <div className="collections-daily-row">
-	        <div className="collections-daily-card">
+		      <div className="collections-daily-row">
+		        <div className="collections-daily-card">
 	          <div className="collections-daily-card-header">
 	            <div>
 	              <h3 className="collections-daily-card-title">Daily Collections</h3>
 	              <p className="collections-daily-card-subtitle">
 	                Collections due vs collected over the last 7 days
 	              </p>
-	            </div>
-	          </div>
+		        </div>
+		        {/* Repayments status Categories card */}
+		        <div className="collections-daily-status-card">
+		          <div className="collections-daily-status-header">
+		            <h3 className="collections-daily-status-title">repayments status Categories</h3>
+		          </div>
+		          <div className="collections-daily-status-body">
+		            {repaymentsStatusCategories.length === 0 ? (
+			              <div className="collections-daily-status-empty">
+			                No repayments recorded for this period with these filters.
+			              </div>
+			            ) : (
+			              repaymentsStatusCategories.map((item) => (
+			                <div key={item.key} className="status-tile glass">
+			                  <div className="status-tile-label">{item.label}</div>
+			                  <div className="status-tile-amount">{formatCurrency(item.amount)}</div>
+			                </div>
+			              ))
+			            )}
+		          </div>
+		        </div>
+		      </div>
 	          <div className="collections-daily-card-body">
 	            {loadingDailyCollections ? (
 	              <div className="collections-daily-placeholder">Loading daily collections...</div>

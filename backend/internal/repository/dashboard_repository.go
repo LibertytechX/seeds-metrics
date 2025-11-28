@@ -1302,9 +1302,10 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 		return nil, fmt.Errorf("failed to calculate summary metrics: %w", err)
 	}
 
-	// Build a query to sum repayments made in the requested period for loans matching the filters
-	repaymentsQuery := `
-			SELECT COALESCE(SUM(r.payment_amount), 0) as total_repayments_today
+	// Build a base WHERE clause to sum repayments made in the requested period for
+	// loans matching the filters. We keep this reusable so we can calculate both
+	// the overall total and a breakdown by django_status using the same filters.
+	repaymentsWhere := `
 			FROM repayments r
 			INNER JOIN loans l ON r.loan_id = l.loan_id
 			INNER JOIN officers o ON l.officer_id = o.officer_id
@@ -1317,38 +1318,38 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 	// defined until collections-specific period handling is implemented for them.
 	switch period {
 	case "this_week":
-		repaymentsQuery += `
+		repaymentsWhere += `
 				AND DATE(r.payment_date) >= DATE_TRUNC('week', CURRENT_DATE)::date
 				AND DATE(r.payment_date) <= CURRENT_DATE
 			`
 	case "this_month":
-		repaymentsQuery += `
+		repaymentsWhere += `
 				AND DATE(r.payment_date) >= DATE_TRUNC('month', CURRENT_DATE)::date
 				AND DATE(r.payment_date) <= CURRENT_DATE
 			`
 	case "last_month":
-		repaymentsQuery += `
+		repaymentsWhere += `
 				AND DATE(r.payment_date) >= (DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '1 month')::date
 				AND DATE(r.payment_date) < DATE_TRUNC('month', CURRENT_DATE)::date
 			`
 	default: // "today" or any unrecognised value
-		repaymentsQuery += `
+		repaymentsWhere += `
 				AND DATE(r.payment_date) = CURRENT_DATE
 			`
 	}
 
-	// Apply the same filters to the repayments query
+	// Apply the same filters to the repayments WHERE clause
 	repaymentsArgs := []interface{}{}
 	repaymentsArgCount := 1
 
 	if officerID, ok := filters["officer_id"].(string); ok && officerID != "" {
-		repaymentsQuery += fmt.Sprintf(" AND l.officer_id = $%d", repaymentsArgCount)
+		repaymentsWhere += fmt.Sprintf(" AND l.officer_id = $%d", repaymentsArgCount)
 		repaymentsArgs = append(repaymentsArgs, officerID)
 		repaymentsArgCount++
 	}
 
 	if branch, ok := filters["branch"].(string); ok && branch != "" {
-		repaymentsQuery += fmt.Sprintf(" AND l.branch = $%d", repaymentsArgCount)
+		repaymentsWhere += fmt.Sprintf(" AND l.branch = $%d", repaymentsArgCount)
 		repaymentsArgs = append(repaymentsArgs, branch)
 		repaymentsArgCount++
 	}
@@ -1356,7 +1357,7 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 	if region, ok := filters["region"].(string); ok && region != "" {
 		regions := strings.Split(region, ",")
 		if len(regions) == 1 {
-			repaymentsQuery += fmt.Sprintf(" AND l.region = $%d", repaymentsArgCount)
+			repaymentsWhere += fmt.Sprintf(" AND l.region = $%d", repaymentsArgCount)
 			repaymentsArgs = append(repaymentsArgs, regions[0])
 			repaymentsArgCount++
 		} else {
@@ -1366,12 +1367,12 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 				repaymentsArgs = append(repaymentsArgs, strings.TrimSpace(r))
 				repaymentsArgCount++
 			}
-			repaymentsQuery += fmt.Sprintf(" AND l.region IN (%s)", strings.Join(placeholders, ", "))
+			repaymentsWhere += fmt.Sprintf(" AND l.region IN (%s)", strings.Join(placeholders, ", "))
 		}
 	}
 
 	if channel, ok := filters["channel"].(string); ok && channel != "" {
-		repaymentsQuery += fmt.Sprintf(" AND l.channel = $%d", repaymentsArgCount)
+		repaymentsWhere += fmt.Sprintf(" AND l.channel = $%d", repaymentsArgCount)
 		repaymentsArgs = append(repaymentsArgs, channel)
 		repaymentsArgCount++
 	}
@@ -1379,7 +1380,7 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 	if status, ok := filters["status"].(string); ok && status != "" {
 		statuses := strings.Split(status, ",")
 		if len(statuses) == 1 {
-			repaymentsQuery += fmt.Sprintf(" AND l.status = $%d", repaymentsArgCount)
+			repaymentsWhere += fmt.Sprintf(" AND l.status = $%d", repaymentsArgCount)
 			repaymentsArgs = append(repaymentsArgs, statuses[0])
 			repaymentsArgCount++
 		} else {
@@ -1389,7 +1390,7 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 				repaymentsArgs = append(repaymentsArgs, strings.TrimSpace(s))
 				repaymentsArgCount++
 			}
-			repaymentsQuery += fmt.Sprintf(" AND l.status IN (%s)", strings.Join(placeholders, ", "))
+			repaymentsWhere += fmt.Sprintf(" AND l.status IN (%s)", strings.Join(placeholders, ", "))
 		}
 	}
 
@@ -1431,14 +1432,14 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 		}
 
 		if len(conditions) > 0 {
-			repaymentsQuery += " AND (" + strings.Join(conditions, " OR ") + ")"
+			repaymentsWhere += " AND (" + strings.Join(conditions, " OR ") + ")"
 		}
 	}
 
 	if performanceStatus, ok := filters["performance_status"].(string); ok && performanceStatus != "" {
 		performanceStatuses := strings.Split(performanceStatus, ",")
 		if len(performanceStatuses) == 1 {
-			repaymentsQuery += fmt.Sprintf(" AND l.performance_status = $%d", repaymentsArgCount)
+			repaymentsWhere += fmt.Sprintf(" AND l.performance_status = $%d", repaymentsArgCount)
 			repaymentsArgs = append(repaymentsArgs, performanceStatuses[0])
 			repaymentsArgCount++
 		} else {
@@ -1448,24 +1449,24 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 				repaymentsArgs = append(repaymentsArgs, strings.TrimSpace(ps))
 				repaymentsArgCount++
 			}
-			repaymentsQuery += fmt.Sprintf(" AND l.performance_status IN (%s)", strings.Join(placeholders, ", "))
+			repaymentsWhere += fmt.Sprintf(" AND l.performance_status IN (%s)", strings.Join(placeholders, ", "))
 		}
 	}
 
 	if wave, ok := filters["wave"].(string); ok && wave != "" {
-		repaymentsQuery += fmt.Sprintf(" AND l.wave = $%d", repaymentsArgCount)
+		repaymentsWhere += fmt.Sprintf(" AND l.wave = $%d", repaymentsArgCount)
 		repaymentsArgs = append(repaymentsArgs, wave)
 		repaymentsArgCount++
 	}
 
 	if customerPhone, ok := filters["customer_phone"].(string); ok && customerPhone != "" {
-		repaymentsQuery += fmt.Sprintf(" AND l.customer_phone LIKE $%d", repaymentsArgCount)
+		repaymentsWhere += fmt.Sprintf(" AND l.customer_phone LIKE $%d", repaymentsArgCount)
 		repaymentsArgs = append(repaymentsArgs, "%"+customerPhone+"%")
 		repaymentsArgCount++
 	}
 
 	if verticalLeadEmail, ok := filters["vertical_lead_email"].(string); ok && verticalLeadEmail != "" {
-		repaymentsQuery += fmt.Sprintf(" AND l.vertical_lead_email = $%d", repaymentsArgCount)
+		repaymentsWhere += fmt.Sprintf(" AND l.vertical_lead_email = $%d", repaymentsArgCount)
 		repaymentsArgs = append(repaymentsArgs, verticalLeadEmail)
 		repaymentsArgCount++
 	}
@@ -1507,7 +1508,7 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 		}
 
 		if len(conditions) > 0 {
-			repaymentsQuery += " AND (" + strings.Join(conditions, " OR ") + ")"
+			repaymentsWhere += " AND (" + strings.Join(conditions, " OR ") + ")"
 		}
 	}
 
@@ -1548,26 +1549,63 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 		}
 
 		if len(conditions) > 0 {
-			repaymentsQuery += " AND (" + strings.Join(conditions, " OR ") + ")"
+			repaymentsWhere += " AND (" + strings.Join(conditions, " OR ") + ")"
 		}
 	}
 
 	if dpdMin, ok := filters["dpd_min"].(int); ok {
-		repaymentsQuery += fmt.Sprintf(" AND l.current_dpd >= $%d", repaymentsArgCount)
+		repaymentsWhere += fmt.Sprintf(" AND l.current_dpd >= $%d", repaymentsArgCount)
 		repaymentsArgs = append(repaymentsArgs, dpdMin)
 		repaymentsArgCount++
 	}
 
 	if dpdMax, ok := filters["dpd_max"].(int); ok {
-		repaymentsQuery += fmt.Sprintf(" AND l.current_dpd <= $%d", repaymentsArgCount)
+		repaymentsWhere += fmt.Sprintf(" AND l.current_dpd <= $%d", repaymentsArgCount)
 		repaymentsArgs = append(repaymentsArgs, dpdMax)
 		repaymentsArgCount++
 	}
 
+	// Overall total repayments in the period
+	repaymentsTotalQuery := `
+			SELECT COALESCE(SUM(r.payment_amount), 0) as total_repayments_today
+		` + repaymentsWhere
+
 	var totalRepaymentsToday float64
-	err = r.db.QueryRow(repaymentsQuery, repaymentsArgs...).Scan(&totalRepaymentsToday)
+	err = r.db.QueryRow(repaymentsTotalQuery, repaymentsArgs...).Scan(&totalRepaymentsToday)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate today's repayments: %w", err)
+	}
+
+	// Breakdown of repayments by django_status using the same filters and period.
+	repaymentsByStatusQuery := fmt.Sprintf(`
+			SELECT
+				COALESCE(NULLIF(l.django_status, ''), '%s') AS django_status,
+				COALESCE(SUM(r.payment_amount), 0) AS amount
+		%s
+			GROUP BY COALESCE(NULLIF(l.django_status, ''), '%s')
+			ORDER BY amount DESC
+		`, MissingValueSentinel, repaymentsWhere, MissingValueSentinel)
+
+	repaymentsByStatus := []map[string]interface{}{}
+	rows, err := r.db.Query(repaymentsByStatusQuery, repaymentsArgs...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate repayments by django_status: %w", err)
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var status string
+		var amount float64
+		if scanErr := rows.Scan(&status, &amount); scanErr != nil {
+			return nil, fmt.Errorf("failed to scan repayments by django_status row: %w", scanErr)
+		}
+		repaymentsByStatus = append(repaymentsByStatus, map[string]interface{}{
+			"django_status": status,
+			"amount":        amount,
+		})
+	}
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("failed to iterate repayments by django_status rows: %w", err)
 	}
 
 	// Calculate missed repayments today: loans that have a scheduled daily repayment
@@ -1866,6 +1904,7 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 			"okay":      okayDelayCount,
 			"critical":  criticalDelayCount,
 		},
+		"repayments_by_django_status":   repaymentsByStatus,
 		"total_due_for_today":           totalDueForToday,
 		"total_repayments_today":        totalRepaymentsToday,
 		"percentage_of_due_collected":   percentageDueCollected,
