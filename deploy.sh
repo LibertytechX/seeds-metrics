@@ -68,28 +68,30 @@ deploy_backend() {
 
     print_info "Deploying backend to production server..."
 
-    # Deploy backend: pull code, build on server, restart systemd service
-    ssh ${PRODUCTION_USER}@${PRODUCTION_SERVER} << 'ENDSSH'
+	    # Deploy backend: pull code, build the running binary on server, restart systemd service
+	    ssh ${PRODUCTION_USER}@${PRODUCTION_SERVER} << 'ENDSSH'
         set -e
         cd /home/seeds-metrics-backend/backend
 
         echo "📥 Pulling latest code from GitHub..."
         git pull origin main
 
-        echo "🔨 Building backend binary on server..."
-        /usr/local/go/bin/go build -o seeds-metrics-api cmd/api/main.go
+	        echo "🔨 Building backend binary on server (api)..."
+	        # NOTE: systemd ExecStart points to /home/seeds-metrics-backend/backend/api
+	        # so we must build the 'api' binary here to ensure deployments affect the running service.
+	        /usr/local/go/bin/go build -o api cmd/api/main.go
 
-        echo "✅ Build successful"
-        ls -lh seeds-metrics-api
+	        echo "✅ Build successful"
+	        ls -lh api
 
-        echo "🔄 Restarting backend service..."
-        systemctl restart seeds-metrics-api.service
+	        echo "🔄 Restarting backend service..."
+	        systemctl restart seeds-metrics-api.service
 
-        echo "⏳ Waiting for service to start..."
-        sleep 3
+	        echo "⏳ Waiting for service to start..."
+	        sleep 3
 
-        echo "📊 Checking service status..."
-        systemctl status seeds-metrics-api.service --no-pager -l
+	        echo "📊 Checking service status..."
+	        systemctl status seeds-metrics-api.service --no-pager -l
 
         echo "🧪 Testing API endpoint..."
         curl -s http://localhost:8080/api/v1/health || echo "Health check endpoint not available"

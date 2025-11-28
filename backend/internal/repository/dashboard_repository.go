@@ -4022,15 +4022,16 @@ func (r *DashboardRepository) GetOfficerAuditHistory(officerID string, limit int
 	return history, nil
 }
 
-// UpdatePastMaturityStatus updates django_status to 'PAST_MATURITY' for all loans
-// where the current date exceeds the maturity_date and status is not already PAST_MATURITY.
-// Returns the count of loans updated.
+// UpdatePastMaturityStatus updates django_status to 'PAST_MATURITY' for eligible loans.
+// It only affects loans that are currently marked as OPEN and have a maturity_date
+// earlier than the current date. Other django_status values (COMPLETED, DECLINED, etc.)
+// are left unchanged. Returns the count of loans updated.
 func (r *DashboardRepository) UpdatePastMaturityStatus() (int64, error) {
 	query := `
 		UPDATE loans
 		SET django_status = 'PAST_MATURITY'
 		WHERE maturity_date < CURRENT_DATE
-		  AND (django_status IS NULL OR django_status != 'PAST_MATURITY')
+		  AND django_status = 'OPEN'
 	`
 
 	result, err := r.db.Exec(query)
