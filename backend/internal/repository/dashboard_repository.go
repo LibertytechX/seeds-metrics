@@ -682,6 +682,48 @@ func (r *DashboardRepository) GetFIMRLoans(filters map[string]interface{}) ([]*m
 		argCount++
 	}
 
+	// Raw Django status filter - supports comma-separated values and optional missing sentinel
+	if djangoStatus, ok := filters["django_status"].(string); ok && djangoStatus != "" {
+		statuses := strings.Split(djangoStatus, ",")
+		nonMissing := []string{}
+		includeMissing := false
+
+		for _, s := range statuses {
+			value := strings.TrimSpace(s)
+			if value == "" {
+				continue
+			}
+			if value == MissingValueSentinel {
+				includeMissing = true
+			} else {
+				nonMissing = append(nonMissing, value)
+			}
+		}
+
+		conditions := []string{}
+		if len(nonMissing) == 1 {
+			conditions = append(conditions, fmt.Sprintf("l.django_status = $%d", argCount))
+			args = append(args, nonMissing[0])
+			argCount++
+		} else if len(nonMissing) > 1 {
+			placeholders := make([]string, len(nonMissing))
+			for i, s := range nonMissing {
+				placeholders[i] = fmt.Sprintf("$%d", argCount)
+				args = append(args, s)
+				argCount++
+			}
+			conditions = append(conditions, fmt.Sprintf("l.django_status IN (%s)", strings.Join(placeholders, ",")))
+		}
+
+		if includeMissing {
+			conditions = append(conditions, "(l.django_status IS NULL OR l.django_status = '')")
+		}
+
+		if len(conditions) > 0 {
+			query += " AND (" + strings.Join(conditions, " OR ") + ")"
+		}
+	}
+
 	if wave, ok := filters["wave"].(string); ok && wave != "" {
 		query += fmt.Sprintf(" AND l.wave = $%d", argCount)
 		args = append(args, wave)

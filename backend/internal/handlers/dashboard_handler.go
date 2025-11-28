@@ -268,8 +268,13 @@ func (h *DashboardHandler) GetFIMRLoans(c *gin.Context) {
 	if status := c.Query("status"); status != "" {
 		filters["status"] = status
 	}
+
+	// Default django_status filter for FIMR drilldown:
+	// if caller does not specify django_status explicitly, restrict to OPEN and PAST_MATURITY loans.
 	if djangoStatus := c.Query("django_status"); djangoStatus != "" {
 		filters["django_status"] = djangoStatus
+	} else {
+		filters["django_status"] = "OPEN,PAST_MATURITY"
 	}
 	if wave := c.Query("wave"); wave != "" {
 		filters["wave"] = wave
