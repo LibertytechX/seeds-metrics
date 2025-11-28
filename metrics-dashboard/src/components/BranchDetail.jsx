@@ -513,72 +513,94 @@ const BranchDetail = ({ branchSlug, onBack }) => {
           </div>
         </div>
 
-	      {/* Agent Leaderboard (per-officer collections for this branch) */}
-	      <div className="branch-detail-agent-section">
-	        <h3>Agent Leaderboard</h3>
-	        <p className="agent-leaderboard-subtitle">
-		        Loan officers in {branchInfo?.branch || branchName || branchSlug} - today's collections vs due
-	        </p>
-	        <div className="agent-leaderboard-table-wrapper">
-	          <table className="agent-leaderboard-table">
-	            <thead>
-	              <tr>
-	                <th>Officer</th>
-	                <th>Email</th>
-	                <th>Portfolio</th>
-	                <th>Due</th>
-	                <th>Coll.</th>
-	                <th>Today%</th>
-	                <th>MTD%</th>
-	                <th>Missed</th>
-	                <th>NPL%</th>
-	                <th>Status</th>
-	              </tr>
-	            </thead>
-	            <tbody>
-	              {loadingAgents ? (
+	        {/* Agent Leaderboard (per-officer collections for this branch) */}
+	        <div className="branch-detail-agent-section">
+	          <div className="branch-leaderboard-header">
+	            <div>
+	              <h3>Agent Leaderboard</h3>
+	              <p className="branch-leaderboard-subtitle">
+	                Loan officers in {branchInfo?.branch || branchName || branchSlug} - today's collections vs due
+	              </p>
+	            </div>
+	          </div>
+	          <div className="branch-leaderboard-table-wrapper">
+	            <table className="branch-leaderboard-table">
+	              <thead>
 	                <tr>
-	                  <td colSpan={10} className="agent-leaderboard-loading">
-	                    Loading agent leaderboard...
-	                  </td>
+	                  <th>Officer</th>
+	                  <th>Email</th>
+	                  <th>Portfolio</th>
+	                  <th>Due</th>
+	                  <th>Coll.</th>
+	                  <th>Today%</th>
+	                  <th>MTD%</th>
+	                  <th>Progress</th>
+	                  <th>Missed</th>
+	                  <th>Perf%</th>
+	                  <th>NPL%</th>
+	                  <th>Status</th>
 	                </tr>
-	              ) : agentLeaderboard.length === 0 ? (
-	                <tr>
-	                  <td colSpan={10} className="agent-leaderboard-empty">
-	                    No agents found for the selected filters.
-	                  </td>
-	                </tr>
-	              ) : (
-	                agentLeaderboard.map((a) => {
-	                  const todayRatePercentage = (typeof a.today_rate === 'number' ? a.today_rate : 0) * 100;
-	                  const mtdRatePercentage = (typeof a.mtd_rate === 'number' ? a.mtd_rate : 0) * 100;
-	                  const nplPercentage = (typeof a.npl_ratio === 'number' ? a.npl_ratio : 0) * 100;
-	                  const key = a.officer_id || a.officer_email || a.officer_name || Math.random().toString(36);
-	                  return (
-	                    <tr key={key}>
-	                      <td>{a.officer_name || '-'}</td>
-			                  <td>{a.officer_email || '—'}</td>
-	                      <td>{formatCurrency(a.portfolio_total)}</td>
-	                      <td>{formatCurrency(a.due_today)}</td>
-	                      <td>{formatCurrency(a.collected_today)}</td>
-	                      <td>{formatPercent(todayRatePercentage)}</td>
-	                      <td>{formatPercent(mtdRatePercentage)}</td>
-	                      <td>{formatCurrency(a.missed_today)}</td>
-	                      <td>{formatPercent(nplPercentage)}</td>
-	                      <td>
-	                        <span className={`status-pill status-${(a.status || 'OK').toLowerCase()}`}>
-	                          {a.status || 'OK'}
-	                        </span>
-	                      </td>
-	                    </tr>
-	                  );
-	                })
-	              )}
-	            </tbody>
-	          </table>
+	              </thead>
+	              <tbody>
+	                {loadingAgents ? (
+	                  <tr>
+	                    <td colSpan={12} className="branch-leaderboard-loading">
+	                      Loading agent leaderboard...
+	                    </td>
+	                  </tr>
+	                ) : agentLeaderboard.length === 0 ? (
+	                  <tr>
+	                    <td colSpan={12} className="branch-leaderboard-empty">
+	                      No agents found for the selected filters.
+	                    </td>
+	                  </tr>
+	                ) : (
+	                  agentLeaderboard.map((a) => {
+	                    const todayRatePercentage = (typeof a.today_rate === 'number' ? a.today_rate : 0) * 100;
+	                    const mtdRatePercentage = (typeof a.mtd_rate === 'number' ? a.mtd_rate : 0) * 100;
+	                    const progressRatePercentage = (typeof a.progress_rate === 'number' ? a.progress_rate : 0) * 100;
+	                    const nplPercentage = (typeof a.npl_ratio === 'number' ? a.npl_ratio : 0) * 100;
+	                    const perfPercentage = 100 - nplPercentage;
+	                    const key = a.officer_id || a.officer_email || a.officer_name || Math.random().toString(36);
+	                    return (
+	                      <tr key={key}>
+	                        <td>{a.officer_name || '-'}</td>
+	                        <td>{a.officer_email || '—'}</td>
+	                        <td>{formatCurrency(a.portfolio_total)}</td>
+	                        <td>{formatCurrency(a.due_today)}</td>
+	                        <td>{formatCurrency(a.collected_today)}</td>
+	                        <td>{formatPercent(todayRatePercentage)}</td>
+	                        <td>{formatPercent(mtdRatePercentage)}</td>
+	                        <td>
+	                          <div className="progress-cell">
+	                            <div className="progress-bar">
+	                              <div
+	                                className="progress-bar-fill"
+	                                style={{ width: `${Math.max(0, Math.min(100, progressRatePercentage))}%` }}
+	                              />
+	                            </div>
+	                            <span className="progress-bar-label">
+	                              {formatPercent(progressRatePercentage)}
+	                            </span>
+	                          </div>
+	                        </td>
+	                        <td>{formatCurrency(a.missed_today)}</td>
+	                        <td>{formatPercent(perfPercentage)}</td>
+	                        <td>{formatPercent(nplPercentage)}</td>
+	                        <td>
+	                          <span className={`status-pill status-${(a.status || 'OK').toLowerCase()}`}>
+	                            {a.status || 'OK'}
+	                          </span>
+	                        </td>
+	                      </tr>
+	                    );
+	                  })
+	                )}
+	              </tbody>
+	            </table>
+	          </div>
 	        </div>
 	      </div>
-      </div>
     </div>
   );
 };
