@@ -216,6 +216,27 @@ type BranchCollectionsLeaderboardRow struct {
 	Status         string  `json:"status"`
 }
 
+// OfficerCollectionsLeaderboardRow represents per-officer collections metrics for the
+// Agent/Officer Leaderboard views. It mirrors BranchCollectionsLeaderboardRow but is
+// grouped by officer instead of branch.
+type OfficerCollectionsLeaderboardRow struct {
+	OfficerID      string  `json:"officer_id"`
+	OfficerName    string  `json:"officer_name"`
+	OfficerEmail   string  `json:"officer_email"`
+	Branch         string  `json:"branch"`
+	Region         string  `json:"region"`
+	PortfolioTotal float64 `json:"portfolio_total"`
+	Overdue15d     float64 `json:"overdue_15d"`
+	DueToday       float64 `json:"due_today"`
+	CollectedToday float64 `json:"collected_today"`
+	TodayRate      float64 `json:"today_rate"`
+	MTDRate        float64 `json:"mtd_rate"`
+	ProgressRate   float64 `json:"progress_rate"`
+	MissedToday    float64 `json:"missed_today"`
+	NPLRatio       float64 `json:"npl_ratio"`
+	Status         string  `json:"status"`
+}
+
 // DailyCollectionsPoint represents a single day in the collections time series
 // used by the Collections Control Centre daily chart.
 type DailyCollectionsPoint struct {

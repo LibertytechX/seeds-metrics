@@ -2927,6 +2927,329 @@ func (r *DashboardRepository) GetBranchCollectionsLeaderboard(filters map[string
 	return result, nil
 }
 
+// GetOfficerCollectionsLeaderboard returns per-officer collections metrics for the
+// Agent/Officer Leaderboard views. It mirrors GetBranchCollectionsLeaderboard but
+// groups by officer instead of branch.
+func (r *DashboardRepository) GetOfficerCollectionsLeaderboard(filters map[string]interface{}) ([]*models.OfficerCollectionsLeaderboardRow, error) {
+	// --- First query: loan-based metrics per officer (portfolio, due today, PAR15) ---
+	loanQuery := `
+			SELECT
+				l.officer_id,
+				COALESCE(o.officer_name, '') AS officer_name,
+				COALESCE(o.officer_email, '') AS officer_email,
+				MODE() WITHIN GROUP (ORDER BY l.branch) AS branch,
+				MODE() WITHIN GROUP (ORDER BY l.region) AS region,
+				COALESCE(SUM(l.repayment_amount), 0) AS portfolio_total,
+				COALESCE(SUM(CASE WHEN l.actual_outstanding > 0 THEN l.daily_repayment_amount ELSE 0 END), 0) AS due_today,
+				COALESCE(SUM(CASE WHEN l.current_dpd >= 15 THEN l.principal_outstanding ELSE 0 END), 0) AS overdue_15d
+			FROM loans l
+			JOIN officers o ON l.officer_id = o.officer_id
+			WHERE 1=1
+				AND (o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT') OR o.user_type IS NULL)
+		`
+
+	loanArgs := []interface{}{}
+	loanArgCount := 1
+
+	// Apply filters (same semantics as branch collections leaderboard where relevant).
+	if branch, ok := filters["branch"].(string); ok && branch != "" {
+		loanQuery += fmt.Sprintf(" AND l.branch = $%d", loanArgCount)
+		loanArgs = append(loanArgs, branch)
+		loanArgCount++
+	}
+
+	if region, ok := filters["region"].(string); ok && region != "" {
+		regions := strings.Split(region, ",")
+		if len(regions) == 1 {
+			loanQuery += fmt.Sprintf(" AND l.region = $%d", loanArgCount)
+			loanArgs = append(loanArgs, regions[0])
+			loanArgCount++
+		} else {
+			placeholders := []string{}
+			for _, rgn := range regions {
+				placeholders = append(placeholders, fmt.Sprintf("$%d", loanArgCount))
+				loanArgs = append(loanArgs, strings.TrimSpace(rgn))
+				loanArgCount++
+			}
+			loanQuery += fmt.Sprintf(" AND l.region IN (%s)", strings.Join(placeholders, ", "))
+		}
+	}
+
+	if channel, ok := filters["channel"].(string); ok && channel != "" {
+		loanQuery += fmt.Sprintf(" AND l.channel = $%d", loanArgCount)
+		loanArgs = append(loanArgs, channel)
+		loanArgCount++
+	}
+
+	if wave, ok := filters["wave"].(string); ok && wave != "" {
+		loanQuery += fmt.Sprintf(" AND l.wave = $%d", loanArgCount)
+		loanArgs = append(loanArgs, wave)
+		loanArgCount++
+	}
+
+	if loanType, ok := filters["loan_type"].(string); ok && loanType != "" {
+		loanTypes := strings.Split(loanType, ",")
+		if len(loanTypes) == 1 {
+			loanQuery += fmt.Sprintf(" AND l.loan_type = $%d", loanArgCount)
+			loanArgs = append(loanArgs, strings.TrimSpace(loanTypes[0]))
+			loanArgCount++
+		} else {
+			placeholders := make([]string, len(loanTypes))
+			for i, lt := range loanTypes {
+				placeholders[i] = fmt.Sprintf("$%d", loanArgCount)
+				loanArgs = append(loanArgs, strings.TrimSpace(lt))
+				loanArgCount++
+			}
+			loanQuery += fmt.Sprintf(" AND l.loan_type IN (%s)", strings.Join(placeholders, ", "))
+		}
+	}
+
+	// Django status filter - supports comma-separated values and optional missing sentinel
+	if djangoStatus, ok := filters["django_status"].(string); ok && djangoStatus != "" {
+		statuses := strings.Split(djangoStatus, ",")
+		nonMissing := []string{}
+		includeMissing := false
+		for _, s := range statuses {
+			trimmed := strings.TrimSpace(s)
+			if trimmed == "__MISSING__" {
+				includeMissing = true
+			} else if trimmed != "" {
+				nonMissing = append(nonMissing, trimmed)
+			}
+		}
+
+		conditions := []string{}
+		if len(nonMissing) == 1 {
+			conditions = append(conditions, fmt.Sprintf("l.django_status = $%d", loanArgCount))
+			loanArgs = append(loanArgs, nonMissing[0])
+			loanArgCount++
+		} else if len(nonMissing) > 1 {
+			placeholders := []string{}
+			for _, s := range nonMissing {
+				placeholders = append(placeholders, fmt.Sprintf("$%d", loanArgCount))
+				loanArgs = append(loanArgs, s)
+				loanArgCount++
+			}
+			conditions = append(conditions, fmt.Sprintf("l.django_status IN (%s)", strings.Join(placeholders, ",")))
+		}
+
+		if includeMissing {
+			conditions = append(conditions, "(l.django_status IS NULL OR l.django_status = '')")
+		}
+
+		if len(conditions) > 0 {
+			loanQuery += " AND (" + strings.Join(conditions, " OR ") + ")"
+		}
+	}
+
+	loanQuery += " GROUP BY l.officer_id, o.officer_name, o.officer_email"
+
+	loanRows, err := r.db.Query(loanQuery, loanArgs...)
+	if err != nil {
+		return nil, err
+	}
+	defer loanRows.Close()
+
+	officerMap := make(map[string]*models.OfficerCollectionsLeaderboardRow)
+
+	for loanRows.Next() {
+		row := &models.OfficerCollectionsLeaderboardRow{}
+		if err := loanRows.Scan(
+			&row.OfficerID,
+			&row.OfficerName,
+			&row.OfficerEmail,
+			&row.Branch,
+			&row.Region,
+			&row.PortfolioTotal,
+			&row.DueToday,
+			&row.Overdue15d,
+		); err != nil {
+			return nil, err
+		}
+
+		row.CollectedToday = 0
+		row.TodayRate = 0
+		row.MTDRate = 0
+		row.ProgressRate = 0
+		row.MissedToday = 0
+		row.NPLRatio = 0
+		row.Status = ""
+
+		officerMap[row.OfficerID] = row
+	}
+
+	// --- Second query: repayment-based metrics per officer (collections today) ---
+	repayQuery := `
+			SELECT
+				l.officer_id,
+				COALESCE(SUM(r.payment_amount), 0) AS collected_today
+			FROM repayments r
+			JOIN loans l ON r.loan_id = l.loan_id
+			JOIN officers o ON l.officer_id = o.officer_id
+			WHERE 1=1
+				AND (o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT') OR o.user_type IS NULL)
+				AND r.is_reversed = FALSE
+				AND r.payment_date::date = CURRENT_DATE
+		`
+
+	repayArgs := []interface{}{}
+	repayArgCount := 1
+
+	if branch, ok := filters["branch"].(string); ok && branch != "" {
+		repayQuery += fmt.Sprintf(" AND l.branch = $%d", repayArgCount)
+		repayArgs = append(repayArgs, branch)
+		repayArgCount++
+	}
+
+	if region, ok := filters["region"].(string); ok && region != "" {
+		regions := strings.Split(region, ",")
+		if len(regions) == 1 {
+			repayQuery += fmt.Sprintf(" AND l.region = $%d", repayArgCount)
+			repayArgs = append(repayArgs, regions[0])
+			repayArgCount++
+		} else {
+			placeholders := []string{}
+			for _, rgn := range regions {
+				placeholders = append(placeholders, fmt.Sprintf("$%d", repayArgCount))
+				repayArgs = append(repayArgs, strings.TrimSpace(rgn))
+				repayArgCount++
+			}
+			repayQuery += fmt.Sprintf(" AND l.region IN (%s)", strings.Join(placeholders, ", "))
+		}
+	}
+
+	if channel, ok := filters["channel"].(string); ok && channel != "" {
+		repayQuery += fmt.Sprintf(" AND l.channel = $%d", repayArgCount)
+		repayArgs = append(repayArgs, channel)
+		repayArgCount++
+	}
+
+	if wave, ok := filters["wave"].(string); ok && wave != "" {
+		repayQuery += fmt.Sprintf(" AND l.wave = $%d", repayArgCount)
+		repayArgs = append(repayArgs, wave)
+		repayArgCount++
+	}
+
+	if loanType, ok := filters["loan_type"].(string); ok && loanType != "" {
+		loanTypes := strings.Split(loanType, ",")
+		if len(loanTypes) == 1 {
+			repayQuery += fmt.Sprintf(" AND l.loan_type = $%d", repayArgCount)
+			repayArgs = append(repayArgs, strings.TrimSpace(loanTypes[0]))
+			repayArgCount++
+		} else {
+			placeholders := make([]string, len(loanTypes))
+			for i, lt := range loanTypes {
+				placeholders[i] = fmt.Sprintf("$%d", repayArgCount)
+				repayArgs = append(repayArgs, strings.TrimSpace(lt))
+				repayArgCount++
+			}
+			repayQuery += fmt.Sprintf(" AND l.loan_type IN (%s)", strings.Join(placeholders, ", "))
+		}
+	}
+
+	// Django status filter for repayments - supports comma-separated values and optional missing sentinel
+	if djangoStatus, ok := filters["django_status"].(string); ok && djangoStatus != "" {
+		statuses := strings.Split(djangoStatus, ",")
+		nonMissing := []string{}
+		includeMissing := false
+		for _, s := range statuses {
+			trimmed := strings.TrimSpace(s)
+			if trimmed == "__MISSING__" {
+				includeMissing = true
+			} else if trimmed != "" {
+				nonMissing = append(nonMissing, trimmed)
+			}
+		}
+
+		conditions := []string{}
+		if len(nonMissing) == 1 {
+			conditions = append(conditions, fmt.Sprintf("l.django_status = $%d", repayArgCount))
+			repayArgs = append(repayArgs, nonMissing[0])
+			repayArgCount++
+		} else if len(nonMissing) > 1 {
+			placeholders := []string{}
+			for _, s := range nonMissing {
+				placeholders = append(placeholders, fmt.Sprintf("$%d", repayArgCount))
+				repayArgs = append(repayArgs, s)
+				repayArgCount++
+			}
+			conditions = append(conditions, fmt.Sprintf("l.django_status IN (%s)", strings.Join(placeholders, ",")))
+		}
+
+		if includeMissing {
+			conditions = append(conditions, "(l.django_status IS NULL OR l.django_status = '')")
+		}
+
+		if len(conditions) > 0 {
+			repayQuery += " AND (" + strings.Join(conditions, " OR ") + ")"
+		}
+	}
+
+	repayQuery += " GROUP BY l.officer_id"
+
+	repayRows, err := r.db.Query(repayQuery, repayArgs...)
+	if err != nil {
+		return nil, err
+	}
+	defer repayRows.Close()
+
+	for repayRows.Next() {
+		var officerID string
+		var collectedToday float64
+		if err := repayRows.Scan(&officerID, &collectedToday); err != nil {
+			return nil, err
+		}
+
+		row, exists := officerMap[officerID]
+		if !exists {
+			row = &models.OfficerCollectionsLeaderboardRow{OfficerID: officerID}
+			officerMap[officerID] = row
+		}
+		row.CollectedToday = collectedToday
+	}
+
+	// --- Finalise metrics: rates, missed amount, NPL proxy & status ---
+	result := make([]*models.OfficerCollectionsLeaderboardRow, 0, len(officerMap))
+	for _, row := range officerMap {
+		if row.DueToday > 0 {
+			row.TodayRate = row.CollectedToday / row.DueToday
+			if row.TodayRate < 0 {
+				row.TodayRate = 0
+			}
+		} else if row.CollectedToday > 0 {
+			row.TodayRate = 1
+		} else {
+			row.TodayRate = 0
+		}
+
+		row.MTDRate = row.TodayRate
+		row.ProgressRate = row.TodayRate
+
+		row.MissedToday = row.DueToday - row.CollectedToday
+		if row.MissedToday < 0 {
+			row.MissedToday = 0
+		}
+
+		if row.PortfolioTotal > 0 {
+			row.NPLRatio = row.Overdue15d / row.PortfolioTotal
+		} else {
+			row.NPLRatio = 0
+		}
+
+		if row.NPLRatio < 0.12 {
+			row.Status = "OK"
+		} else if row.NPLRatio < 0.18 {
+			row.Status = "Watch"
+		} else {
+			row.Status = "Critical"
+		}
+
+		result = append(result, row)
+	}
+
+	return result, nil
+}
+
 // GetFilterOptions retrieves filter dropdown options
 func (r *DashboardRepository) GetFilterOptions(filterType string, filters map[string]interface{}) (interface{}, error) {
 	switch filterType {

@@ -691,6 +691,84 @@ func (h *DashboardHandler) GetBranchCollectionsLeaderboard(c *gin.Context) {
 	})
 }
 
+// GetOfficerCollectionsLeaderboard handles GET /api/v1/collections/officers
+// It provides per-officer collections metrics (portfolio, due today, collections
+// today, collection rates and NPL proxy) for Agent/Officer Leaderboard views.
+//
+// @Summary Get officer collections leaderboard
+// @Description Get per-officer collections metrics for the Agent Leaderboard table
+// @Tags Collections
+// @Accept json
+// @Produce json
+// @Param branch query string false "Filter by branch"
+// @Param region query string false "Filter by region (supports comma-separated multi-select)"
+// @Param channel query string false "Filter by channel"
+// @Param wave query string false "Filter by wave"
+// @Param loan_type query string false "Filter by loan type (supports comma-separated multi-select)"
+// @Success 200 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
+// @Router /collections/officers [get]
+func (h *DashboardHandler) GetOfficerCollectionsLeaderboard(c *gin.Context) {
+	filters := make(map[string]interface{})
+
+	if branch := c.Query("branch"); branch != "" {
+		filters["branch"] = branch
+	}
+	if region := c.Query("region"); region != "" {
+		filters["region"] = region
+	}
+	if channel := c.Query("channel"); channel != "" {
+		filters["channel"] = channel
+	}
+	if wave := c.Query("wave"); wave != "" {
+		filters["wave"] = wave
+	}
+	if loanType := c.Query("loan_type"); loanType != "" {
+		filters["loan_type"] = loanType
+	}
+	if djangoStatus := c.Query("django_status"); djangoStatus != "" {
+		filters["django_status"] = djangoStatus
+	}
+
+	officers, err := h.dashboardRepo.GetOfficerCollectionsLeaderboard(filters)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.APIResponse{
+			Status:  "error",
+			Message: "Failed to retrieve officer collections leaderboard",
+			Error:   newAPIError("INTERNAL_ERROR", err.Error()),
+		})
+		return
+	}
+
+	var totalPortfolio, totalDueToday, totalCollectedToday, totalMissedToday float64
+	for _, o := range officers {
+		totalPortfolio += o.PortfolioTotal
+		totalDueToday += o.DueToday
+		totalCollectedToday += o.CollectedToday
+		totalMissedToday += o.MissedToday
+	}
+
+	var collectionRate float64
+	if totalDueToday > 0 {
+		collectionRate = totalCollectedToday / totalDueToday
+	}
+
+	c.JSON(http.StatusOK, models.APIResponse{
+		Status: "success",
+		Data: map[string]interface{}{
+			"officers": officers,
+			"summary": map[string]interface{}{
+				"total_officers":        len(officers),
+				"total_portfolio":       totalPortfolio,
+				"total_due_today":       totalDueToday,
+				"total_collected_today": totalCollectedToday,
+				"total_missed_today":    totalMissedToday,
+				"collection_rate_today": collectionRate,
+			},
+		},
+	})
+}
+
 // GetDailyCollections handles GET /api/v1/collections/daily
 // It returns a per-day time series of collections amounts suitable for the
 // Collections Control Centre daily chart.

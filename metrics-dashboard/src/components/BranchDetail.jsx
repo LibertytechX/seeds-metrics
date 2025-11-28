@@ -33,48 +33,57 @@ const BranchDetail = ({ branchSlug, onBack }) => {
       .join('-');
   }, [branchSlug]);
 
-  const [filters, setFilters] = useState({
-    period: 'this_month',
-    region: '',
-    product: '',
-  });
+	  const [filters, setFilters] = useState({
+	    period: 'this_month',
+	    region: '',
+	    product: '',
+	    wave: '',
+	  });
 
-  const [filterOptions, setFilterOptions] = useState({
-    regions: [],
-    products: [],
-  });
+	  const [filterOptions, setFilterOptions] = useState({
+	    regions: [],
+	    products: [],
+	    waves: [],
+	  });
 
-  const [summaryMetrics, setSummaryMetrics] = useState(null);
-  const [totalRepaidAll, setTotalRepaidAll] = useState(null);
-  const [branchInfo, setBranchInfo] = useState(null);
-  const [dailyCollections, setDailyCollections] = useState([]);
-  const [loadingFilters, setLoadingFilters] = useState(false);
-  const [loadingMetrics, setLoadingMetrics] = useState(false);
-  const [loadingDaily, setLoadingDaily] = useState(false);
-  const [error, setError] = useState(null);
+	  const [summaryMetrics, setSummaryMetrics] = useState(null);
+	  const [totalRepaidAll, setTotalRepaidAll] = useState(null);
+	  const [branchInfo, setBranchInfo] = useState(null);
+	  // This holds the exact backend branch name (e.g. "EPE"), used for filters
+	  const [branchFilterValue, setBranchFilterValue] = useState('');
+	  const [dailyCollections, setDailyCollections] = useState([]);
+	  const [agentLeaderboard, setAgentLeaderboard] = useState([]);
+	  const [loadingFilters, setLoadingFilters] = useState(false);
+	  const [loadingMetrics, setLoadingMetrics] = useState(false);
+	  const [loadingDaily, setLoadingDaily] = useState(false);
+	  const [loadingAgents, setLoadingAgents] = useState(false);
+	  const [error, setError] = useState(null);
 
   // Fetch dropdown options (regions, products/loan types)
   useEffect(() => {
-    const fetchFilterOptions = async () => {
-      try {
-        setLoadingFilters(true);
-        const API_BASE_URL = import.meta.env.VITE_API_URL ||
-          (import.meta.env.MODE === 'production' ? '/api/v1' : 'http://localhost:8081/api/v1');
+	    const fetchFilterOptions = async () => {
+	      try {
+	        setLoadingFilters(true);
+	        const API_BASE_URL = import.meta.env.VITE_API_URL ||
+	          (import.meta.env.MODE === 'production' ? '/api/v1' : 'http://localhost:8081/api/v1');
 
-        const [regionsRes, productsRes] = await Promise.all([
-          fetch(`${API_BASE_URL}/filters/regions`),
-          fetch(`${API_BASE_URL}/filters/loan-types`),
-        ]);
+	        const [regionsRes, productsRes, wavesRes] = await Promise.all([
+	          fetch(`${API_BASE_URL}/filters/regions`),
+	          fetch(`${API_BASE_URL}/filters/loan-types`),
+	          fetch(`${API_BASE_URL}/filters/waves`),
+	        ]);
 
-        const [regionsData, productsData] = await Promise.all([
-          regionsRes.json(),
-          productsRes.json(),
-        ]);
+	        const [regionsData, productsData, wavesData] = await Promise.all([
+	          regionsRes.json(),
+	          productsRes.json(),
+	          wavesRes.json(),
+	        ]);
 
-        const regions = regionsData?.data?.regions || [];
-        const products = productsData?.data?.['loan-types'] || [];
-        setFilterOptions({ regions, products });
-      } catch (err) {
+	        const regions = regionsData?.data?.regions || [];
+	        const products = productsData?.data?.['loan-types'] || [];
+	        const waves = wavesData?.data?.waves || [];
+	        setFilterOptions({ regions, products, waves });
+	      } catch (err) {
         console.error('Error fetching Branch Detail filter options:', err);
       } finally {
         setLoadingFilters(false);
@@ -84,36 +93,48 @@ const BranchDetail = ({ branchSlug, onBack }) => {
     fetchFilterOptions();
   }, []);
 
-  // Fetch branch info from leaderboard to get region
+	  // Fetch branch info from leaderboard to get region and canonical branch name
   useEffect(() => {
-    const fetchBranchInfo = async () => {
-      if (!branchName) return;
-      try {
-        const API_BASE_URL = import.meta.env.VITE_API_URL ||
-          (import.meta.env.MODE === 'production' ? '/api/v1' : 'http://localhost:8081/api/v1');
+	    const fetchBranchInfo = async () => {
+	      if (!branchName) return;
+	      try {
+		        const API_BASE_URL = import.meta.env.VITE_API_URL ||
+		          (import.meta.env.MODE === 'production' ? '/api/v1' : 'http://localhost:8081/api/v1');
 
-        const res = await fetch(`${API_BASE_URL}/collections/branches`);
-        const data = await res.json();
-        if (data.status === 'success' && data.data?.branches) {
-          const match = data.data.branches.find(
-            (b) => b.branch && b.branch.toLowerCase().replace(/\s+/g, '-') === branchSlug
-          );
-          if (match) {
-            setBranchInfo(match);
-          }
-        }
-      } catch (err) {
+		        const params = new URLSearchParams();
+		        // Do NOT filter by branch here; fetch all, then match by slug so we can
+		        // discover the exact backend branch name (which may be upper-case like "EPE").
+		        if (filters.region) params.set('region', filters.region);
+		        if (filters.product) params.set('loan_type', filters.product);
+		        if (filters.wave) params.set('wave', filters.wave);
+	        const djangoStatusFilter = filters.period === 'today_only'
+	          ? 'OPEN'
+	          : ['OPEN', 'PAST_MATURITY', MISSING_VALUE].join(',');
+	        params.set('django_status', djangoStatusFilter);
+
+		        const res = await fetch(`${API_BASE_URL}/collections/branches?${params.toString()}`);
+	        const data = await res.json();
+	        if (data.status === 'success' && data.data?.branches) {
+	          const match = data.data.branches.find(
+	            (b) => b.branch && b.branch.toLowerCase().replace(/\s+/g, '-') === branchSlug
+	          );
+	          if (match) {
+	            setBranchInfo(match);
+		            setBranchFilterValue(match.branch || '');
+	          }
+	        }
+	      } catch (err) {
         console.error('Error fetching branch info:', err);
       }
     };
 
-    fetchBranchInfo();
-  }, [branchSlug, branchName]);
+	    fetchBranchInfo();
+	  }, [branchSlug, branchName, filters.region, filters.product, filters.wave, filters.period]);
 
-  // Fetch summary metrics for this branch
+	  // Fetch summary metrics for this branch (uses canonical branchFilterValue)
   useEffect(() => {
     const fetchSummaryMetrics = async () => {
-      if (!branchName) return;
+	      if (!branchFilterValue) return;
       try {
         setLoadingMetrics(true);
         setError(null);
@@ -121,14 +142,15 @@ const BranchDetail = ({ branchSlug, onBack }) => {
         const API_BASE_URL = import.meta.env.VITE_API_URL ||
           (import.meta.env.MODE === 'production' ? '/api/v1' : 'http://localhost:8081/api/v1');
 
-        const baseParams = new URLSearchParams();
-        baseParams.set('page', '1');
-        baseParams.set('limit', '1');
-        baseParams.set('branch', branchName);
+		        const baseParams = new URLSearchParams();
+		        baseParams.set('page', '1');
+		        baseParams.set('limit', '1');
+		        baseParams.set('branch', branchFilterValue);
 
-        if (filters.region) baseParams.set('region', filters.region);
-        if (filters.product) baseParams.set('loan_type', filters.product);
-        if (filters.period) baseParams.set('period', filters.period);
+	        if (filters.region) baseParams.set('region', filters.region);
+	        if (filters.product) baseParams.set('loan_type', filters.product);
+	        if (filters.wave) baseParams.set('wave', filters.wave);
+	        if (filters.period) baseParams.set('period', filters.period);
 
         // For "today_only" period, only show OPEN loans
         const restrictedParams = new URLSearchParams(baseParams.toString());
@@ -163,24 +185,25 @@ const BranchDetail = ({ branchSlug, onBack }) => {
       }
     };
 
-    fetchSummaryMetrics();
-  }, [branchName, filters.region, filters.product, filters.period]);
+	    fetchSummaryMetrics();
+	  }, [branchFilterValue, filters.region, filters.product, filters.period, filters.wave]);
 
-  // Fetch daily collections for the chart
+	  // Fetch daily collections for the chart (uses canonical branchFilterValue)
   useEffect(() => {
     const fetchDailyCollections = async () => {
-      if (!branchName) return;
+	      if (!branchFilterValue) return;
       try {
         setLoadingDaily(true);
 
         const API_BASE_URL = import.meta.env.VITE_API_URL ||
           (import.meta.env.MODE === 'production' ? '/api/v1' : 'http://localhost:8081/api/v1');
 
-        const params = new URLSearchParams();
-        params.set('period', 'last_7_days');
-        params.set('branch', branchName);
-        if (filters.region) params.set('region', filters.region);
-        if (filters.product) params.set('loan_type', filters.product);
+		        const params = new URLSearchParams();
+		        params.set('period', 'last_7_days');
+		        params.set('branch', branchFilterValue);
+	        if (filters.region) params.set('region', filters.region);
+	        if (filters.product) params.set('loan_type', filters.product);
+	        if (filters.wave) params.set('wave', filters.wave);
 
         const res = await fetch(`${API_BASE_URL}/collections/daily?${params.toString()}`);
         const data = await res.json();
@@ -194,8 +217,47 @@ const BranchDetail = ({ branchSlug, onBack }) => {
       }
     };
 
-    fetchDailyCollections();
-  }, [branchName, filters.region, filters.product]);
+	    fetchDailyCollections();
+		  }, [branchFilterValue, filters.region, filters.product, filters.wave]);
+
+	  // Fetch Agent/Officer collections leaderboard for this branch
+	  useEffect(() => {
+	    const fetchAgentLeaderboard = async () => {
+	      if (!branchFilterValue) return;
+	      try {
+	        setLoadingAgents(true);
+	        const API_BASE_URL = import.meta.env.VITE_API_URL ||
+	          (import.meta.env.MODE === 'production' ? '/api/v1' : 'http://localhost:8081/api/v1');
+
+	        const params = new URLSearchParams();
+	        params.set('branch', branchFilterValue);
+	        if (filters.region) params.set('region', filters.region);
+	        if (filters.product) params.set('loan_type', filters.product);
+	        if (filters.wave) params.set('wave', filters.wave);
+
+	        const djangoStatusFilter = filters.period === 'today_only'
+	          ? 'OPEN'
+	          : ['OPEN', 'PAST_MATURITY', MISSING_VALUE].join(',');
+	        params.set('django_status', djangoStatusFilter);
+
+	        const res = await fetch(`${API_BASE_URL}/collections/officers?${params.toString()}`);
+	        const data = await res.json();
+	        if (data.status === 'success') {
+	          setAgentLeaderboard(data.data?.officers || []);
+	        } else {
+	          console.error('Failed to fetch agent leaderboard:', data.message);
+	          setAgentLeaderboard([]);
+	        }
+	      } catch (err) {
+	        console.error('Error fetching agent leaderboard:', err);
+	        setAgentLeaderboard([]);
+	      } finally {
+	        setLoadingAgents(false);
+	      }
+	    };
+
+	    fetchAgentLeaderboard();
+	  }, [branchFilterValue, filters.region, filters.product, filters.wave, filters.period]);
 
   const handleFilterChange = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -291,8 +353,8 @@ const BranchDetail = ({ branchSlug, onBack }) => {
     return series;
   }, [dailyCollections, totalDueToday]);
 
-  const isLoading = loadingFilters || loadingMetrics;
-  const regionName = branchInfo?.region || filters.region || 'Region';
+	  const isLoading = loadingFilters || loadingMetrics;
+	  const regionName = branchInfo?.region || filters.region || 'Region';
 
   return (
     <div className="branch-detail-page">
@@ -303,7 +365,7 @@ const BranchDetail = ({ branchSlug, onBack }) => {
             Overview
           </button>
           <span className="breadcrumb-separator">/</span>
-          <span className="breadcrumb-current">{branchName || branchSlug}</span>
+	          <span className="breadcrumb-current">{branchInfo?.branch || branchName || branchSlug}</span>
         </div>
         <p className="branch-detail-region">Region: {regionName}</p>
       </div>
@@ -351,6 +413,20 @@ const BranchDetail = ({ branchSlug, onBack }) => {
             ))}
           </select>
         </div>
+	        <div className="filter-group">
+	          <label htmlFor="wave">Wave</label>
+	          <select
+	            id="wave"
+	            value={filters.wave}
+	            onChange={(e) => handleFilterChange('wave', e.target.value)}
+	            disabled={isLoading}
+	          >
+	            <option value="">All Waves</option>
+	            {filterOptions.waves.map((w) => (
+	              <option key={w} value={w}>{w}</option>
+	            ))}
+	          </select>
+	        </div>
       </div>
 
       {error && <div className="branch-detail-error">{error}</div>}
@@ -436,6 +512,72 @@ const BranchDetail = ({ branchSlug, onBack }) => {
             <span className="risk-value">{totalLoans}</span>
           </div>
         </div>
+
+	      {/* Agent Leaderboard (per-officer collections for this branch) */}
+	      <div className="branch-detail-agent-section">
+	        <h3>Agent Leaderboard</h3>
+	        <p className="agent-leaderboard-subtitle">
+		        Loan officers in {branchInfo?.branch || branchName || branchSlug} - today's collections vs due
+	        </p>
+	        <div className="agent-leaderboard-table-wrapper">
+	          <table className="agent-leaderboard-table">
+	            <thead>
+	              <tr>
+	                <th>Officer</th>
+	                <th>Email</th>
+	                <th>Portfolio</th>
+	                <th>Due</th>
+	                <th>Coll.</th>
+	                <th>Today%</th>
+	                <th>MTD%</th>
+	                <th>Missed</th>
+	                <th>NPL%</th>
+	                <th>Status</th>
+	              </tr>
+	            </thead>
+	            <tbody>
+	              {loadingAgents ? (
+	                <tr>
+	                  <td colSpan={10} className="agent-leaderboard-loading">
+	                    Loading agent leaderboard...
+	                  </td>
+	                </tr>
+	              ) : agentLeaderboard.length === 0 ? (
+	                <tr>
+	                  <td colSpan={10} className="agent-leaderboard-empty">
+	                    No agents found for the selected filters.
+	                  </td>
+	                </tr>
+	              ) : (
+	                agentLeaderboard.map((a) => {
+	                  const todayRatePercentage = (typeof a.today_rate === 'number' ? a.today_rate : 0) * 100;
+	                  const mtdRatePercentage = (typeof a.mtd_rate === 'number' ? a.mtd_rate : 0) * 100;
+	                  const nplPercentage = (typeof a.npl_ratio === 'number' ? a.npl_ratio : 0) * 100;
+	                  const key = a.officer_id || a.officer_email || a.officer_name || Math.random().toString(36);
+	                  return (
+	                    <tr key={key}>
+	                      <td>{a.officer_name || '-'}</td>
+			                  <td>{a.officer_email || '—'}</td>
+	                      <td>{formatCurrency(a.portfolio_total)}</td>
+	                      <td>{formatCurrency(a.due_today)}</td>
+	                      <td>{formatCurrency(a.collected_today)}</td>
+	                      <td>{formatPercent(todayRatePercentage)}</td>
+	                      <td>{formatPercent(mtdRatePercentage)}</td>
+	                      <td>{formatCurrency(a.missed_today)}</td>
+	                      <td>{formatPercent(nplPercentage)}</td>
+	                      <td>
+	                        <span className={`status-pill status-${(a.status || 'OK').toLowerCase()}`}>
+	                          {a.status || 'OK'}
+	                        </span>
+	                      </td>
+	                    </tr>
+	                  );
+	                })
+	              )}
+	            </tbody>
+	          </table>
+	        </div>
+	      </div>
       </div>
     </div>
   );
