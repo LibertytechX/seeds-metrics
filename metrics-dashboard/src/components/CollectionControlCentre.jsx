@@ -488,11 +488,16 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 		      };
 		    });
 		  }, [dailyCollections, totalDueToday]);
-				  // For Collections Received, use the unrestricted "all repayments" value
-				  // when available; fall back to the restricted one if needed.
-				  const totalRepaidToday =
-				    totalRepaidTodayAll ?? summaryMetrics?.total_repayments_today ?? null;
-				  const collectionRateToday = summaryMetrics?.percentage_of_due_collected ?? null;
+					  // For Collections Received, use the unrestricted "all repayments" value
+					  // when available; fall back to the restricted one if needed.
+					  const totalRepaidToday =
+					    totalRepaidTodayAll ?? summaryMetrics?.total_repayments_today ?? null;
+					  // For the Daily Collections card sub metric "Collections (filtered)",
+					  // always use the restricted value that obeys the same django_status
+					  // filter as Collections Due.
+					  const totalRepaidTodayFiltered =
+					    summaryMetrics?.total_repayments_today ?? null;
+					  const collectionRateToday = summaryMetrics?.percentage_of_due_collected ?? null;
 				  const missedRepaymentsTodayAmount = summaryMetrics?.missed_repayments_today ?? null;
 				  const missedRepaymentsTodayCount = summaryMetrics?.missed_repayments_today_count ?? null;
 			  const atRiskInfo = summaryMetrics?.at_risk_loans || null;
@@ -836,6 +841,14 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 		              <p className="collections-daily-card-subtitle">
 		                Collections due vs collected over the last 7 days
 		              </p>
+		            </div>
+		            <div className="collections-daily-metric">
+		              <div className="collections-daily-metric-label">Collections (filtered)</div>
+		              <div className="collections-daily-metric-value">
+		                {totalRepaidTodayFiltered != null
+		                  ? formatCurrency(totalRepaidTodayFiltered)
+		                  : ''}
+		              </div>
 		            </div>
 		          </div>
 		          <div className="collections-daily-card-body">

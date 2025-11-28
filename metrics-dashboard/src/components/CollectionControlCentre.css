@@ -496,6 +496,24 @@
   color: #666;
 }
 
+.collections-daily-metric {
+  text-align: right;
+}
+
+.collections-daily-metric-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: #555;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.collections-daily-metric-value {
+  font-size: 14px;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
 .collections-daily-card-body {
   height: 260px;
 }
