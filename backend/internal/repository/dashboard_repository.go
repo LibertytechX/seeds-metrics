@@ -35,14 +35,13 @@ func NewDashboardRepository(db *sql.DB) *DashboardRepository {
 // never exceed the contractual "Outstanding" amount, even if older versions of the
 // database function left inconsistent values behind.
 func (r *DashboardRepository) RecalculateAllLoanFields() (int64, error) {
-	// Step 1: run the main database-side recalculation
-	query := `
-			SELECT total_loans_processed, loans_updated, execution_time_ms
-			FROM recalculate_all_loan_fields()
-		`
-
-	var totalLoans, loansUpdated, executionTimeMs int64
-	if err := r.db.QueryRow(query).Scan(&totalLoans, &loansUpdated, &executionTimeMs); err != nil {
+	// Step 1: run the main database-side recalculation.
+	//
+	// We intentionally call the function via Exec rather than QueryRow+Scan so that
+	// this code is compatible with older deployments where
+	// recalculate_all_loan_fields() may not return the
+	// (total_loans_processed, loans_updated, execution_time_ms) columns.
+	if _, err := r.db.Exec("SELECT recalculate_all_loan_fields()"); err != nil {
 		return 0, fmt.Errorf("failed to recalculate loan fields: %w", err)
 	}
 
@@ -77,11 +76,13 @@ func (r *DashboardRepository) RecalculateAllLoanFields() (int64, error) {
 				);
 		`
 
-	if _, err := r.db.Exec(fixQuery); err != nil {
+	result, err := r.db.Exec(fixQuery)
+	if err != nil {
 		return 0, fmt.Errorf("failed to normalise outstanding balances: %w", err)
 	}
 
-	return loansUpdated, nil
+	rowsAffected, _ := result.RowsAffected()
+	return rowsAffected, nil
 }
 
 // GetPortfolioLoanMetrics retrieves loan-level aggregated metrics for portfolio calculations
