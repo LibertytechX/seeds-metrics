@@ -619,14 +619,14 @@ const OfficerDetail = ({
                 <th>Loan ID</th>
                 <th>Customer</th>
                 <th>Phone</th>
-                <th>Product</th>
-                <th>Outstanding</th>
-                <th>Actual Outstanding</th>
-                <th>DPD</th>
-                <th>Status</th>
-                <th>Django Status</th>
-                <th>Perf. Status</th>
-	                <th>Wave</th>
+	                <th>Product</th>
+	                <th>Outstanding</th>
+	                <th>Actual Outstanding</th>
+	                <th>Daily Repayment</th>
+	                <th>Collection Today</th>
+	                <th>DPD</th>
+	                <th>Django Status</th>
+		                <th>Wave</th>
               </tr>
             </thead>
             <tbody>
@@ -661,13 +661,21 @@ const OfficerDetail = ({
                     <td>{loan.customer_name || '—'}</td>
                     <td>{loan.customer_phone || '—'}</td>
                     <td>{loan.loan_type || '—'}</td>
-                    <td>{formatCurrency(loan.total_outstanding)}</td>
-                    <td>{formatCurrency(loan.actual_outstanding)}</td>
-                    <td>{loan.current_dpd ?? 0}</td>
-                    <td>{loan.status || '—'}</td>
-                    <td>{loan.django_status || '—'}</td>
-	                    <td>{loan.performance_status || '—'}</td>
-	                    <td>{loan.wave || '—'}</td>
+	                    <td>{formatCurrency(loan.total_outstanding)}</td>
+	                    <td>{formatCurrency(loan.actual_outstanding)}</td>
+	                    <td>
+	                      {loan.daily_repayment_amount != null
+	                        ? formatCurrency(loan.daily_repayment_amount)
+	                        : 'N/A'}
+	                    </td>
+	                    <td>
+	                      {loan.repayments_today != null
+	                        ? formatCurrency(loan.repayments_today)
+	                        : 'N/A'}
+	                    </td>
+	                    <td>{loan.current_dpd ?? 0}</td>
+	                    <td>{loan.django_status || '—'}</td>
+		                    <td>{loan.wave || '—'}</td>
                   </tr>
                 ))
               )}
