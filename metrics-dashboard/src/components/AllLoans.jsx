@@ -1510,6 +1510,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                 <th onClick={() => handleSort('loan_id')}>Loan ID</th>
                 <th onClick={() => handleSort('customer_name')}>Customer Name</th>
                 <th onClick={() => handleSort('customer_phone')}>Customer Phone</th>
+	                <th onClick={() => handleSort('current_dpd')}>Current DPD</th>
                 <th onClick={() => handleSort('officer_name')}>Officer Name</th>
                 <th onClick={() => handleSort('region')}>Region</th>
                 <th onClick={() => handleSort('branch')}>Branch</th>
@@ -1517,9 +1518,8 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                 <th onClick={() => handleSort('vertical_lead_email')}>Vertical Lead Email</th>
                 <th onClick={() => handleSort('channel')}>Channel</th>
                 <th onClick={() => handleSort('loan_type')}>Loan Type</th>
-                <th onClick={() => handleSort('verification_status')}>Verification Status</th>
-                <th onClick={() => handleSort('loan_amount')}>Loan Amount</th>
-                <th onClick={() => handleSort('current_dpd')}>Current DPD</th>
+	                <th onClick={() => handleSort('verification_status')}>Verification Status</th>
+	                <th onClick={() => handleSort('loan_amount')}>Loan Amount</th>
                 <th onClick={() => handleSort('days_since_last_repayment')}>Days Since Last Repayment</th>
                 <th onClick={() => handleSort('repayment_delay_rate')}>Repayment Delay Rate %</th>
                 <th onClick={() => handleSort('repayment_amount')}>Repayment Amount</th>
@@ -1568,16 +1568,16 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                   <td className="loan-id">{loan.loan_id}</td>
                   <td>{loan.customer_name}</td>
                   <td>{loan.customer_phone || 'N/A'}</td>
+	                  <td className="dpd">{loan.current_dpd}</td>
                   <td>{loan.officer_name || 'N/A'}</td>
                   <td>{loan.region || 'N/A'}</td>
                   <td>{loan.branch || 'N/A'}</td>
                   <td>{loan.vertical_lead_name || 'N/A'}</td>
                   <td>{loan.vertical_lead_email || 'N/A'}</td>
                   <td>{loan.channel || 'N/A'}</td>
-                  <td>{loan.loan_type || 'N/A'}</td>
-                  <td>{loan.verification_status || 'N/A'}</td>
-                  <td className="amount">{formatCurrency(loan.loan_amount)}</td>
-                  <td className="dpd">{loan.current_dpd}</td>
+	                  <td>{loan.loan_type || 'N/A'}</td>
+	                  <td>{loan.verification_status || 'N/A'}</td>
+	                  <td className="amount">{formatCurrency(loan.loan_amount)}</td>
                   <td className="days-since">{loan.days_since_last_repayment != null ? loan.days_since_last_repayment : 'N/A'}</td>
                   <td className="delay-rate" style={{
                     color: loan.repayment_delay_rate != null
