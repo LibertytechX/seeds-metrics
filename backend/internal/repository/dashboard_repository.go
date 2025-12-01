@@ -1970,6 +1970,37 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 
 // GetAllLoans retrieves all loans with pagination and filters
 func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*models.AllLoan, int, error) {
+	// Determine requested period for per-loan repayments aggregation. This mirrors
+	// the period semantics used by GetLoansSummaryMetrics so that the "Collection
+	// Today" column in the Officer Loans table stays consistent with the summary
+	// metrics.
+	period := ""
+	if p, ok := filters["period"].(string); ok {
+		period = strings.TrimSpace(strings.ToLower(p))
+	}
+
+	repaymentsDateCondition := "DATE(r.payment_date) = CURRENT_DATE"
+	switch period {
+	case "this_week":
+		repaymentsDateCondition = "DATE(r.payment_date) >= DATE_TRUNC('week', CURRENT_DATE)::date AND DATE(r.payment_date) <= CURRENT_DATE"
+	case "this_month":
+		repaymentsDateCondition = "DATE(r.payment_date) >= DATE_TRUNC('month', CURRENT_DATE)::date AND DATE(r.payment_date) <= CURRENT_DATE"
+	case "last_month":
+		repaymentsDateCondition = "DATE(r.payment_date) >= (DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '1 month')::date AND DATE(r.payment_date) < DATE_TRUNC('month', CURRENT_DATE)::date"
+	}
+
+	repaymentsJoin := fmt.Sprintf(`
+		LEFT JOIN (
+			SELECT
+				r.loan_id,
+				COALESCE(SUM(r.payment_amount), 0) AS repayments_in_period
+			FROM repayments r
+			WHERE r.is_reversed = false
+				AND %s
+			GROUP BY r.loan_id
+		) rp ON rp.loan_id = l.loan_id
+	`, repaymentsDateCondition)
+
 	// Base query
 	query := `
 		SELECT
@@ -1995,10 +2026,10 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 			l.fees_outstanding,
 			l.total_outstanding,
 			l.actual_outstanding,
-				l.total_repayments,
-				l.status,
-				l.django_status,
-				l.performance_status,
+			l.total_repayments,
+			l.status,
+			l.django_status,
+			l.performance_status,
 			l.fimr_tagged,
 			l.timeliness_score,
 			l.repayment_health,
@@ -2010,9 +2041,11 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 			l.repayment_days_paid,
 			l.business_days_since_disbursement,
 			l.loan_type,
-			l.verification_status
+			l.verification_status,
+			COALESCE(rp.repayments_in_period, 0) AS repayments_today
 		FROM loans l
 		JOIN officers o ON l.officer_id = o.officer_id
+	` + repaymentsJoin + `
 		WHERE 1=1
 			AND (o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT') OR o.user_type IS NULL)
 	`
@@ -2410,6 +2443,7 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 		var loanType, verificationStatus, djangoStatus sql.NullString
 		var repaymentAmount, timelinessScore, repaymentHealth, repaymentDelayRate sql.NullFloat64
 		var dailyRepaymentAmount, repaymentDaysPaid sql.NullFloat64
+		var repaymentsToday sql.NullFloat64
 		var daysSinceLastRepayment, repaymentDaysDueToday, businessDaysSinceDisbursement sql.NullInt64
 
 		err := rows.Scan(
@@ -2451,6 +2485,7 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 			&businessDaysSinceDisbursement,
 			&loanType,
 			&verificationStatus,
+			&repaymentsToday,
 		)
 		if err != nil {
 			return nil, 0, err
@@ -2479,6 +2514,10 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 		}
 		if verificationStatus.Valid {
 			loan.VerificationStatus = &verificationStatus.String
+		}
+		if repaymentsToday.Valid {
+			val := repaymentsToday.Float64
+			loan.RepaymentsToday = &val
 		}
 		if repaymentAmount.Valid {
 			val := repaymentAmount.Float64

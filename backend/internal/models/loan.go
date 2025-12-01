@@ -173,6 +173,7 @@ type AllLoan struct {
 	LoanType                      *string  `json:"loan_type,omitempty"`
 	VerificationStatus            *string  `json:"verification_status,omitempty"`
 	DjangoStatus                  *string  `json:"django_status,omitempty"`
+	RepaymentsToday               *float64 `json:"repayments_today,omitempty"`
 }
 
 // TopRiskLoan represents a high-risk loan for audit purposes
