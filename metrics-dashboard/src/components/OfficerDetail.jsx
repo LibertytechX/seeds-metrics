@@ -1,14 +1,16 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { Eye } from 'lucide-react';
+import LoanRepaymentsModal from './LoanRepaymentsModal';
 import {
-  Bar,
-  CartesianGrid,
-  ComposedChart,
-  ResponsiveContainer,
-  Tooltip as RechartsTooltip,
-  XAxis,
-  YAxis,
-  LabelList,
-} from 'recharts';
+	  Bar,
+	  CartesianGrid,
+	  ComposedChart,
+	  ResponsiveContainer,
+	  Tooltip as RechartsTooltip,
+	  XAxis,
+	  YAxis,
+	  LabelList,
+	} from 'recharts';
 import './BranchDetail.css';
 
 // Reuse the same sentinel value used in AllLoans and backend (MissingValueSentinel)
@@ -65,6 +67,8 @@ const OfficerDetail = ({
   const [branchFilterValue, setBranchFilterValue] = useState('');
   const [dailyCollections, setDailyCollections] = useState([]);
   const [loans, setLoans] = useState([]);
+	  const [repaymentsModalOpen, setRepaymentsModalOpen] = useState(false);
+	  const [selectedLoan, setSelectedLoan] = useState(null);
   const [loadingFilters, setLoadingFilters] = useState(false);
   const [loadingMetrics, setLoadingMetrics] = useState(false);
   const [loadingDaily, setLoadingDaily] = useState(false);
@@ -271,6 +275,12 @@ const OfficerDetail = ({
   const handleFilterChange = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
   };
+
+	  const handleViewRepayments = (loan) => {
+	    if (!loan) return;
+	    setSelectedLoan(loan);
+	    setRepaymentsModalOpen(true);
+	  };
 
   const formatCurrency = (value) => {
     const safe = typeof value === 'number' ? value : 0;
@@ -605,6 +615,7 @@ const OfficerDetail = ({
           <table className="branch-leaderboard-table">
             <thead>
               <tr>
+	                <th>Repayments</th>
                 <th>Loan ID</th>
                 <th>Customer</th>
                 <th>Phone</th>
@@ -615,25 +626,37 @@ const OfficerDetail = ({
                 <th>Status</th>
                 <th>Django Status</th>
                 <th>Perf. Status</th>
-                <th>Wave</th>
+	                <th>Wave</th>
               </tr>
             </thead>
             <tbody>
               {loadingLoans ? (
                 <tr>
-                  <td colSpan={11} className="branch-leaderboard-loading">
+	                  <td colSpan={12} className="branch-leaderboard-loading">
                     Loading loans...
                   </td>
                 </tr>
               ) : loans.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="branch-leaderboard-empty">
+	                  <td colSpan={12} className="branch-leaderboard-empty">
                     No loans found for the selected filters.
                   </td>
                 </tr>
               ) : (
                 loans.map((loan) => (
                   <tr key={loan.loan_id}>
+	                    <td>
+	                      <button
+	                        type="button"
+	                        className="view-repayments-btn"
+	                        onClick={() => handleViewRepayments(loan)}
+	                        title="View Repayment History"
+	                      >
+	                        <Eye size={16} />
+	                        {' '}
+	                        Repayments
+	                      </button>
+	                    </td>
                     <td>{loan.loan_id}</td>
                     <td>{loan.customer_name || '—'}</td>
                     <td>{loan.customer_phone || '—'}</td>
@@ -643,8 +666,8 @@ const OfficerDetail = ({
                     <td>{loan.current_dpd ?? 0}</td>
                     <td>{loan.status || '—'}</td>
                     <td>{loan.django_status || '—'}</td>
-                    <td>{loan.performance_status || '—'}</td>
-                    <td>{loan.wave || '—'}</td>
+	                    <td>{loan.performance_status || '—'}</td>
+	                    <td>{loan.wave || '—'}</td>
                   </tr>
                 ))
               )}
@@ -652,7 +675,23 @@ const OfficerDetail = ({
           </table>
         </div>
       </div>
-    </div>
+
+	      {/* Repayments Modal */}
+	      {repaymentsModalOpen && (
+	        <LoanRepaymentsModal
+	          isOpen={repaymentsModalOpen}
+	          onClose={() => setRepaymentsModalOpen(false)}
+	          loanId={selectedLoan?.loan_id || ''}
+	          customerName={selectedLoan?.customer_name || ''}
+	          loanAmount={selectedLoan?.loan_amount}
+	          repaymentAmount={selectedLoan?.repayment_amount}
+	          totalOutstanding={selectedLoan?.total_outstanding}
+	          actualOutstanding={selectedLoan?.actual_outstanding}
+	          maturityDate={selectedLoan?.maturity_date}
+	          firstPaymentDueDate={selectedLoan?.first_payment_due_date}
+	        />
+	      )}
+	    </div>
   );
 };
 
