@@ -628,6 +628,7 @@ func (h *DashboardHandler) GetAllLoans(c *gin.Context) {
 // @Produce json
 // @Param branch query string false "Filter by branch"
 // @Param region query string false "Filter by region (supports comma-separated multi-select)"
+// @Param officer_id query string false "Filter by officer ID"
 // @Param channel query string false "Filter by channel"
 // @Param wave query string false "Filter by wave"
 // @Param loan_type query string false "Filter by loan type (supports comma-separated multi-select)"
@@ -803,6 +804,9 @@ func (h *DashboardHandler) GetDailyCollections(c *gin.Context) {
 	}
 	if region := c.Query("region"); region != "" {
 		filters["region"] = region
+	}
+	if officerID := c.Query("officer_id"); officerID != "" {
+		filters["officer_id"] = officerID
 	}
 	if channel := c.Query("channel"); channel != "" {
 		filters["channel"] = channel

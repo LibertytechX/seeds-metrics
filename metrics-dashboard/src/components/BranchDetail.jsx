@@ -23,7 +23,7 @@ const PERIOD_OPTIONS = [
   { value: 'last_month', label: 'Last Month' },
 ];
 
-const BranchDetail = ({ branchSlug, onBack }) => {
+const BranchDetail = ({ branchSlug, onBack, onViewOfficerLoans }) => {
   // Convert slug to branch name (e.g., "lagos-island" -> "Lagos-Island")
   const branchName = useMemo(() => {
     if (!branchSlug) return '';
@@ -554,48 +554,62 @@ const BranchDetail = ({ branchSlug, onBack }) => {
 	                      No agents found for the selected filters.
 	                    </td>
 	                  </tr>
-	                ) : (
-	                  agentLeaderboard.map((a) => {
-	                    const todayRatePercentage = (typeof a.today_rate === 'number' ? a.today_rate : 0) * 100;
-	                    const mtdRatePercentage = (typeof a.mtd_rate === 'number' ? a.mtd_rate : 0) * 100;
-	                    const progressRatePercentage = (typeof a.progress_rate === 'number' ? a.progress_rate : 0) * 100;
-	                    const nplPercentage = (typeof a.npl_ratio === 'number' ? a.npl_ratio : 0) * 100;
-	                    const perfPercentage = 100 - nplPercentage;
-	                    const key = a.officer_id || a.officer_email || a.officer_name || Math.random().toString(36);
-	                    return (
-	                      <tr key={key}>
-	                        <td>{a.officer_name || '-'}</td>
-	                        <td>{a.officer_email || '—'}</td>
-	                        <td>{formatCurrency(a.portfolio_total)}</td>
-	                        <td>{formatCurrency(a.due_today)}</td>
-	                        <td>{formatCurrency(a.collected_today)}</td>
-	                        <td>{formatPercent(todayRatePercentage)}</td>
-	                        <td>{formatPercent(mtdRatePercentage)}</td>
-	                        <td>
-	                          <div className="progress-cell">
-	                            <div className="progress-bar">
-	                              <div
-	                                className="progress-bar-fill"
-	                                style={{ width: `${Math.max(0, Math.min(100, progressRatePercentage))}%` }}
-	                              />
-	                            </div>
-	                            <span className="progress-bar-label">
-	                              {formatPercent(progressRatePercentage)}
-	                            </span>
-	                          </div>
-	                        </td>
-	                        <td>{formatCurrency(a.missed_today)}</td>
-	                        <td>{formatPercent(perfPercentage)}</td>
-	                        <td>{formatPercent(nplPercentage)}</td>
-	                        <td>
-	                          <span className={`status-pill status-${(a.status || 'OK').toLowerCase()}`}>
-	                            {a.status || 'OK'}
-	                          </span>
-	                        </td>
-	                      </tr>
-	                    );
-	                  })
-	                )}
+		              ) : (
+			          agentLeaderboard.map((a) => {
+			            const todayRatePercentage = (typeof a.today_rate === 'number' ? a.today_rate : 0) * 100;
+			            const mtdRatePercentage = (typeof a.mtd_rate === 'number' ? a.mtd_rate : 0) * 100;
+			            const progressRatePercentage = (typeof a.progress_rate === 'number' ? a.progress_rate : 0) * 100;
+			            const nplPercentage = (typeof a.npl_ratio === 'number' ? a.npl_ratio : 0) * 100;
+			            const perfPercentage = 100 - nplPercentage;
+			            const key = a.officer_id || a.officer_email || a.officer_name || Math.random().toString(36);
+			            const isClickable = !!(onViewOfficerLoans && a.officer_id);
+			            const handleRowClick = () => {
+			              if (isClickable) {
+			                onViewOfficerLoans(
+			                  a.officer_id,
+			                  a.officer_name || a.officer_email || a.officer_id,
+			                );
+			              }
+			            };
+			            return (
+			              <tr
+			                key={key}
+			                className={isClickable ? 'branch-row-clickable' : undefined}
+			                onClick={isClickable ? handleRowClick : undefined}
+			                style={isClickable ? { cursor: 'pointer' } : undefined}
+			              >
+			                <td>{a.officer_name || '-'}</td>
+			                <td>{a.officer_email || '—'}</td>
+			                <td>{formatCurrency(a.portfolio_total)}</td>
+			                <td>{formatCurrency(a.due_today)}</td>
+			                <td>{formatCurrency(a.collected_today)}</td>
+			                <td>{formatPercent(todayRatePercentage)}</td>
+			                <td>{formatPercent(mtdRatePercentage)}</td>
+			                <td>
+			                  <div className="progress-cell">
+			                    <div className="progress-bar">
+			                      <div
+			                        className="progress-bar-fill"
+			                        style={{ width: `${Math.max(0, Math.min(100, progressRatePercentage))}%` }}
+			                      />
+			                    </div>
+			                    <span className="progress-bar-label">
+			                      {formatPercent(progressRatePercentage)}
+			                    </span>
+			                  </div>
+			                </td>
+			                <td>{formatCurrency(a.missed_today)}</td>
+			                <td>{formatPercent(perfPercentage)}</td>
+			                <td>{formatPercent(nplPercentage)}</td>
+			                <td>
+			                  <span className={`status-pill status-${(a.status || 'OK').toLowerCase()}`}>
+			                    {a.status || 'OK'}
+			                  </span>
+			                </td>
+			              </tr>
+			            );
+			          })
+			        )}
 	              </tbody>
 	            </table>
 	          </div>

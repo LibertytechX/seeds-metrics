@@ -9,6 +9,7 @@ import CreditHealthByBranch from './components/CreditHealthByBranch';
 import AllLoans from './components/AllLoans';
 import CollectionControlCentre from './components/CollectionControlCentre';
 import BranchDetail from './components/BranchDetail';
+import OfficerDetail from './components/OfficerDetail';
 import Login from './components/Login';
 import { TabHeader } from './components/Tooltip';
 import { formatTabTooltip } from './utils/metricInfo';
@@ -53,6 +54,11 @@ function App() {
   const [lastRefresh, setLastRefresh] = useState(new Date());
   const [allLoansFilter, setAllLoansFilter] = useState(null);
   const [agentPerformanceFilter, setAgentPerformanceFilter] = useState(null);
+	  const [officerDetailContext, setOfficerDetailContext] = useState({
+	    officerId: null,
+	    officerName: null,
+	    branchSlug: null,
+	  });
   const [creditHealthFilters, setCreditHealthFilters] = useState({
     branch: '',
     region: '',
@@ -198,12 +204,11 @@ function App() {
     setLastRefresh(new Date());
   };
 
-  const handleViewOfficerPortfolio = (officerId, officerName) => {
-    // Set the filter for All Loans view
-    setAllLoansFilter({ officer_id: officerId, officer_name: officerName });
-    // Switch to All Loans tab
-    setActiveTab('allLoans');
-  };
+	  const handleViewOfficerPortfolio = (officerId, officerName) => {
+	    // Used by Officer Performance tab to drill into All Loans
+	    setAllLoansFilter({ officer_id: officerId, officer_name: officerName });
+	    setActiveTab('allLoans');
+	  };
 
   const handleViewOfficerLowDelayLoans = (officerId, officerName, delayRate) => {
     console.log('🔵 handleViewOfficerLowDelayLoans called', { officerId, officerName, delayRate });
@@ -262,22 +267,46 @@ function App() {
   };
 
   // Lightweight URL awareness for routes
-  useEffect(() => {
-    const handleRouteChange = () => {
-      try {
-        const path = window.location?.pathname || '';
-        if (path.startsWith('/branches/')) {
-          const slug = path.replace('/branches/', '').split('/')[0];
-          setBranchSlug(slug);
-          setActiveTab('branchDetail');
-        } else if (path.includes('/collections/control-centre')) {
-          setBranchSlug(null);
-          setActiveTab('collectionsControlCentre');
-        }
-      } catch (e) {
-        // Ignore in non-browser environments
-      }
-    };
+	  useEffect(() => {
+	    const handleRouteChange = () => {
+	      try {
+	        const path = window.location?.pathname || '';
+	        if (path.startsWith('/collection-control-center/branch/')) {
+	          // Officer Detail deep link: /collection-control-center/branch/{branchSlug}/officer/{officerId}
+	          const parts = path.split('/').filter(Boolean);
+	          const branchIndex = parts.indexOf('branch');
+	          const officerIndex = parts.indexOf('officer');
+	          const slug =
+	            branchIndex >= 0 && branchIndex + 1 < parts.length
+	              ? parts[branchIndex + 1]
+	              : null;
+	          const officerId =
+	            officerIndex >= 0 && officerIndex + 1 < parts.length
+	              ? parts[officerIndex + 1]
+	              : null;
+	          if (slug && officerId) {
+	            setBranchSlug(slug);
+	            setOfficerDetailContext({
+	              branchSlug: slug,
+	              officerId,
+	              officerName: null,
+	            });
+	            setActiveTab('officerDetail');
+	            return;
+	          }
+	        }
+	        if (path.startsWith('/branches/')) {
+	          const slug = path.replace('/branches/', '').split('/')[0];
+	          setBranchSlug(slug);
+	          setActiveTab('branchDetail');
+	        } else if (path.includes('/collections/control-centre')) {
+	          setBranchSlug(null);
+	          setActiveTab('collectionsControlCentre');
+	        }
+	      } catch (e) {
+	        // Ignore in non-browser environments
+	      }
+	    };
 
     handleRouteChange();
 
@@ -299,6 +328,22 @@ function App() {
     setBranchSlug(slug);
     setActiveTab('branchDetail');
   };
+
+	  // Navigate from Branch Detail to Officer Detail page
+	  const navigateToOfficerDetail = (slug, officerId, officerName) => {
+	    if (!slug || !officerId) return;
+	    const newPath = `/collection-control-center/branch/${slug}/officer/${officerId}`;
+	    try {
+	      if (window.history && window.location?.pathname !== newPath) {
+	        window.history.pushState({}, '', newPath);
+	      }
+	    } catch (e) {
+	      // Ignore history errors
+	    }
+	    setBranchSlug(slug);
+	    setOfficerDetailContext({ branchSlug: slug, officerId, officerName });
+	    setActiveTab('officerDetail');
+	  };
 
   // Navigate back from branch detail to Collections Control Centre
   const navigateBackToCollections = () => {
@@ -501,7 +546,7 @@ function App() {
           </button>
         </div>
 
-	        <div className="tab-content">
+		        <div className="tab-content">
 	          {activeTab === 'fimrDrilldown' ? (
 	            <FIMRDrilldown loans={fimrLoans} />
 	          ) : activeTab === 'earlyIndicatorsDrilldown' ? (
@@ -519,7 +564,28 @@ function App() {
 	          ) : activeTab === 'collectionsControlCentre' ? (
 	            <CollectionControlCentre onNavigateToBranch={navigateToBranch} />
 	          ) : activeTab === 'branchDetail' ? (
-	            <BranchDetail branchSlug={branchSlug} onBack={navigateBackToCollections} />
+	            <BranchDetail
+	              branchSlug={branchSlug}
+	              onBack={navigateBackToCollections}
+		              onViewOfficerLoans={(officerId, officerName) =>
+		                navigateToOfficerDetail(branchSlug, officerId, officerName)
+		              }
+	            />
+		          ) : activeTab === 'officerDetail' ? (
+		            <OfficerDetail
+		              branchSlug={officerDetailContext.branchSlug || branchSlug}
+		              officerId={officerDetailContext.officerId}
+		              officerName={officerDetailContext.officerName}
+		              onBackToOverview={navigateBackToCollections}
+		              onBackToBranch={() => {
+		                const slug = officerDetailContext.branchSlug || branchSlug;
+		                if (slug) {
+		                  navigateToBranch(slug);
+		                } else {
+		                  navigateBackToCollections();
+		                }
+		              }}
+		            />
 	          ) : activeTab === 'allLoans' ? (
 	            <AllLoans
 	              key={JSON.stringify(allLoansFilter)}
