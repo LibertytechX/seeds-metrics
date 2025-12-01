@@ -21,23 +21,64 @@ func NewDashboardRepository(db *sql.DB) *DashboardRepository {
 	return &DashboardRepository{db: db}
 }
 
-// RecalculateAllLoanFields triggers comprehensive recalculation of all computed fields for all loans
-// This calls the recalculate_all_loan_fields() stored procedure which:
-// - Recalculates all outstanding balances (principal, interest, fees)
-// - Recalculates DPD and risk indicators (fimr_tagged, early_indicator_tagged)
-// - Recalculates repayment delay rates
-// - Recalculates timeliness scores and repayment health scores
-// - Updates all 17,419 loans in a single efficient operation
+// RecalculateAllLoanFields triggers comprehensive recalculation of all computed fields for all loans.
+//
+// It performs two steps:
+//  1. Calls the recalculate_all_loan_fields() stored procedure which recomputes all
+//     derived metrics (DPD, risk tags, timeliness scores, etc.) using the database logic.
+//  2. Applies a safety normalisation pass directly on the loans table to ensure that
+//     monetary fields are internally consistent, specifically:
+//     - total_outstanding is always max(0, repayment_amount - total_repayments)
+//     - actual_outstanding is never greater than total_outstanding
+//
+// This second step gives us the business guarantee that "Actual Outstanding" can
+// never exceed the contractual "Outstanding" amount, even if older versions of the
+// database function left inconsistent values behind.
 func (r *DashboardRepository) RecalculateAllLoanFields() (int64, error) {
+	// Step 1: run the main database-side recalculation
 	query := `
-		SELECT total_loans_processed, loans_updated, execution_time_ms
-		FROM recalculate_all_loan_fields()
-	`
+			SELECT total_loans_processed, loans_updated, execution_time_ms
+			FROM recalculate_all_loan_fields()
+		`
 
 	var totalLoans, loansUpdated, executionTimeMs int64
-	err := r.db.QueryRow(query).Scan(&totalLoans, &loansUpdated, &executionTimeMs)
-	if err != nil {
+	if err := r.db.QueryRow(query).Scan(&totalLoans, &loansUpdated, &executionTimeMs); err != nil {
 		return 0, fmt.Errorf("failed to recalculate loan fields: %w", err)
+	}
+
+	// Step 2: enforce consistent outstanding balances using a single, set-based UPDATE.
+	//
+	// This uses only stable columns (repayment_amount, total_repayments, total_outstanding,
+	// actual_outstanding) and does NOT depend on any particular version of the
+	// recalculate_all_loan_fields() implementation.
+	fixQuery := `
+			UPDATE loans
+			SET
+				-- Contractual remaining balance should always be non-negative and equal
+				-- to repayment_amount - total_repayments.
+				total_outstanding = GREATEST(
+					0,
+					COALESCE(repayment_amount, 0) - COALESCE(total_repayments, 0)
+				),
+				-- Actual outstanding should never exceed the contractual balance.
+				actual_outstanding = LEAST(
+					COALESCE(actual_outstanding, 0),
+					GREATEST(0, COALESCE(repayment_amount, 0) - COALESCE(total_repayments, 0))
+				)
+			WHERE
+				-- Only touch rows where the values are inconsistent with the business rules.
+				total_outstanding != GREATEST(
+					0,
+					COALESCE(repayment_amount, 0) - COALESCE(total_repayments, 0)
+				)
+				OR actual_outstanding > GREATEST(
+					0,
+					COALESCE(repayment_amount, 0) - COALESCE(total_repayments, 0)
+				);
+		`
+
+	if _, err := r.db.Exec(fixQuery); err != nil {
+		return 0, fmt.Errorf("failed to normalise outstanding balances: %w", err)
 	}
 
 	return loansUpdated, nil
@@ -3744,10 +3785,29 @@ func (r *DashboardRepository) GetDailyCollections(filters map[string]interface{}
 }
 
 func (r *DashboardRepository) getRegions() ([]string, error) {
-	query := `SELECT DISTINCT l.region FROM loans l
-		INNER JOIN officers o ON l.officer_id = o.officer_id
-		WHERE (o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT') OR o.user_type IS NULL)
-		ORDER BY l.region`
+	// Regions should include all configured regions, even if there are
+	// currently no loans in that region yet. To achieve this we take the
+	// union of regions present on loans and regions configured on officers.
+	//
+	// This ensures newer regions/verticals (e.g. "Saphire") that already
+	// exist on officers but don't yet have active loans still appear in the
+	// Regions filter dropdown.
+	query := `
+		SELECT DISTINCT region
+		FROM (
+			SELECT l.region AS region
+			FROM loans l
+			INNER JOIN officers o ON l.officer_id = o.officer_id
+			WHERE (o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT') OR o.user_type IS NULL)
+
+			UNION
+
+			SELECT o.region AS region
+			FROM officers o
+			WHERE (o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT') OR o.user_type IS NULL)
+		) regions
+		WHERE region IS NOT NULL AND region != ''
+		ORDER BY region`
 
 	rows, err := r.db.Query(query)
 	if err != nil {
