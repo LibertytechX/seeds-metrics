@@ -214,7 +214,7 @@ const LoanRepaymentsModal = ({
                 )}
                 {actualOutstanding != null && (
                   <span className="loan-repayments-summary-item">
-                    <span className="loan-repayments-summary-label">Actual Outstanding:</span>
+	                <span className="loan-repayments-summary-label">Missed Repayments:</span>
                     <span className="loan-repayments-summary-value">{formatCurrency(actualOutstanding)}</span>
                   </span>
                 )}
