@@ -1,0 +1,257 @@
+.repayment-watch-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+  z-index: 1200;
+}
+
+.repayment-watch-modal {
+  width: 95vw;
+  max-width: 1120px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  background: radial-gradient(circle at top left, rgba(56, 189, 248, 0.25), transparent 55%),
+    radial-gradient(circle at bottom right, rgba(52, 211, 153, 0.2), transparent 55%),
+    rgba(15, 23, 42, 0.9);
+  border-radius: 24px;
+  border: 1px solid rgba(148, 163, 184, 0.6);
+  box-shadow: 0 24px 80px rgba(15, 23, 42, 0.85);
+  color: #e5e7eb;
+  padding: 20px 24px 16px;
+}
+
+.repayment-watch-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.repayment-watch-title h2 {
+  margin: 0 0 6px;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.repayment-watch-title p {
+  margin: 0;
+  font-size: 13px;
+  color: #cbd5f5;
+}
+
+.repayment-watch-close {
+  border: none;
+  border-radius: 999px;
+  padding: 6px;
+  background: rgba(15, 23, 42, 0.6);
+  color: #e5e7eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.repayment-watch-close:hover {
+  background: rgba(51, 65, 85, 0.9);
+  transform: scale(1.03);
+}
+
+.repayment-watch-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.repayment-watch-tab {
+  border: 1px solid rgba(148, 163, 184, 0.4);
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.65);
+  color: #e5e7eb;
+  padding: 4px 10px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.15s ease;
+}
+
+.repayment-watch-tab.active {
+  background: rgba(15, 118, 110, 0.9);
+  border-color: rgba(45, 212, 191, 0.9);
+  transform: translateY(-1px);
+}
+
+.repayment-watch-tab-badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.badge-red {
+  background: rgba(248, 113, 113, 0.2);
+  color: #fecaca;
+}
+
+.badge-amber {
+  background: rgba(251, 191, 36, 0.2);
+  color: #fef3c7;
+}
+
+.badge-yellow {
+  background: rgba(250, 204, 21, 0.2);
+  color: #fef9c3;
+}
+
+.badge-green {
+  background: rgba(52, 211, 153, 0.2);
+  color: #bbf7d0;
+}
+
+.repayment-watch-tab-count {
+  min-width: 22px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.9;
+}
+
+.repayment-watch-tab-description {
+  font-size: 12px;
+  color: #cbd5f5;
+  margin-bottom: 10px;
+}
+
+.repayment-watch-body {
+  flex: 1;
+  min-height: 160px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.repayment-watch-state {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  font-size: 13px;
+  color: #cbd5f5;
+  text-align: center;
+}
+
+.repayment-watch-state.error p {
+  color: #fecaca;
+}
+
+.repayment-watch-spinner {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  border: 3px solid rgba(148, 163, 184, 0.5);
+  border-top-color: #22c55e;
+  margin-bottom: 12px;
+  animation: repayment-watch-spin 1s linear infinite;
+}
+
+@keyframes repayment-watch-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.repayment-watch-table-wrapper {
+  flex: 1;
+  border-radius: 16px;
+  overflow: auto;
+  background: rgba(15, 23, 42, 0.7);
+  border: 1px solid rgba(148, 163, 184, 0.5);
+}
+
+.repayment-watch-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.repayment-watch-table thead {
+  position: sticky;
+  top: 0;
+  background: linear-gradient(135deg, rgba(15, 118, 110, 0.95), rgba(8, 47, 73, 0.98));
+}
+
+.repayment-watch-table th,
+.repayment-watch-table td {
+  padding: 8px 10px;
+  white-space: nowrap;
+  border-bottom: 1px solid rgba(51, 65, 85, 0.7);
+}
+
+.repayment-watch-table th {
+  text-align: left;
+  font-weight: 600;
+  color: #e5e7eb;
+}
+
+.repayment-watch-table td {
+  color: #e5e7eb;
+}
+
+.repayment-watch-officer {
+  display: flex;
+  flex-direction: column;
+}
+
+.repayment-watch-officer .officer-name {
+  font-weight: 600;
+}
+
+.repayment-watch-officer .officer-email {
+  font-size: 11px;
+  color: #a5b4fc;
+}
+
+.repayment-watch-footer {
+  margin-top: 8px;
+  display: flex;
+  justify-content: flex-end;
+}
+
+.repayment-watch-footer button {
+  border-radius: 999px;
+  border: none;
+  padding: 6px 14px;
+  font-size: 12px;
+  background: rgba(45, 212, 191, 0.9);
+  color: #022c22;
+  cursor: pointer;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+
+.repayment-watch-footer button:hover {
+  background: rgba(16, 185, 129, 1);
+  transform: translateY(-1px);
+}
+
+@media (max-width: 768px) {
+  .repayment-watch-modal {
+    padding: 16px 14px 10px;
+  }
+
+  .repayment-watch-title h2 {
+    font-size: 18px;
+  }
+}
+

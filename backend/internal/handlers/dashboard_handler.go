@@ -775,6 +775,64 @@ func (h *DashboardHandler) GetOfficerCollectionsLeaderboard(c *gin.Context) {
 	})
 }
 
+// GetRepaymentWatch handles GET /api/v1/collections/repayment-watch
+// It returns per-officer Wave 2 repayment performance for the Repayment Watch
+// view in the Collections Control Centre.
+//
+// The endpoint focuses on Wave 2 loans that are currently OPEN or PAST_MATURITY
+// and counts non-reversed repayments made today. It respects the same
+// branch/region/channel/wave/loan_type filters used elsewhere in Collections.
+//
+// @Summary Get Repayment Watch metrics per officer
+// @Description Get per-officer Wave 2 repayment performance for today (Repayment Watch)
+// @Tags Collections
+// @Accept json
+// @Produce json
+// @Param branch query string false "Filter by branch"
+// @Param region query string false "Filter by region (supports comma-separated multi-select)"
+// @Param channel query string false "Filter by channel"
+// @Param wave query string false "Filter by wave (defaults to Wave 2 if omitted)"
+// @Param loan_type query string false "Filter by loan type (supports comma-separated multi-select)"
+// @Success 200 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
+// @Router /collections/repayment-watch [get]
+func (h *DashboardHandler) GetRepaymentWatch(c *gin.Context) {
+	filters := make(map[string]interface{})
+
+	if branch := c.Query("branch"); branch != "" {
+		filters["branch"] = branch
+	}
+	if region := c.Query("region"); region != "" {
+		filters["region"] = region
+	}
+	if channel := c.Query("channel"); channel != "" {
+		filters["channel"] = channel
+	}
+	if wave := c.Query("wave"); wave != "" {
+		filters["wave"] = wave
+	}
+	if loanType := c.Query("loan_type"); loanType != "" {
+		filters["loan_type"] = loanType
+	}
+
+	officers, err := h.dashboardRepo.GetRepaymentWatchOfficers(filters)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.APIResponse{
+			Status:  "error",
+			Message: "Failed to retrieve Repayment Watch metrics",
+			Error:   newAPIError("INTERNAL_ERROR", err.Error()),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.APIResponse{
+		Status: "success",
+		Data: map[string]interface{}{
+			"officers": officers,
+		},
+	})
+}
+
 // GetDailyCollections handles GET /api/v1/collections/daily
 // It returns a per-day time series of collections amounts suitable for the
 // Collections Control Centre daily chart.

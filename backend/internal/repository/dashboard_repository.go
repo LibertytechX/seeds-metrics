@@ -3712,6 +3712,148 @@ func (r *DashboardRepository) GetOfficerCollectionsLeaderboard(filters map[strin
 	return result, nil
 }
 
+// GetRepaymentWatchOfficers computes per-officer Wave 2 repayment performance for the
+// Repayment Watch view. It focuses on Wave 2 loans that are currently OPEN or
+// PAST_MATURITY and counts non-reversed repayments made today. It respects the same
+// branch/region/channel/wave/loan_type filters used elsewhere in the Collections
+// Control Centre.
+func (r *DashboardRepository) GetRepaymentWatchOfficers(filters map[string]interface{}) ([]*models.RepaymentWatchOfficerRow, error) {
+	query := `
+			SELECT
+				l.officer_id,
+				COALESCE(o.officer_name, '') AS officer_name,
+				COALESCE(o.officer_email, '') AS officer_email,
+				MODE() WITHIN GROUP (ORDER BY l.branch) AS branch,
+				MODE() WITHIN GROUP (ORDER BY l.region) AS region,
+				COUNT(DISTINCT l.loan_id) AS total_wave2_open_loans,
+				COUNT(DISTINCT r.loan_id) AS loans_with_repayment_today,
+				COALESCE(SUM(r.payment_amount), 0) AS amount_collected_today
+			FROM loans l
+			JOIN officers o ON l.officer_id = o.officer_id
+			LEFT JOIN repayments r ON r.loan_id = l.loan_id
+				AND r.is_reversed = FALSE
+				AND r.payment_date::date = CURRENT_DATE
+			WHERE 1=1
+				AND (o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT') OR o.user_type IS NULL)
+				AND l.django_status IN ('OPEN', 'PAST_MATURITY')
+		`
+
+	args := []interface{}{}
+	argCount := 1
+
+	// Apply filters (branch, region, channel, wave, loan_type) similar to
+	// GetOfficerCollectionsLeaderboard, but with a Wave 2 default when no wave
+	// filter is provided.
+	if branch, ok := filters["branch"].(string); ok && branch != "" {
+		query += fmt.Sprintf(" AND l.branch = $%d", argCount)
+		args = append(args, branch)
+		argCount++
+	}
+
+	if region, ok := filters["region"].(string); ok && region != "" {
+		regions := strings.Split(region, ",")
+		if len(regions) == 1 {
+			query += fmt.Sprintf(" AND l.region = $%d", argCount)
+			args = append(args, regions[0])
+			argCount++
+		} else {
+			placeholders := []string{}
+			for _, rgn := range regions {
+				placeholders = append(placeholders, fmt.Sprintf("$%d", argCount))
+				args = append(args, strings.TrimSpace(rgn))
+				argCount++
+			}
+			query += fmt.Sprintf(" AND l.region IN (%s)", strings.Join(placeholders, ", "))
+		}
+	}
+
+	if channel, ok := filters["channel"].(string); ok && channel != "" {
+		query += fmt.Sprintf(" AND l.channel = $%d", argCount)
+		args = append(args, channel)
+		argCount++
+	}
+
+	if wave, ok := filters["wave"].(string); ok && strings.TrimSpace(wave) != "" {
+		// Support comma-separated waves for completeness
+		waves := strings.Split(wave, ",")
+		if len(waves) == 1 {
+			query += fmt.Sprintf(" AND l.wave = $%d", argCount)
+			args = append(args, strings.TrimSpace(waves[0]))
+			argCount++
+		} else {
+			placeholders := make([]string, len(waves))
+			for i, w := range waves {
+				placeholders[i] = fmt.Sprintf("$%d", argCount)
+				args = append(args, strings.TrimSpace(w))
+				argCount++
+			}
+			query += fmt.Sprintf(" AND l.wave IN (%s)", strings.Join(placeholders, ", "))
+		}
+	} else {
+		// Default focus: Wave 2 loans only (case-insensitive, supports "wave2" and "wave 2").
+		query += " AND LOWER(COALESCE(l.wave, '')) IN ('wave2', 'wave 2')"
+	}
+
+	if loanType, ok := filters["loan_type"].(string); ok && loanType != "" {
+		loanTypes := strings.Split(loanType, ",")
+		if len(loanTypes) == 1 {
+			query += fmt.Sprintf(" AND l.loan_type = $%d", argCount)
+			args = append(args, strings.TrimSpace(loanTypes[0]))
+			argCount++
+		} else {
+			placeholders := make([]string, len(loanTypes))
+			for i, lt := range loanTypes {
+				placeholders[i] = fmt.Sprintf("$%d", argCount)
+				args = append(args, strings.TrimSpace(lt))
+				argCount++
+			}
+			query += fmt.Sprintf(" AND l.loan_type IN (%s)", strings.Join(placeholders, ", "))
+		}
+	}
+
+	query += `
+			GROUP BY
+				l.officer_id,
+				o.officer_name,
+				o.officer_email
+			HAVING COUNT(DISTINCT l.loan_id) > 0
+			ORDER BY COUNT(DISTINCT l.loan_id) DESC
+		`
+
+	rows, err := r.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := []*models.RepaymentWatchOfficerRow{}
+	for rows.Next() {
+		row := &models.RepaymentWatchOfficerRow{}
+		if err := rows.Scan(
+			&row.OfficerID,
+			&row.OfficerName,
+			&row.OfficerEmail,
+			&row.Branch,
+			&row.Region,
+			&row.TotalWave2OpenLoans,
+			&row.LoansWithRepaymentToday,
+			&row.AmountCollectedToday,
+		); err != nil {
+			return nil, err
+		}
+
+		if row.TotalWave2OpenLoans > 0 && row.LoansWithRepaymentToday > 0 {
+			row.RepaymentRate = (float64(row.LoansWithRepaymentToday) / float64(row.TotalWave2OpenLoans)) * 100
+		} else {
+			row.RepaymentRate = 0
+		}
+
+		result = append(result, row)
+	}
+
+	return result, nil
+}
+
 // GetFilterOptions retrieves filter dropdown options
 func (r *DashboardRepository) GetFilterOptions(filterType string, filters map[string]interface{}) (interface{}, error) {
 	switch filterType {

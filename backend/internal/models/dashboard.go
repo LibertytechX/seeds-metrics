@@ -241,6 +241,20 @@ type OfficerCollectionsLeaderboardRow struct {
 	Status         string  `json:"status"`
 }
 
+// RepaymentWatchOfficerRow represents per-officer Wave 2 repayment performance for the
+// Repayment Watch view in the Collections Control Centre.
+type RepaymentWatchOfficerRow struct {
+	OfficerID               string  `json:"officer_id"`
+	OfficerName             string  `json:"officer_name"`
+	OfficerEmail            string  `json:"officer_email"`
+	Branch                  string  `json:"branch"`
+	Region                  string  `json:"region"`
+	TotalWave2OpenLoans     int     `json:"total_wave2_open_loans"`
+	LoansWithRepaymentToday int     `json:"loans_with_repayment_today"`
+	AmountCollectedToday    float64 `json:"amount_collected_today"`
+	RepaymentRate           float64 `json:"repayment_rate"`
+}
+
 // DailyCollectionsPoint represents a single day in the collections time series
 // used by the Collections Control Centre daily chart.
 type DailyCollectionsPoint struct {

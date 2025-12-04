@@ -1,17 +1,18 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
-		Bar,
-		CartesianGrid,
-		ComposedChart,
-		Legend,
-		ResponsiveContainer,
-		Tooltip as RechartsTooltip,
-		XAxis,
-		YAxis,
-		Line,
-		LabelList,
-	} from 'recharts';
-import './CollectionControlCentre.css';
+			Bar,
+			CartesianGrid,
+			ComposedChart,
+			Legend,
+			ResponsiveContainer,
+			Tooltip as RechartsTooltip,
+			XAxis,
+			YAxis,
+			Line,
+			LabelList,
+		} from 'recharts';
+	import './CollectionControlCentre.css';
+import RepaymentWatchModal from './RepaymentWatchModal';
 
 // Reuse the same sentinel value used in AllLoans and backend (MissingValueSentinel)
 const MISSING_VALUE = '__MISSING__';
@@ -51,7 +52,12 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 				// Repayments breakdown by django_status (from unrestricted metrics)
 				const [repaymentsByStatus, setRepaymentsByStatus] = useState([]);
 
-	  // Branch collections leaderboard (per-branch breakdown under the cards)
+		  const [isRepaymentWatchOpen, setIsRepaymentWatchOpen] = useState(false);
+		  const [repaymentWatchData, setRepaymentWatchData] = useState(null);
+		  const [loadingRepaymentWatch, setLoadingRepaymentWatch] = useState(false);
+		  const [repaymentWatchError, setRepaymentWatchError] = useState(null);
+
+		  // Branch collections leaderboard (per-branch breakdown under the cards)
 	  const [branchLeaderboard, setBranchLeaderboard] = useState([]);
 	  const [loadingBranches, setLoadingBranches] = useState(false);
 	  const [branchesError, setBranchesError] = useState(null);
@@ -526,6 +532,44 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
     console.log(`Collections Control Centre card clicked: ${target}`);
   };
 
+	  const fetchRepaymentWatch = async () => {
+	    try {
+	      setLoadingRepaymentWatch(true);
+	      setRepaymentWatchError(null);
+
+	      const API_BASE_URL = import.meta.env.VITE_API_URL ||
+	        (import.meta.env.MODE === 'production' ? '/api/v1' : 'http://localhost:8081/api/v1');
+
+	      const params = new URLSearchParams();
+	      if (filters.region) params.set('region', filters.region);
+	      if (filters.branch) params.set('branch', filters.branch);
+	      if (filters.product) params.set('loan_type', filters.product);
+	      if (filters.wave) params.set('wave', filters.wave);
+
+	      const queryString = params.toString();
+	      const url = queryString
+	        ? `${API_BASE_URL}/collections/repayment-watch?${queryString}`
+	        : `${API_BASE_URL}/collections/repayment-watch`;
+
+	      const response = await fetch(url);
+	      const json = await response.json();
+
+	      if (!response.ok || json.status !== 'success') {
+	        throw new Error(json.message || 'Failed to load Repayment Watch data');
+	      }
+
+	      const officers = Array.isArray(json.data?.officers) ? json.data.officers : [];
+	      setRepaymentWatchData(officers);
+	    } catch (err) {
+	      // eslint-disable-next-line no-console
+	      console.error('Error fetching Repayment Watch data:', err);
+	      setRepaymentWatchError(err.message || 'Error fetching Repayment Watch data');
+	      setRepaymentWatchData(null);
+	    } finally {
+	      setLoadingRepaymentWatch(false);
+	    }
+	  };
+
   // Handler for updating past maturity statuses
   const handleUpdatePastMaturity = async () => {
     if (updatingPastMaturity) return;
@@ -610,9 +654,10 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
     }
   };
 
-  return (
-    <div className="collections-page">
-      <div className="collections-header">
+	  return (
+	    <>
+	      <div className="collections-page">
+	      <div className="collections-header">
         <div>
           <h2>Collections Control Centre</h2>
           <p className="collections-subtitle">
@@ -623,15 +668,27 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
         <div className="collections-meta">
           <span className="last-updated">Last updated: {lastUpdatedLabel}</span>
           {isLoading && <span className="loading-indicator">Refreshing...</span>}
-          <button
-            type="button"
-            className="updpm-btn"
-            onClick={handleUpdatePastMaturity}
-            disabled={updatingPastMaturity}
-            title="Update Past Maturity statuses"
-          >
-            {updatingPastMaturity ? '...' : 'updpm'}
-          </button>
+	          <button
+	            type="button"
+	            className="repayment-watch-btn"
+	            onClick={() => {
+	              setIsRepaymentWatchOpen(true);
+	              fetchRepaymentWatch();
+	            }}
+	            disabled={loadingRepaymentWatch}
+	            title="View Wave 2 repayment performance today"
+	          >
+	            {loadingRepaymentWatch ? 'Loading...' : 'Repayment Watch'}
+	          </button>
+	          <button
+	            type="button"
+	            className="updpm-btn"
+	            onClick={handleUpdatePastMaturity}
+	            disabled={updatingPastMaturity}
+	            title="Update Past Maturity statuses"
+	          >
+	            {updatingPastMaturity ? '...' : 'updpm'}
+	          </button>
         </div>
       </div>
 
@@ -1126,11 +1183,21 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	                <p><strong>Coming soon</strong></p>
 	              </div>
 	            </div>
-	          </div>
-	        </div>
+		          </div>
+		        </div>
+		      </div>
 	      </div>
-    </div>
-  );
-};
 
-export default CollectionControlCentre;
+	      <RepaymentWatchModal
+	        isOpen={isRepaymentWatchOpen}
+	        onClose={() => setIsRepaymentWatchOpen(false)}
+	        data={repaymentWatchData}
+	        loading={loadingRepaymentWatch}
+	        error={repaymentWatchError}
+	        onRefresh={fetchRepaymentWatch}
+	      />
+	    </>
+	  );
+	};
+
+	export default CollectionControlCentre;

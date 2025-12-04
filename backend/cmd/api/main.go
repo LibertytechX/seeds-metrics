@@ -148,6 +148,7 @@ func setupRouter(cfg *config.Config, etlHandler *handlers.ETLHandler, customerHa
 			collections.GET("/branches", dashboardHandler.GetBranchCollectionsLeaderboard)
 			collections.GET("/officers", dashboardHandler.GetOfficerCollectionsLeaderboard)
 			collections.GET("/daily", dashboardHandler.GetDailyCollections)
+			collections.GET("/repayment-watch", dashboardHandler.GetRepaymentWatch)
 		}
 
 		// Officer endpoints
