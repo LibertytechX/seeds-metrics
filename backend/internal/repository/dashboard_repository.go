@@ -1628,6 +1628,275 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 		return nil, fmt.Errorf("failed to calculate today's repayments: %w", err)
 	}
 
+	// Additionally calculate total repayments for "yesterday" (exactly one
+	// calendar day before today). This intentionally ignores the selected
+	// period filter for the repayments date range so that the metric always
+	// represents "yesterday" while still respecting all other filters
+	// (branch, region, officer, loan type, etc.).
+	repaymentsWhereYesterday := `
+				FROM repayments r
+				INNER JOIN loans l ON r.loan_id = l.loan_id
+				INNER JOIN officers o ON l.officer_id = o.officer_id
+				WHERE r.is_reversed = false
+					AND (o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT') OR o.user_type IS NULL)
+					AND DATE(r.payment_date) = CURRENT_DATE - INTERVAL '1 day'
+			`
+
+	repaymentsYesterdayArgs := []interface{}{}
+	repaymentsYesterdayArgCount := 1
+
+	if officerID, ok := filters["officer_id"].(string); ok && officerID != "" {
+		repaymentsWhereYesterday += fmt.Sprintf(" AND l.officer_id = $%d", repaymentsYesterdayArgCount)
+		repaymentsYesterdayArgs = append(repaymentsYesterdayArgs, officerID)
+		repaymentsYesterdayArgCount++
+	}
+
+	if branch, ok := filters["branch"].(string); ok && branch != "" {
+		repaymentsWhereYesterday += fmt.Sprintf(" AND l.branch = $%d", repaymentsYesterdayArgCount)
+		repaymentsYesterdayArgs = append(repaymentsYesterdayArgs, branch)
+		repaymentsYesterdayArgCount++
+	}
+
+	if region, ok := filters["region"].(string); ok && region != "" {
+		regions := strings.Split(region, ",")
+		if len(regions) == 1 {
+			repaymentsWhereYesterday += fmt.Sprintf(" AND l.region = $%d", repaymentsYesterdayArgCount)
+			repaymentsYesterdayArgs = append(repaymentsYesterdayArgs, regions[0])
+			repaymentsYesterdayArgCount++
+		} else {
+			placeholders := []string{}
+			for _, rgn := range regions {
+				placeholders = append(placeholders, fmt.Sprintf("$%d", repaymentsYesterdayArgCount))
+				repaymentsYesterdayArgs = append(repaymentsYesterdayArgs, strings.TrimSpace(rgn))
+				repaymentsYesterdayArgCount++
+			}
+			repaymentsWhereYesterday += fmt.Sprintf(" AND l.region IN (%s)", strings.Join(placeholders, ", "))
+		}
+	}
+
+	if channel, ok := filters["channel"].(string); ok && channel != "" {
+		repaymentsWhereYesterday += fmt.Sprintf(" AND l.channel = $%d", repaymentsYesterdayArgCount)
+		repaymentsYesterdayArgs = append(repaymentsYesterdayArgs, channel)
+		repaymentsYesterdayArgCount++
+	}
+
+	if status, ok := filters["status"].(string); ok && status != "" {
+		statuses := strings.Split(status, ",")
+		if len(statuses) == 1 {
+			repaymentsWhereYesterday += fmt.Sprintf(" AND l.status = $%d", repaymentsYesterdayArgCount)
+			repaymentsYesterdayArgs = append(repaymentsYesterdayArgs, statuses[0])
+			repaymentsYesterdayArgCount++
+		} else {
+			placeholders := []string{}
+			for _, s := range statuses {
+				placeholders = append(placeholders, fmt.Sprintf("$%d", repaymentsYesterdayArgCount))
+				repaymentsYesterdayArgs = append(repaymentsYesterdayArgs, strings.TrimSpace(s))
+				repaymentsYesterdayArgCount++
+			}
+			repaymentsWhereYesterday += fmt.Sprintf(" AND l.status IN (%s)", strings.Join(placeholders, ", "))
+		}
+	}
+
+	// Raw Django status filter - supports comma-separated values and optional missing sentinel
+	if djangoStatus, ok := filters["django_status"].(string); ok && djangoStatus != "" {
+		statuses := strings.Split(djangoStatus, ",")
+		nonMissing := []string{}
+		includeMissing := false
+
+		for _, s := range statuses {
+			value := strings.TrimSpace(s)
+			if value == "" {
+				continue
+			}
+			if value == MissingValueSentinel {
+				includeMissing = true
+			} else {
+				nonMissing = append(nonMissing, value)
+			}
+		}
+
+		conditions := []string{}
+		if len(nonMissing) == 1 {
+			repaymentsWhereYesterday += fmt.Sprintf(" AND l.django_status = $%d", repaymentsYesterdayArgCount)
+			repaymentsYesterdayArgs = append(repaymentsYesterdayArgs, nonMissing[0])
+			repaymentsYesterdayArgCount++
+		} else if len(nonMissing) > 1 {
+			placeholders := make([]string, len(nonMissing))
+			for i, s := range nonMissing {
+				placeholders[i] = fmt.Sprintf("$%d", repaymentsYesterdayArgCount)
+				repaymentsYesterdayArgs = append(repaymentsYesterdayArgs, s)
+				repaymentsYesterdayArgCount++
+			}
+			conditions = append(conditions, fmt.Sprintf("l.django_status IN (%s)", strings.Join(placeholders, ",")))
+		}
+
+		if includeMissing {
+			conditions = append(conditions, "(l.django_status IS NULL OR l.django_status = '')")
+		}
+
+		if len(conditions) > 0 {
+			repaymentsWhereYesterday += " AND (" + strings.Join(conditions, " OR ") + ")"
+		}
+	}
+
+	if performanceStatus, ok := filters["performance_status"].(string); ok && performanceStatus != "" {
+		performanceStatuses := strings.Split(performanceStatus, ",")
+		nonMissing := []string{}
+		includeMissing := false
+
+		for _, ps := range performanceStatuses {
+			value := strings.TrimSpace(ps)
+			if value == "" {
+				continue
+			}
+			if value == MissingValueSentinel {
+				includeMissing = true
+			} else {
+				nonMissing = append(nonMissing, value)
+			}
+		}
+
+		if len(nonMissing) == 1 {
+			repaymentsWhereYesterday += fmt.Sprintf(" AND l.performance_status = $%d", repaymentsYesterdayArgCount)
+			repaymentsYesterdayArgs = append(repaymentsYesterdayArgs, nonMissing[0])
+			repaymentsYesterdayArgCount++
+		} else if len(nonMissing) > 1 {
+			placeholders := []string{}
+			for _, ps := range nonMissing {
+				placeholders = append(placeholders, fmt.Sprintf("$%d", repaymentsYesterdayArgCount))
+				repaymentsYesterdayArgs = append(repaymentsYesterdayArgs, strings.TrimSpace(ps))
+				repaymentsYesterdayArgCount++
+			}
+			repaymentsWhereYesterday += fmt.Sprintf(" AND l.performance_status IN (%s)", strings.Join(placeholders, ", "))
+		}
+
+		if includeMissing {
+			repaymentsWhereYesterday += " AND (l.performance_status IS NULL OR l.performance_status = '')"
+		}
+	}
+
+	if wave, ok := filters["wave"].(string); ok && wave != "" {
+		repaymentsWhereYesterday += fmt.Sprintf(" AND l.wave = $%d", repaymentsYesterdayArgCount)
+		repaymentsYesterdayArgs = append(repaymentsYesterdayArgs, wave)
+		repaymentsYesterdayArgCount++
+	}
+
+	if customerPhone, ok := filters["customer_phone"].(string); ok && customerPhone != "" {
+		repaymentsWhereYesterday += fmt.Sprintf(" AND l.customer_phone LIKE $%d", repaymentsYesterdayArgCount)
+		repaymentsYesterdayArgs = append(repaymentsYesterdayArgs, "%"+customerPhone+"%")
+		repaymentsYesterdayArgCount++
+	}
+
+	if verticalLeadEmail, ok := filters["vertical_lead_email"].(string); ok && verticalLeadEmail != "" {
+		repaymentsWhereYesterday += fmt.Sprintf(" AND l.vertical_lead_email = $%d", repaymentsYesterdayArgCount)
+		repaymentsYesterdayArgs = append(repaymentsYesterdayArgs, verticalLeadEmail)
+		repaymentsYesterdayArgCount++
+	}
+
+	if loanType, ok := filters["loan_type"].(string); ok && loanType != "" {
+		loanTypes := strings.Split(loanType, ",")
+		nonMissing := []string{}
+		includeMissing := false
+
+		for _, lt := range loanTypes {
+			value := strings.TrimSpace(lt)
+			if value == "" {
+				continue
+			}
+			if value == MissingValueSentinel {
+				includeMissing = true
+			} else {
+				nonMissing = append(nonMissing, value)
+			}
+		}
+
+		conditions := []string{}
+		if len(nonMissing) == 1 {
+			repaymentsWhereYesterday += fmt.Sprintf(" AND l.loan_type = $%d", repaymentsYesterdayArgCount)
+			repaymentsYesterdayArgs = append(repaymentsYesterdayArgs, nonMissing[0])
+			repaymentsYesterdayArgCount++
+		} else if len(nonMissing) > 1 {
+			placeholders := make([]string, len(nonMissing))
+			for i, lt := range nonMissing {
+				placeholders[i] = fmt.Sprintf("$%d", repaymentsYesterdayArgCount)
+				repaymentsYesterdayArgs = append(repaymentsYesterdayArgs, lt)
+				repaymentsYesterdayArgCount++
+			}
+			conditions = append(conditions, fmt.Sprintf("l.loan_type IN (%s)", strings.Join(placeholders, ",")))
+		}
+
+		if includeMissing {
+			conditions = append(conditions, "(l.loan_type IS NULL OR l.loan_type = '')")
+		}
+
+		if len(conditions) > 0 {
+			repaymentsWhereYesterday += " AND (" + strings.Join(conditions, " OR ") + ")"
+		}
+	}
+
+	if verificationStatus, ok := filters["verification_status"].(string); ok && verificationStatus != "" {
+		verificationStatuses := strings.Split(verificationStatus, ",")
+		nonMissing := []string{}
+		includeMissing := false
+
+		for _, vs := range verificationStatuses {
+			value := strings.TrimSpace(vs)
+			if value == "" {
+				continue
+			}
+			if value == MissingValueSentinel {
+				includeMissing = true
+			} else {
+				nonMissing = append(nonMissing, value)
+			}
+		}
+
+		conditions := []string{}
+		if len(nonMissing) == 1 {
+			repaymentsWhereYesterday += fmt.Sprintf(" AND l.verification_status = $%d", repaymentsYesterdayArgCount)
+			repaymentsYesterdayArgs = append(repaymentsYesterdayArgs, nonMissing[0])
+			repaymentsYesterdayArgCount++
+		} else if len(nonMissing) > 1 {
+			placeholders := make([]string, len(nonMissing))
+			for i, vs := range nonMissing {
+				placeholders[i] = fmt.Sprintf("$%d", repaymentsYesterdayArgCount)
+				repaymentsYesterdayArgs = append(repaymentsYesterdayArgs, vs)
+				repaymentsYesterdayArgCount++
+			}
+			conditions = append(conditions, fmt.Sprintf("l.verification_status IN (%s)", strings.Join(placeholders, ",")))
+		}
+
+		if includeMissing {
+			conditions = append(conditions, "(l.verification_status IS NULL OR l.verification_status = '')")
+		}
+
+		if len(conditions) > 0 {
+			repaymentsWhereYesterday += " AND (" + strings.Join(conditions, " OR ") + ")"
+		}
+	}
+
+	if dpdMin, ok := filters["dpd_min"].(int); ok {
+		repaymentsWhereYesterday += fmt.Sprintf(" AND l.current_dpd >= $%d", repaymentsYesterdayArgCount)
+		repaymentsYesterdayArgs = append(repaymentsYesterdayArgs, dpdMin)
+		repaymentsYesterdayArgCount++
+	}
+
+	if dpdMax, ok := filters["dpd_max"].(int); ok {
+		repaymentsWhereYesterday += fmt.Sprintf(" AND l.current_dpd <= $%d", repaymentsYesterdayArgCount)
+		repaymentsYesterdayArgs = append(repaymentsYesterdayArgs, dpdMax)
+		repaymentsYesterdayArgCount++
+	}
+
+	repaymentsYesterdayQuery := `
+				SELECT COALESCE(SUM(r.payment_amount), 0) as total_repayments_yesterday
+			` + repaymentsWhereYesterday
+
+	var totalRepaymentsYesterday float64
+	err = r.db.QueryRow(repaymentsYesterdayQuery, repaymentsYesterdayArgs...).Scan(&totalRepaymentsYesterday)
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate yesterday's repayments: %w", err)
+	}
+
 	// Breakdown of repayments by django_status using the same filters and period.
 	repaymentsByStatusQuery := fmt.Sprintf(`
 			SELECT
@@ -1959,6 +2228,7 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 		"repayments_by_django_status":   repaymentsByStatus,
 		"total_due_for_today":           totalDueForToday,
 		"total_repayments_today":        totalRepaymentsToday,
+		"total_repayments_yesterday":    totalRepaymentsYesterday,
 		"percentage_of_due_collected":   percentageDueCollected,
 		"missed_repayments_today":       missedAmountToday,
 		"missed_repayments_today_count": missedCountToday,

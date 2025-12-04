@@ -40,13 +40,16 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
     waves: [],
   });
 
-			const [summaryMetrics, setSummaryMetrics] = useState(null);
-			// For Collections Received we want "all repayments" for the period,
-			// not restricted to collections-specific django_status values.
-			// We'll fetch this alongside the restricted metrics.
-			const [totalRepaidTodayAll, setTotalRepaidTodayAll] = useState(null);
-			// Repayments breakdown by django_status (from unrestricted metrics)
-			const [repaymentsByStatus, setRepaymentsByStatus] = useState([]);
+				const [summaryMetrics, setSummaryMetrics] = useState(null);
+				// For Collections Received we want "all repayments" for the period,
+				// not restricted to collections-specific django_status values.
+				// We'll fetch this alongside the restricted metrics.
+				const [totalRepaidTodayAll, setTotalRepaidTodayAll] = useState(null);
+				// All repayments from yesterday (independent of the selected period
+				// but still respecting region/branch/product/wave filters).
+				const [totalRepaidYesterdayAll, setTotalRepaidYesterdayAll] = useState(null);
+				// Repayments breakdown by django_status (from unrestricted metrics)
+				const [repaymentsByStatus, setRepaymentsByStatus] = useState([]);
 
 	  // Branch collections leaderboard (per-branch breakdown under the cards)
 	  const [branchLeaderboard, setBranchLeaderboard] = useState([]);
@@ -173,29 +176,33 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	          unrestrictedRes.json(),
 	        ]);
 
-	        if (restrictedData.status !== 'success') {
+		        if (restrictedData.status !== 'success') {
 	          throw new Error(restrictedData.message || 'Failed to load collections summary metrics');
 	        }
 	        if (unrestrictedData.status !== 'success') {
 	          throw new Error(unrestrictedData.message || 'Failed to load collections received metrics');
 	        }
 
-					setSummaryMetrics(restrictedData.data?.summary_metrics || null);
-					const unrestrictedSummary = unrestrictedData.data?.summary_metrics || null;
-					setTotalRepaidTodayAll(
-					  unrestrictedSummary?.total_repayments_today ?? null,
-					);
-					setRepaymentsByStatus(
-					  Array.isArray(unrestrictedSummary?.repayments_by_django_status)
-					    ? unrestrictedSummary.repayments_by_django_status
-					    : [],
-					);
+						setSummaryMetrics(restrictedData.data?.summary_metrics || null);
+						const unrestrictedSummary = unrestrictedData.data?.summary_metrics || null;
+						setTotalRepaidTodayAll(
+						  unrestrictedSummary?.total_repayments_today ?? null,
+						);
+						setTotalRepaidYesterdayAll(
+						  unrestrictedSummary?.total_repayments_yesterday ?? null,
+						);
+						setRepaymentsByStatus(
+						  Array.isArray(unrestrictedSummary?.repayments_by_django_status)
+						    ? unrestrictedSummary.repayments_by_django_status
+						    : [],
+						);
 	        setLastUpdated(new Date());
 	      } catch (err) {
 	        console.error('Error fetching collections summary metrics:', err);
 	        setError(err.message || 'Error fetching collections data');
 	        setSummaryMetrics(null);
-	        setTotalRepaidTodayAll(null);
+		        setTotalRepaidTodayAll(null);
+		        setTotalRepaidYesterdayAll(null);
 	      } finally {
 	        setLoadingMetrics(false);
 	      }
@@ -490,8 +497,10 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 		  }, [dailyCollections, totalDueToday]);
 					  // For Collections Received, use the unrestricted "all repayments" value
 					  // when available; fall back to the restricted one if needed.
-					  const totalRepaidToday =
-					    totalRepaidTodayAll ?? summaryMetrics?.total_repayments_today ?? null;
+						  const totalRepaidToday =
+						    totalRepaidTodayAll ?? summaryMetrics?.total_repayments_today ?? null;
+						  const totalRepaidYesterday =
+						    totalRepaidYesterdayAll ?? summaryMetrics?.total_repayments_yesterday ?? null;
 					  // For the Daily Collections card sub metric "Collections (filtered)",
 					  // always use the restricted value that obeys the same django_status
 					  // filter as Collections Due.
@@ -731,13 +740,28 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	            <span className="card-submetric-label">Collections (filtered)</span>
 	            <span className="card-submetric-value">
 	              {totalRepaidTodayFiltered != null
-	                ? formatCurrency(totalRepaidTodayFiltered)
-	                : ''}
+		                ? formatCurrency(totalRepaidTodayFiltered)
+			                : ''}
 	            </span>
 	          </div>
 	        </button>
 
-        {/* 3. Collection Rate (Period) */}
+	        {/* 2b. Collections Received (Yesterday) */}
+	        <button
+	          type="button"
+	          className="collection-card kpi-green"
+	          onClick={() => handleCardClick('collections-received-yesterday')}
+	        >
+	          <div className="card-label">Collections Received (Yesterday)</div>
+	          <div className="card-value">
+	            {totalRepaidYesterday != null
+	              ? formatCurrency(totalRepaidYesterday)
+			              : ''}
+	          </div>
+	          <div className="card-subtitle">Cash collected from repayments yesterday</div>
+	        </button>
+
+	        {/* 3. Collection Rate (Period) */}
         <button
           type="button"
           className="collection-card kpi-green"
