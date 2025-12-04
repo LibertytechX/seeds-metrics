@@ -83,17 +83,41 @@ const LoanRepaymentsModal = ({
     return sorted;
   }, [repayments, sortConfig]);
 
-  const totalRepaymentsAmount = React.useMemo(() => {
-    if (!repayments || repayments.length === 0) return 0;
+	const totalRepaymentsAmount = React.useMemo(() => {
+		if (!repayments || repayments.length === 0) return 0;
 
-    return repayments
-      .filter(r => !r.is_reversed)
-      .reduce((sum, r) => {
-        const amt = Number(r.payment_amount ?? 0);
-        if (Number.isNaN(amt)) return sum;
-        return sum + amt;
-      }, 0);
-  }, [repayments]);
+		return repayments
+			.filter((r) => !r.is_reversed)
+			.reduce((sum, r) => {
+				const amt = Number(r.payment_amount ?? 0);
+				if (Number.isNaN(amt)) return sum;
+				return sum + amt;
+			}, 0);
+	}, [repayments]);
+
+	// Use a single, consistent base amount for contractual repayment value. This keeps
+	// the header summary mathematically coherent even if stored aggregate fields on
+	// the loan record (total_outstanding, total_repayments, etc.) are temporarily
+	// out of sync with the underlying repayments table.
+	const effectiveRepaymentAmount = React.useMemo(() => {
+		const raw =
+			repaymentAmount != null
+				? Number(repaymentAmount)
+				: Number(loanAmount ?? 0);
+		if (!Number.isFinite(raw)) return 0;
+		return raw;
+	}, [repaymentAmount, loanAmount]);
+
+	// Compute outstanding as the difference between the contractual repayment amount
+	// and the sum of all non-reversed repayments. This guarantees that, in the
+	// header summary, Repayment Amount ≈ Sum of all repayments + Outstanding (up to
+	// rounding), which is what users expect when reconciling figures.
+	const computedOutstanding = React.useMemo(() => {
+		const base = Number(effectiveRepaymentAmount) || 0;
+		const paid = Number(totalRepaymentsAmount) || 0;
+		const raw = base - paid;
+		return raw > 0 ? raw : 0;
+	}, [effectiveRepaymentAmount, totalRepaymentsAmount]);
 
   const formatCurrency = (value) => {
     return new Intl.NumberFormat('en-NG', {
@@ -194,31 +218,31 @@ const LoanRepaymentsModal = ({
             <p className="loan-repayments-subtitle">
               Loan: <strong>{loanId}</strong> | Customer: <strong>{customerName}</strong>
             </p>
-            <div className="loan-repayments-summary">
-              <div className="loan-repayments-summary-row">
-                {(repaymentAmount != null || loanAmount != null) && (
-                  <span className="loan-repayments-summary-item">
-                    <span className="loan-repayments-summary-label">Repayment Amount:</span>
-                    <span className="loan-repayments-summary-value">
-                      {formatCurrency(
-                        repaymentAmount != null ? repaymentAmount : loanAmount
-                      )}
-                    </span>
-                  </span>
-                )}
-                {totalOutstanding != null && (
-                  <span className="loan-repayments-summary-item">
-                    <span className="loan-repayments-summary-label">Outstanding:</span>
-                    <span className="loan-repayments-summary-value">{formatCurrency(totalOutstanding)}</span>
-                  </span>
-                )}
-                {actualOutstanding != null && (
-                  <span className="loan-repayments-summary-item">
-	                <span className="loan-repayments-summary-label">Missed Repayments:</span>
-                    <span className="loan-repayments-summary-value">{formatCurrency(actualOutstanding)}</span>
-                  </span>
-                )}
-              </div>
+	            <div className="loan-repayments-summary">
+	              <div className="loan-repayments-summary-row">
+	                {(repaymentAmount != null || loanAmount != null) && (
+	                  <span className="loan-repayments-summary-item">
+	                    <span className="loan-repayments-summary-label">Repayment Amount:</span>
+	                    <span className="loan-repayments-summary-value">
+	                      {formatCurrency(
+	                        effectiveRepaymentAmount
+	                      )}
+	                    </span>
+	                  </span>
+	                )}
+	                {(repaymentAmount != null || loanAmount != null || totalOutstanding != null) && (
+	                  <span className="loan-repayments-summary-item">
+	                    <span className="loan-repayments-summary-label">Outstanding:</span>
+	                    <span className="loan-repayments-summary-value">{formatCurrency(computedOutstanding)}</span>
+	                  </span>
+	                )}
+	                {actualOutstanding != null && (
+	                  <span className="loan-repayments-summary-item">
+		                <span className="loan-repayments-summary-label">Missed Repayments:</span>
+	                    <span className="loan-repayments-summary-value">{formatCurrency(actualOutstanding)}</span>
+	                  </span>
+	                )}
+	              </div>
               <div className="loan-repayments-summary-row">
                 <span className="loan-repayments-summary-item">
                   <span className="loan-repayments-summary-label">Sum of all repayments:</span>

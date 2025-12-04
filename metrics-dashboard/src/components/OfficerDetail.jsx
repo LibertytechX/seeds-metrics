@@ -306,10 +306,14 @@ const OfficerDetail = ({
     return formatCurrency(value);
   };
 
-  // Derived metrics
-  const totalDueToday = summaryMetrics?.total_due_for_today ?? 0;
-  const totalRepaidToday =
-    totalRepaidAll ?? summaryMetrics?.total_repayments_today ?? 0;
+	  // Derived metrics
+	  const totalDueToday = summaryMetrics?.total_due_for_today ?? 0;
+	  // For "Collections Today" we want to stay aligned with the same filtered
+	  // loan set used for the officer loans table (OPEN / PAST_MATURITY, etc.).
+	  // Prefer the restricted summary_metrics value, and only fall back to the
+	  // unrestricted aggregate if the restricted metrics are unavailable.
+	  const totalRepaidToday =
+	    summaryMetrics?.total_repayments_today ?? totalRepaidAll ?? 0;
   const collectionRateToday =
     summaryMetrics?.percentage_of_due_collected ?? 0;
   const missedRepayments = summaryMetrics?.missed_repayments_today ?? 0;

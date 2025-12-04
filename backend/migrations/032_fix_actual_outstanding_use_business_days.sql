@@ -76,15 +76,17 @@ BEGIN
             (lrd.loan_amount - lrd.total_principal_paid) +
             ((lrd.loan_amount * lrd.interest_rate * lrd.loan_term_days / 365) - lrd.total_interest_paid) +
             (COALESCE(lrd.fee_amount, 0) - lrd.total_fees_paid) as total_outstanding,
-            
+
             -- ================================================================
             -- ACTUAL OUTSTANDING - CORRECTED TO USE BUSINESS DAYS
             -- ================================================================
-            -- Formula: ((total_expected_repayment / loan_term_business_days) * days_elapsed_business_days) - total_repayments
-            -- This represents the overdue amount based on business days only
+            -- Formula: ((total_expected_repayment / loan_term_business_days)
+            --           * business_days_since_first_payment_due) - total_repayments
+            -- This represents the overdue amount based on business days only,
+            -- starting from the first scheduled repayment due date (not disbursement).
             GREATEST(0,
                 CASE
-                    WHEN lrd.loan_term_days > 0 AND lrd.disbursement_date IS NOT NULL THEN
+                    WHEN lrd.loan_term_days > 0 AND lrd.first_payment_due_date IS NOT NULL THEN
                         (
                             -- Total expected repayment (principal + interest + fees)
                             (lrd.loan_amount +
@@ -92,16 +94,23 @@ BEGIN
                              COALESCE(lrd.fee_amount, 0))
                             / lrd.loan_term_days  -- loan_term_days is already business days only
                         ) *
-                        -- Days elapsed in business days (capped at loan tenure, minimum 0)
+                        -- Business days since first payment due, capped at loan tenure
                         LEAST(
-                            count_business_days(lrd.disbursement_date, CURRENT_DATE),
+                            CASE
+                                WHEN LEAST(CURRENT_DATE, COALESCE(lrd.maturity_date, CURRENT_DATE)) >= lrd.first_payment_due_date THEN
+                                    count_business_days(
+                                        lrd.first_payment_due_date,
+                                        LEAST(CURRENT_DATE, COALESCE(lrd.maturity_date, CURRENT_DATE))
+                                    )
+                                ELSE 0
+                            END,
                             lrd.loan_term_days
                         )
                         - lrd.total_repayments
                     ELSE 0
                 END
             ) as actual_outstanding,
-            
+
             -- First payment tracking
             lrd.first_payment_date,
             lrd.first_payment_due_date,
