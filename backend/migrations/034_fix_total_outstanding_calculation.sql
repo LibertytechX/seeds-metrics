@@ -20,7 +20,11 @@
 
 BEGIN;
 
-CREATE OR REPLACE FUNCTION recalculate_all_loan_fields()
+-- Ensure we can safely change the function's return type by dropping any
+-- existing version before recreating it with the desired signature.
+DROP FUNCTION IF EXISTS recalculate_all_loan_fields();
+
+CREATE FUNCTION recalculate_all_loan_fields()
 RETURNS TABLE(
     total_loans_processed INTEGER,
     loans_updated INTEGER,
