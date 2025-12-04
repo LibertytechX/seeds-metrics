@@ -2240,24 +2240,15 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 
 // GetAllLoans retrieves all loans with pagination and filters
 func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*models.AllLoan, int, error) {
-	// Determine requested period for per-loan repayments aggregation. This mirrors
-	// the period semantics used by GetLoansSummaryMetrics so that the "Collection
-	// Today" column in the Officer Loans table stays consistent with the summary
-	// metrics.
-	period := ""
-	if p, ok := filters["period"].(string); ok {
-		period = strings.TrimSpace(strings.ToLower(p))
-	}
+	// NOTE: For the per-loan "repayments_today" field we now intentionally
+	// ignore the selected period and always aggregate ONLY today's repayments
+	// (DATE(r.payment_date) = CURRENT_DATE). This keeps the "Collection Today"
+	// column in the Officer/Branch loan tables strictly "today-only" even when
+	// the overall dashboard period is This Week/This Month/Last Month.
 
+	// Per-loan repayments_today should always reflect today's collections only,
+	// regardless of the current period filter.
 	repaymentsDateCondition := "DATE(r.payment_date) = CURRENT_DATE"
-	switch period {
-	case "this_week":
-		repaymentsDateCondition = "DATE(r.payment_date) >= DATE_TRUNC('week', CURRENT_DATE)::date AND DATE(r.payment_date) <= CURRENT_DATE"
-	case "this_month":
-		repaymentsDateCondition = "DATE(r.payment_date) >= DATE_TRUNC('month', CURRENT_DATE)::date AND DATE(r.payment_date) <= CURRENT_DATE"
-	case "last_month":
-		repaymentsDateCondition = "DATE(r.payment_date) >= (DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '1 month')::date AND DATE(r.payment_date) < DATE_TRUNC('month', CURRENT_DATE)::date"
-	}
 
 	repaymentsJoin := fmt.Sprintf(`
 		LEFT JOIN (
