@@ -12,8 +12,10 @@
 --       unchanged, even if current_dpd moves intra-day.
 --
 --   This function definition is based on the version introduced in
---   039_add_previous_dpd_to_loans.sql, with only the previous_dpd assignment
---   changed to be conditional on updated_at::date < CURRENT_DATE.
+    --   039_add_previous_dpd_to_loans.sql, with only the previous_dpd assignment
+    --   changed to be conditional on updated_at::date < CURRENT_DATE.
+
+DROP FUNCTION IF EXISTS recalculate_all_loan_fields();
 
 CREATE OR REPLACE FUNCTION recalculate_all_loan_fields()
 RETURNS void AS $$
