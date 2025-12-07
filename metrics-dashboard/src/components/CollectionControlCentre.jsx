@@ -1012,37 +1012,99 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	                      }
 	                    />
 	                  </Bar>
-	                </ComposedChart>
-	              </ResponsiveContainer>
-	            )}
-	          </div>
-	          {dailyCollectionsError && (
-	            <div className="collections-error small">
-	              Failed to load daily collections: {dailyCollectionsError}
-	            </div>
-	          )}
-			        </div>
-			        {/* Repayments status Categories card */}
-			        <div className="collections-daily-status-card">
-			          <div className="collections-daily-status-header">
-			            <h3 className="collections-daily-status-title">repayments status Categories</h3>
-			          </div>
+		        </ComposedChart>
+		      </ResponsiveContainer>
+		    )}
+		  </div>
+		  {dailyCollectionsError && (
+		    <div className="collections-error small">
+		      Failed to load daily collections: {dailyCollectionsError}
+		    </div>
+		  )}
+		        </div>
+		        {/* Agent Activity summary card (replaces Repayments Status Categories) */}
+		        <div className="collections-daily-status-card">
+		          <div className="collections-daily-status-header">
+		            <h3 className="collections-daily-status-title">Agent Activity</h3>
+		          </div>
 			          <div className="collections-daily-status-body">
-			            {repaymentsStatusCategories.length === 0 ? (
-				              <div className="collections-daily-status-empty">
-				                No repayments recorded for this period with these filters.
-				              </div>
-				            ) : (
-				              repaymentsStatusCategories.map((item) => (
-				                <div key={item.key} className="status-tile glass">
-				                  <div className="status-tile-label">{item.label}</div>
-				                  <div className="status-tile-amount">{formatCurrency(item.amount)}</div>
-				                </div>
-				              ))
-				            )}
+			            <div className="status-tile glass agent-activity-tile agent-activity-critical">
+			              <div className="agent-activity-heading">
+			                <span className="agent-activity-emoji" aria-hidden="true">🚨</span>
+			                <span className="agent-activity-title">
+			                  CRITICAL: [count] Officers with NO COLLECTION
+			                </span>
+			              </div>
+			              <p className="agent-activity-description">
+			                These officers have not collected anything in the past 7 days. Immediate review required.
+			              </p>
+			              <button type="button" className="agent-activity-link">
+			                View All No Collection Officers →
+			              </button>
+			            </div>
+			            <div className="status-tile glass agent-activity-tile agent-activity-warning">
+			              <div className="agent-activity-heading">
+			                <span className="agent-activity-emoji" aria-hidden="true">⚠️</span>
+			                <span className="agent-activity-title">[count] Officers STOPPED Collecting</span>
+			              </div>
+			              <p className="agent-activity-description">
+			                Were active early in the week but made zero collections in the last 3 days. Contact immediately.
+			              </p>
+			              <button type="button" className="agent-activity-link">
+			                View Stopped Officers →
+			              </button>
+			            </div>
+			            <div className="status-tile glass agent-activity-tile agent-activity-decline">
+			              <div className="agent-activity-heading">
+			                <span className="agent-activity-emoji" aria-hidden="true">📉</span>
+			                <span className="agent-activity-title">[count] Officers in SEVERE DECLINE</span>
+			              </div>
+			              <p className="agent-activity-description">
+			                Collection dropped more than 70% compared to early week. Investigation needed.
+			              </p>
+			              <button type="button" className="agent-activity-link">
+			                View Declining Officers →
+			              </button>
+			            </div>
+			            <div className="status-tile glass agent-activity-tile agent-activity-pending">
+			              <div className="agent-activity-heading">
+			                <span className="agent-activity-emoji" aria-hidden="true">⏳</span>
+			                <span className="agent-activity-title">[count] Officers NOT YET STARTED Today</span>
+			              </div>
+			              <p className="agent-activity-description">
+			                Active this week but haven't collected today. Follow up for Saturday push.
+			              </p>
+			              <button type="button" className="agent-activity-link">
+			                View Not Started →
+			              </button>
+			            </div>
+			            <div className="status-tile glass agent-activity-tile agent-activity-growth">
+			              <div className="agent-activity-heading">
+			                <span className="agent-activity-emoji" aria-hidden="true">🌟</span>
+			                <span className="agent-activity-title">[count] Officers with STRONG GROWTH</span>
+			              </div>
+			              <p className="agent-activity-description">
+			                Collection increased more than 50%. Recognize and learn from their success.
+			              </p>
+			              <button type="button" className="agent-activity-link">
+			                View Top Performers →
+			              </button>
+			            </div>
+			            <div className="status-tile glass agent-activity-tile agent-activity-started">
+			              <div className="agent-activity-heading">
+			                <span className="agent-activity-emoji" aria-hidden="true">🌟</span>
+			                <span className="agent-activity-title">[count] Officers Started Today</span>
+			              </div>
+			              <p className="agent-activity-description">
+			                Have started collecting repayments today.
+			              </p>
+			              <button type="button" className="agent-activity-link">
+			                View Active Today →
+			              </button>
+			            </div>
 			          </div>
 			        </div>
-			      </div>
+		      </div>
 
 		      <div className="branch-leaderboard-section">
 	        <div className="branch-leaderboard-header">
@@ -1176,14 +1238,27 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	            </div>
 	          </div>
 
-	          <div className="branch-leaderboard-side">
-	            <div className="branch-leaderboard-side-content">
-	              <div className="branch-leaderboard-side-placeholder">
-	                <h4>Agent Activity</h4>
-	                <p><strong>Coming soon</strong></p>
-	              </div>
-	            </div>
-		          </div>
+			          <div className="branch-leaderboard-side">
+			            <div className="branch-leaderboard-side-content">
+			              <div className="branch-leaderboard-side-header">
+			                <h4>Repayments Status Categories</h4>
+			              </div>
+			              <div className="collections-daily-status-body">
+			                {repaymentsStatusCategories.length === 0 ? (
+			                  <div className="collections-daily-status-empty">
+			                    No repayments recorded for this period with these filters.
+			                  </div>
+			                ) : (
+			                  repaymentsStatusCategories.map((item) => (
+			                    <div key={item.key} className="status-tile glass">
+			                      <div className="status-tile-label">{item.label}</div>
+			                      <div className="status-tile-amount">{formatCurrency(item.amount)}</div>
+			                    </div>
+			                  ))
+			                )}
+			              </div>
+			            </div>
+				          </div>
 		        </div>
 		      </div>
 	      </div>
