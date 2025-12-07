@@ -152,6 +152,8 @@ type AllLoan struct {
 	MaturityDate                  string   `json:"maturity_date"`
 	LoanTermDays                  int      `json:"loan_term_days"`
 	CurrentDPD                    int      `json:"current_dpd"`
+	PreviousDPD                   *int     `json:"previous_dpd,omitempty"`
+	DPDChange                     *int     `json:"dpd_change,omitempty"`
 	PrincipalOutstanding          float64  `json:"principal_outstanding"`
 	InterestOutstanding           float64  `json:"interest_outstanding"`
 	FeesOutstanding               float64  `json:"fees_outstanding"`

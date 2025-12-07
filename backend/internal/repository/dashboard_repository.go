@@ -2281,7 +2281,9 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 			TO_CHAR(l.first_payment_due_date, 'YYYY-MM-DD') as first_payment_due_date,
 			TO_CHAR(l.maturity_date, 'YYYY-MM-DD') as maturity_date,
 			l.loan_term_days,
-			l.current_dpd,
+				l.current_dpd,
+				l.previous_dpd,
+				(l.current_dpd - COALESCE(l.previous_dpd, 0)) AS dpd_change,
 			l.principal_outstanding,
 			l.interest_outstanding,
 			l.fees_outstanding,
@@ -2706,6 +2708,7 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 		var dailyRepaymentAmount, repaymentDaysPaid sql.NullFloat64
 		var repaymentsToday sql.NullFloat64
 		var daysSinceLastRepayment, repaymentDaysDueToday, businessDaysSinceDisbursement sql.NullInt64
+		var previousDPD, dpdChange sql.NullInt64
 
 		err := rows.Scan(
 			&loan.LoanID,
@@ -2725,6 +2728,8 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 			&maturityDate,
 			&loan.LoanTermDays,
 			&loan.CurrentDPD,
+			&previousDPD,
+			&dpdChange,
 			&loan.PrincipalOutstanding,
 			&loan.InterestOutstanding,
 			&loan.FeesOutstanding,
@@ -2769,6 +2774,14 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 		}
 		if djangoStatus.Valid {
 			loan.DjangoStatus = &djangoStatus.String
+		}
+		if previousDPD.Valid {
+			val := int(previousDPD.Int64)
+			loan.PreviousDPD = &val
+		}
+		if dpdChange.Valid {
+			val := int(dpdChange.Int64)
+			loan.DPDChange = &val
 		}
 		if loanType.Valid {
 			loan.LoanType = &loanType.String

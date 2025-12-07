@@ -515,10 +515,10 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       'Vertical Lead Name', 'Vertical Lead Email',
       'Channel', 'Loan Type', 'Verification Status', 'Loan Amount', 'Repayment Amount', 'Disbursement Date',
       'First Repayment Due Date', 'Loan Tenure', 'Maturity Date',
-	      'Daily Repayment Amount', 'Repayment Days Due Today', 'Repayment Days Paid', 'Business Days Since Disbursement',
-	      'Timeliness Score', 'Repayment Health', 'Repayment Delay Rate %', 'Wave', 'Days Since Last Repayment', 'Current DPD',
-	      'Principal Outstanding', 'Interest Outstanding', 'Fees Outstanding', 'Total Outstanding',
-	      'Actual Outstanding', 'Total Repayments', 'Status', 'Django Status', 'Performance Status', 'FIMR Tagged'
+		      'Daily Repayment Amount', 'Repayment Days Due Today', 'Repayment Days Paid', 'Business Days Since Disbursement',
+		      'Timeliness Score', 'Repayment Health', 'Repayment Delay Rate %', 'Wave', 'Days Since Last Repayment', 'Current DPD', 'Previous DPD', 'DPD Change',
+		      'Principal Outstanding', 'Interest Outstanding', 'Fees Outstanding', 'Total Outstanding',
+		      'Actual Outstanding', 'Total Repayments', 'Status', 'Django Status', 'Performance Status', 'FIMR Tagged'
     ];
 
     const rows = loans.map(loan => [
@@ -548,7 +548,9 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       loan.repayment_delay_rate != null ? loan.repayment_delay_rate.toFixed(2) : 'N/A',
       loan.wave || 'N/A',
       loan.days_since_last_repayment != null ? loan.days_since_last_repayment : 'N/A',
-      loan.current_dpd,
+	      loan.current_dpd,
+	      loan.previous_dpd != null ? loan.previous_dpd : 'N/A',
+	      loan.dpd_change != null ? (loan.dpd_change > 0 ? `+${loan.dpd_change}` : loan.dpd_change) : 'N/A',
       loan.principal_outstanding,
       loan.interest_outstanding,
       loan.fees_outstanding,
@@ -679,7 +681,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
 	          'Channel', 'Loan Type', 'Verification Status', 'Loan Amount', 'Repayment Amount', 'Disbursement Date',
 	          'First Repayment Due Date', 'Loan Tenure', 'Maturity Date',
 	          'Daily Repayment Amount', 'Repayment Days Due Today', 'Repayment Days Paid', 'Business Days Since Disbursement',
-	          'Timeliness Score', 'Repayment Health', 'Repayment Delay Rate %', 'Wave', 'Days Since Last Repayment', 'Current DPD',
+	          'Timeliness Score', 'Repayment Health', 'Repayment Delay Rate %', 'Wave', 'Days Since Last Repayment', 'Current DPD', 'Previous DPD', 'DPD Change',
 	          'Principal Outstanding', 'Interest Outstanding', 'Fees Outstanding', 'Total Outstanding',
 	          'Actual Outstanding', 'Total Repayments', 'Status', 'Django Status', 'Performance Status', 'FIMR Tagged'
 	        ];
@@ -711,7 +713,9 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
           loan.repayment_delay_rate != null ? loan.repayment_delay_rate.toFixed(2) : 'N/A',
           loan.wave || 'N/A',
           loan.days_since_last_repayment != null ? loan.days_since_last_repayment : 'N/A',
-          loan.current_dpd,
+	          loan.current_dpd,
+	          loan.previous_dpd != null ? loan.previous_dpd : 'N/A',
+	          loan.dpd_change != null ? (loan.dpd_change > 0 ? `+${loan.dpd_change}` : loan.dpd_change) : 'N/A',
           loan.principal_outstanding,
           loan.interest_outstanding,
           loan.fees_outstanding,
@@ -763,7 +767,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     doc.text(`Generated: ${new Date().toLocaleString()}`, 14, 22);
     doc.text(`Total Loans: ${pagination.total}`, 14, 27);
 
-	    const tableData = loans.map(loan => [
+		    const tableData = loans.map(loan => [
 	      loan.loan_id,
 	      loan.customer_name,
 	      loan.customer_phone || 'N/A',
@@ -782,7 +786,9 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
 	      loan.repayment_delay_rate != null ? loan.repayment_delay_rate.toFixed(1) + '%' : 'N/A',
 	      loan.wave || 'N/A',
 	      loan.days_since_last_repayment != null ? loan.days_since_last_repayment : 'N/A',
-	      loan.current_dpd,
+		      loan.current_dpd,
+		      loan.previous_dpd != null ? loan.previous_dpd : 'N/A',
+		      loan.dpd_change != null ? (loan.dpd_change > 0 ? `+${loan.dpd_change}` : loan.dpd_change) : 'N/A',
 	      `₦${(loan.total_outstanding / 1000000).toFixed(2)}M`,
 	      `₦${((loan.actual_outstanding || 0) / 1000000).toFixed(2)}M`,
 	      loan.status,
@@ -792,11 +798,11 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
 
 	    doc.autoTable({
 	      startY: 32,
-	      head: [[
-	        'Loan ID', 'Customer', 'Phone', 'Officer', 'Branch', 'Amount', 'Repay. Amt', 'Disbursed', 'Tenure',
-	        'Daily Repay', 'Days Due', 'Days Paid', 'Biz Days', 'T.Score', 'R.Health', 'Delay %', 'Wave',
-	        'Days Since', 'DPD', 'Total Out.', 'Actual Out.', 'Status', 'Django Status', 'FIMR',
-	      ]],
+		      head: [[
+		        'Loan ID', 'Customer', 'Phone', 'Officer', 'Branch', 'Amount', 'Repay. Amt', 'Disbursed', 'Tenure',
+		        'Daily Repay', 'Days Due', 'Days Paid', 'Biz Days', 'T.Score', 'R.Health', 'Delay %', 'Wave',
+		        'Days Since', 'DPD', 'Prev DPD', '\u0394 DPD', 'Total Out.', 'Actual Out.', 'Status', 'Django Status', 'FIMR',
+		      ]],
 	      body: tableData,
 	      styles: { fontSize: 5 },
 	      headStyles: { fillColor: [41, 128, 185] },
@@ -1505,12 +1511,14 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
         ) : (
           <table className="all-loans-table">
             <thead>
-              <tr>
-                <th>Actions</th>
-                <th onClick={() => handleSort('loan_id')}>Loan ID</th>
-                <th onClick={() => handleSort('customer_name')}>Customer Name</th>
-                <th onClick={() => handleSort('customer_phone')}>Customer Phone</th>
-	                <th onClick={() => handleSort('current_dpd')}>Current DPD</th>
+	              <tr>
+	                <th>Actions</th>
+	                <th onClick={() => handleSort('loan_id')}>Loan ID</th>
+	                <th onClick={() => handleSort('customer_name')}>Customer Name</th>
+	                <th onClick={() => handleSort('customer_phone')}>Customer Phone</th>
+		                <th onClick={() => handleSort('current_dpd')}>Current DPD</th>
+		                <th>Previous DPD</th>
+		                <th>DPD Change</th>
                 <th onClick={() => handleSort('officer_name')}>Officer Name</th>
                 <th onClick={() => handleSort('region')}>Region</th>
                 <th onClick={() => handleSort('branch')}>Branch</th>
@@ -1566,9 +1574,15 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                     </div>
                   </td>
                   <td className="loan-id">{loan.loan_id}</td>
-                  <td>{loan.customer_name}</td>
-                  <td>{loan.customer_phone || 'N/A'}</td>
-	                  <td className="dpd">{loan.current_dpd}</td>
+	                  <td>{loan.customer_name}</td>
+	                  <td>{loan.customer_phone || 'N/A'}</td>
+		                  <td className="dpd">{loan.current_dpd}</td>
+		                  <td className="dpd">{loan.previous_dpd != null ? loan.previous_dpd : 'N/A'}</td>
+		                  <td className="dpd">
+		                    {loan.dpd_change != null
+		                      ? (loan.dpd_change > 0 ? `+${loan.dpd_change}` : loan.dpd_change)
+		                      : 'N/A'}
+		                  </td>
                   <td>{loan.officer_name || 'N/A'}</td>
                   <td>{loan.region || 'N/A'}</td>
                   <td>{loan.branch || 'N/A'}</td>
