@@ -18,56 +18,58 @@ func NewLoanRepository(db *database.DB) *LoanRepository {
 	return &LoanRepository{db: db}
 }
 
-// Create inserts a new loan or updates an existing one (ETL fields only)
-// Updates all fields if loan_id already exists (ON CONFLICT DO UPDATE)
+// Create inserts a new loan or updates an existing one (ETL fields only).
+//
+// IMPORTANT: We intentionally do NOT overwrite region/branch on conflict because
+// these are curated via the verticals TSV pipeline and officer hierarchy, and
+// Django's branch-to-region mapping is coarse. This prevents full syncs and ETL
+// upserts from resetting corrected regions/branches on existing loans.
 func (r *LoanRepository) Create(ctx context.Context, input *models.LoanInput) error {
 	query := `
-			INSERT INTO loans (
-				loan_id, customer_id, customer_name, customer_phone,
-				officer_id, officer_name, officer_phone,
-				region, branch, state,
-				loan_amount, repayment_amount, disbursement_date, first_payment_due_date, maturity_date, loan_term_days,
-				interest_rate, fee_amount,
-				channel, channel_partner,
-				status, django_status, performance_status, closed_date, wave,
-				loan_type, verification_status,
-				created_at, updated_at
-			) VALUES (
-				$1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
-				$11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
-				$21, $22, $23, $24, COALESCE($25, 'Wave 2'),
-				$26, $27,
-				NOW(), NOW()
-			)
-			ON CONFLICT (loan_id) DO UPDATE SET
-				customer_id = EXCLUDED.customer_id,
-				customer_name = EXCLUDED.customer_name,
-				customer_phone = EXCLUDED.customer_phone,
-				officer_id = EXCLUDED.officer_id,
-				officer_name = EXCLUDED.officer_name,
-				officer_phone = EXCLUDED.officer_phone,
-				region = EXCLUDED.region,
-				branch = EXCLUDED.branch,
-				state = EXCLUDED.state,
-				loan_amount = EXCLUDED.loan_amount,
-				repayment_amount = EXCLUDED.repayment_amount,
-				disbursement_date = EXCLUDED.disbursement_date,
-				first_payment_due_date = EXCLUDED.first_payment_due_date,
-				maturity_date = EXCLUDED.maturity_date,
-				loan_term_days = EXCLUDED.loan_term_days,
-				interest_rate = EXCLUDED.interest_rate,
-				fee_amount = EXCLUDED.fee_amount,
-				channel = EXCLUDED.channel,
-				channel_partner = EXCLUDED.channel_partner,
-				status = EXCLUDED.status,
-				django_status = EXCLUDED.django_status,
-				performance_status = EXCLUDED.performance_status,
-				closed_date = EXCLUDED.closed_date,
-				wave = EXCLUDED.wave,
-				loan_type = EXCLUDED.loan_type,
-				verification_status = EXCLUDED.verification_status,
-				updated_at = NOW()
-		`
+				INSERT INTO loans (
+					loan_id, customer_id, customer_name, customer_phone,
+					officer_id, officer_name, officer_phone,
+					region, branch, state,
+					loan_amount, repayment_amount, disbursement_date, first_payment_due_date, maturity_date, loan_term_days,
+					interest_rate, fee_amount,
+					channel, channel_partner,
+					status, django_status, performance_status, closed_date, wave,
+					loan_type, verification_status,
+					created_at, updated_at
+				) VALUES (
+					$1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+					$11, $12, $13, $14, $15, $16, $17, $18, $19, $20,
+					$21, $22, $23, $24, COALESCE($25, 'Wave 2'),
+					$26, $27,
+					NOW(), NOW()
+				)
+				ON CONFLICT (loan_id) DO UPDATE SET
+					customer_id = EXCLUDED.customer_id,
+					customer_name = EXCLUDED.customer_name,
+					customer_phone = EXCLUDED.customer_phone,
+					officer_id = EXCLUDED.officer_id,
+					officer_name = EXCLUDED.officer_name,
+					officer_phone = EXCLUDED.officer_phone,
+					state = EXCLUDED.state,
+					loan_amount = EXCLUDED.loan_amount,
+					repayment_amount = EXCLUDED.repayment_amount,
+					disbursement_date = EXCLUDED.disbursement_date,
+					first_payment_due_date = EXCLUDED.first_payment_due_date,
+					maturity_date = EXCLUDED.maturity_date,
+					loan_term_days = EXCLUDED.loan_term_days,
+					interest_rate = EXCLUDED.interest_rate,
+					fee_amount = EXCLUDED.fee_amount,
+					channel = EXCLUDED.channel,
+					channel_partner = EXCLUDED.channel_partner,
+					status = EXCLUDED.status,
+					django_status = EXCLUDED.django_status,
+					performance_status = EXCLUDED.performance_status,
+					closed_date = EXCLUDED.closed_date,
+					wave = EXCLUDED.wave,
+					loan_type = EXCLUDED.loan_type,
+					verification_status = EXCLUDED.verification_status,
+					updated_at = NOW()
+			`
 
 	disbursementDate, err := time.Parse("2006-01-02", input.DisbursementDate)
 	if err != nil {

@@ -430,18 +430,21 @@
 
 .collections-daily-row {
   margin-top: 28px;
-  display: flex;
-  gap: 16px;
+	  display: flex;
+	  gap: 16px;
+	  align-items: stretch;
 }
 
 .collections-daily-card {
-  flex: 3;
-  min-width: 0;
-  background: #ffffff;
-  border-radius: 8px;
-  border: 1px solid #e0e0e0;
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
-  padding: 16px 20px;
+	  flex: 3;
+	  min-width: 0;
+	  background: #ffffff;
+	  border-radius: 8px;
+	  border: 1px solid #e0e0e0;
+	  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+	  padding: 16px 20px;
+	  display: flex;
+	  flex-direction: column;
 }
 
 /* Repayments status Categories side card next to Daily Collections */
@@ -606,7 +609,8 @@
 }
 
 .collections-daily-card-body {
-  height: 260px;
+	  flex: 1;
+	  min-height: 260px;
 }
 
 .collections-daily-placeholder {

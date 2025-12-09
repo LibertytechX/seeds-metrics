@@ -12,7 +12,8 @@ import {
 			LabelList,
 		} from 'recharts';
 	import './CollectionControlCentre.css';
-import RepaymentWatchModal from './RepaymentWatchModal';
+	import RepaymentWatchModal from './RepaymentWatchModal';
+	import AgentActivityModal from './AgentActivityModal';
 
 // Reuse the same sentinel value used in AllLoans and backend (MissingValueSentinel)
 const MISSING_VALUE = '__MISSING__';
@@ -41,18 +42,30 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
     waves: [],
   });
 
-				const [summaryMetrics, setSummaryMetrics] = useState(null);
-				// For Collections Received we want "all repayments" for the period,
-				// not restricted to collections-specific django_status values.
-				// We'll fetch this alongside the restricted metrics.
-				const [totalRepaidTodayAll, setTotalRepaidTodayAll] = useState(null);
-				// All repayments from yesterday (independent of the selected period
-				// but still respecting region/branch/product/wave filters).
-				const [totalRepaidYesterdayAll, setTotalRepaidYesterdayAll] = useState(null);
-				// Repayments breakdown by django_status (from unrestricted metrics)
-				const [repaymentsByStatus, setRepaymentsByStatus] = useState([]);
+					const [summaryMetrics, setSummaryMetrics] = useState(null);
+					// For Collections Received we want "all repayments" for the period,
+					// not restricted to collections-specific django_status values.
+					// We'll fetch this alongside the restricted metrics.
+					const [totalRepaidTodayAll, setTotalRepaidTodayAll] = useState(null);
+					// All repayments from yesterday (independent of the selected period
+					// but still respecting region/branch/product/wave filters).
+					const [totalRepaidYesterdayAll, setTotalRepaidYesterdayAll] = useState(null);
+					// Repayments breakdown by django_status (from unrestricted metrics)
+					const [repaymentsByStatus, setRepaymentsByStatus] = useState([]);
 
-		  const [isRepaymentWatchOpen, setIsRepaymentWatchOpen] = useState(false);
+			  const [agentActivity, setAgentActivity] = useState(null);
+			  const [loadingAgentActivity, setLoadingAgentActivity] = useState(false);
+			  const [agentActivityError, setAgentActivityError] = useState(null);
+
+		  const [isAgentActivityModalOpen, setIsAgentActivityModalOpen] = useState(false);
+		  const [agentActivityModalCategory, setAgentActivityModalCategory] = useState(null);
+		  const [agentActivityModalData, setAgentActivityModalData] = useState(null);
+		  const [loadingAgentActivityModal, setLoadingAgentActivityModal] = useState(false);
+		  const [agentActivityModalError, setAgentActivityModalError] = useState(null);
+				  const [agentActivityModalRegion, setAgentActivityModalRegion] = useState('');
+				  const [agentActivityModalWave, setAgentActivityModalWave] = useState('');
+
+			  const [isRepaymentWatchOpen, setIsRepaymentWatchOpen] = useState(false);
 		  const [repaymentWatchData, setRepaymentWatchData] = useState(null);
 		  const [loadingRepaymentWatch, setLoadingRepaymentWatch] = useState(false);
 		  const [repaymentWatchError, setRepaymentWatchError] = useState(null);
@@ -321,7 +334,59 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 		    };
 
 			    fetchDailyCollections();
-			  }, [filters.branch, filters.region, filters.product, filters.wave, filters.period]);
+				  }, [filters.branch, filters.region, filters.product, filters.wave, filters.period]);
+
+			  // Fetch Agent Activity summary (rolling last 7 days, including today)
+			  // whenever core filters change. This endpoint always uses an internal
+			  // 7-day window and is independent of the selected "Period" filter.
+			  useEffect(() => {
+			    const fetchAgentActivity = async () => {
+			      try {
+			        setLoadingAgentActivity(true);
+			        setAgentActivityError(null);
+
+			        const API_BASE_URL = import.meta.env.VITE_API_URL ||
+			          (import.meta.env.MODE === 'production' ? '/api/v1' : 'http://localhost:8081/api/v1');
+
+			        const params = new URLSearchParams();
+			        if (filters.region) {
+			          params.set('region', filters.region);
+			        }
+			        if (filters.branch) {
+			          params.set('branch', filters.branch);
+			        }
+			        if (filters.product) {
+			          params.set('loan_type', filters.product);
+			        }
+			        if (filters.wave) {
+			          params.set('wave', filters.wave);
+			        }
+
+			        const queryString = params.toString();
+			        const url = queryString
+			          ? `${API_BASE_URL}/collections/agent-activity?${queryString}`
+			          : `${API_BASE_URL}/collections/agent-activity`;
+
+			        const res = await fetch(url);
+			        const json = await res.json();
+
+			        if (!res.ok || json.status !== 'success') {
+			          throw new Error(json.message || 'Failed to load Agent Activity metrics');
+			        }
+
+			        setAgentActivity(json.data || null);
+			      } catch (err) {
+			        // eslint-disable-next-line no-console
+			        console.error('Error fetching Agent Activity metrics:', err);
+			        setAgentActivity(null);
+			        setAgentActivityError(err.message || 'Error fetching Agent Activity metrics');
+			      } finally {
+			        setLoadingAgentActivity(false);
+			      }
+			    };
+
+			    fetchAgentActivity();
+			  }, [filters.branch, filters.region, filters.product, filters.wave]);
 
   const handleFilterChange = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -366,7 +431,19 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	    return formatCurrency(value);
 	  };
 
-  const lastUpdatedLabel = useMemo(() => {
+			  const formatCount = (value) => {
+			    if (typeof value !== 'number' || Number.isNaN(value)) return 0;
+			    return value;
+			  };
+
+			  const criticalNoCollectionCount = formatCount(agentActivity?.critical_no_collection);
+			  const stoppedCollectingCount = formatCount(agentActivity?.stopped_collecting);
+			  const severeDeclineCount = formatCount(agentActivity?.severe_decline);
+			  const notYetStartedTodayCount = formatCount(agentActivity?.not_yet_started_today);
+			  const strongGrowthCount = formatCount(agentActivity?.strong_growth);
+			  const startedTodayCount = formatCount(agentActivity?.started_today);
+
+			  const lastUpdatedLabel = useMemo(() => {
     if (!lastUpdated) return '—';
     return lastUpdated.toLocaleTimeString();
   }, [lastUpdated]);
@@ -439,11 +516,25 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 		          typeof point.collected_amount === 'number' ? point.collected_amount : 0;
 		        const count =
 		          typeof point.repayments_count === 'number' ? point.repayments_count : 0;
+		        const agentDebit =
+		          typeof point.agent_debit_amount === 'number' ? point.agent_debit_amount : 0;
+		        const transfer =
+		          typeof point.transfer_amount === 'number' ? point.transfer_amount : 0;
+		        const escrowDebit =
+		          typeof point.escrow_debit_amount === 'number' ? point.escrow_debit_amount : 0;
+		        const otherRepayments =
+		          typeof point.other_repayments_amount === 'number'
+		            ? point.other_repayments_amount
+		            : 0;
 
 		        byDate.set(key, {
 		          date: key,
 		          collected_amount: collected,
 		          repayments_count: count,
+		          agent_debit_amount: agentDebit,
+		          transfer_amount: transfer,
+		          escrow_debit_amount: escrowDebit,
+		          other_repayments_amount: otherRepayments,
 		        });
 		      });
 		    }
@@ -460,6 +551,10 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 		        date: key,
 		        collected_amount: existing ? existing.collected_amount : 0,
 		        repayments_count: existing ? existing.repayments_count : 0,
+		        agent_debit_amount: existing ? existing.agent_debit_amount : 0,
+		        transfer_amount: existing ? existing.transfer_amount : 0,
+		        escrow_debit_amount: existing ? existing.escrow_debit_amount : 0,
+		        other_repayments_amount: existing ? existing.other_repayments_amount : 0,
 		        isToday: offset === 0,
 		      });
 		    }
@@ -531,6 +626,77 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
     // eslint-disable-next-line no-console
     console.log(`Collections Control Centre card clicked: ${target}`);
   };
+
+					  const fetchAgentActivityDetail = async (categoryKey, regionOverride, waveOverride) => {
+				    try {
+				      setLoadingAgentActivityModal(true);
+				      setAgentActivityModalError(null);
+
+				      const API_BASE_URL = import.meta.env.VITE_API_URL ||
+				        (import.meta.env.MODE === 'production' ? '/api/v1' : 'http://localhost:8081/api/v1');
+
+						      const params = new URLSearchParams();
+						      params.set('category', categoryKey);
+						      const effectiveRegion =
+						        typeof regionOverride === 'string' ? regionOverride : filters.region;
+						      if (effectiveRegion) params.set('region', effectiveRegion);
+						      const effectiveWave =
+						        typeof waveOverride === 'string' ? waveOverride : filters.wave;
+						      if (effectiveWave) params.set('wave', effectiveWave);
+					      if (filters.branch) params.set('branch', filters.branch);
+					      if (filters.product) params.set('loan_type', filters.product);
+
+				      const url = `${API_BASE_URL}/collections/agent-activity-detail?${params.toString()}`;
+				      const response = await fetch(url);
+				      const json = await response.json();
+
+				      if (!response.ok || json.status !== 'success') {
+				        throw new Error(json.message || 'Failed to load Agent Activity detail');
+				      }
+
+				      const officers = Array.isArray(json.data?.officers) ? json.data.officers : [];
+				      setAgentActivityModalData(officers);
+				    } catch (err) {
+				      // eslint-disable-next-line no-console
+				      console.error('Error fetching Agent Activity detail:', err);
+				      setAgentActivityModalError(err.message || 'Error fetching Agent Activity detail');
+				      setAgentActivityModalData(null);
+				    } finally {
+				      setLoadingAgentActivityModal(false);
+				    }
+				  };
+
+					  const handleAgentActivityTileClick = (categoryKey) => {
+					    const initialRegion = filters.region || '';
+					    const initialWave = filters.wave || '';
+					    setAgentActivityModalCategory(categoryKey);
+					    setAgentActivityModalRegion(initialRegion);
+					    setAgentActivityModalWave(initialWave);
+					    setIsAgentActivityModalOpen(true);
+					    fetchAgentActivityDetail(categoryKey, initialRegion, initialWave);
+					  };
+
+					  const handleAgentActivityRegionChange = (value) => {
+					    setAgentActivityModalRegion(value);
+					    if (agentActivityModalCategory) {
+					      fetchAgentActivityDetail(
+					        agentActivityModalCategory,
+					        value,
+					        agentActivityModalWave,
+					      );
+					    }
+					  };
+
+					  const handleAgentActivityWaveChange = (value) => {
+					    setAgentActivityModalWave(value);
+					    if (agentActivityModalCategory) {
+					      fetchAgentActivityDetail(
+					        agentActivityModalCategory,
+					        agentActivityModalRegion,
+					        value,
+					      );
+					    }
+					  };
 
 	  const fetchRepaymentWatch = async () => {
 	    try {
@@ -948,72 +1114,98 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	                No collections recorded for the last 7 days with these filters.
 	              </div>
 	            ) : (
-	              <ResponsiveContainer width="100%" height="100%">
-	                <ComposedChart
-	                  data={dailyCollectionsSeries}
-	                  margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
-	                >
-	                  <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
-	                  <XAxis dataKey="date_label" tick={{ fontSize: 11 }} />
-	                  <YAxis
-	                    tickFormatter={formatShortCurrency}
-	                    tick={{ fontSize: 11 }}
-	                  />
-	                  <RechartsTooltip
-	                    formatter={(value, name) => {
-	                      if (name === 'Due') {
-	                        return [formatCurrency(value), 'Due (expected)'];
-	                      }
-	                      if (name === 'Collected') {
-	                        return [formatCurrency(value), 'Collected'];
-	                      }
-	                      if (name === '7-day avg') {
-	                        return [formatCurrency(value), '7-day avg'];
-	                      }
-	                      return [formatCurrency(value), name];
-	                    }}
-	                    labelFormatter={(label, payload) => {
-	                      const raw =
-	                        payload &&
-	                        payload[0] &&
-	                        payload[0].payload &&
-	                        payload[0].payload.date;
-	                      if (!raw) return label;
-	                      const asDate = new Date(raw);
-	                      if (Number.isNaN(asDate.getTime())) return raw;
-	                      return asDate.toLocaleDateString('en-NG', {
-	                        weekday: 'short',
-	                        year: 'numeric',
-	                        month: 'short',
-	                        day: 'numeric',
-	                      });
-	                    }}
-	                  />
-	                  <Legend />
-	                  <Bar
-	                    dataKey="due_amount"
-	                    name="Due"
-	                    barSize={20}
-	                    fill="#ff9800"
-	                    radius={[4, 4, 0, 0]}
-	                  />
-	                  <Bar
-	                    dataKey="collected_amount"
-	                    name="Collected"
-	                    barSize={20}
-	                    fill="#4caf50"
-	                    radius={[4, 4, 0, 0]}
-	                  >
-	                    <LabelList
-	                      dataKey="collection_rate_percent"
-	                      position="top"
-	                      formatter={(value) =>
-	                        typeof value === 'number' ? `${value.toFixed(0)}%` : ''
-	                      }
-	                    />
-	                  </Bar>
-		        </ComposedChart>
-		      </ResponsiveContainer>
+		              <ResponsiveContainer width="100%" height="100%">
+		                <ComposedChart
+		                  data={dailyCollectionsSeries}
+		                  margin={{ top: 10, right: 20, left: 0, bottom: 0 }}
+		                >
+		                  <CartesianGrid strokeDasharray="3 3" stroke="#e0e0e0" />
+		                  <XAxis dataKey="date_label" tick={{ fontSize: 11 }} />
+		                  <YAxis
+		                    tickFormatter={formatShortCurrency}
+		                    tick={{ fontSize: 11 }}
+		                  />
+		                  <RechartsTooltip
+		                    formatter={(value, name) => {
+		                      if (name === 'Due') {
+		                        return [formatCurrency(value), 'Due (expected)'];
+		                      }
+		                      if (
+		                        name === 'AGENT_DEBIT' ||
+		                        name === 'TRANSFER' ||
+		                        name === 'ESCROW_DEBIT' ||
+		                        name === 'Other'
+		                      ) {
+		                        return [formatCurrency(value), name];
+		                      }
+		                      if (name === '7-day avg') {
+		                        return [formatCurrency(value), '7-day avg'];
+		                      }
+		                      return [formatCurrency(value), name];
+		                    }}
+		                    labelFormatter={(label, payload) => {
+		                      const raw =
+		                        payload &&
+		                        payload[0] &&
+		                        payload[0].payload &&
+		                        payload[0].payload.date;
+		                      if (!raw) return label;
+		                      const asDate = new Date(raw);
+		                      if (Number.isNaN(asDate.getTime())) return raw;
+		                      return asDate.toLocaleDateString('en-NG', {
+		                        weekday: 'short',
+		                        year: 'numeric',
+		                        month: 'short',
+		                        day: 'numeric',
+		                      });
+		                    }}
+		                  />
+		                  <Legend />
+		                  <Bar
+		                    dataKey="due_amount"
+		                    name="Due"
+		                    barSize={22}
+		                    fill="#ff9800"
+		                    radius={[4, 4, 0, 0]}
+		                  />
+		                  <Bar
+		                    dataKey="agent_debit_amount"
+		                    name="AGENT_DEBIT"
+		                    barSize={22}
+		                    fill="#4caf50"
+		                    radius={[4, 4, 0, 0]}
+		                  />
+		                  <Bar
+		                    dataKey="transfer_amount"
+		                    name="TRANSFER"
+		                    barSize={22}
+		                    fill="#2196f3"
+		                    radius={[4, 4, 0, 0]}
+		                  />
+		                  <Bar
+		                    dataKey="escrow_debit_amount"
+		                    name="ESCROW_DEBIT"
+		                    barSize={22}
+		                    fill="#9c27b0"
+		                    radius={[4, 4, 0, 0]}
+		                  />
+		                  <Bar
+		                    dataKey="other_repayments_amount"
+		                    name="Other"
+		                    barSize={22}
+		                    fill="#795548"
+		                    radius={[4, 4, 0, 0]}
+		                  >
+		                    <LabelList
+		                      dataKey="collection_rate_percent"
+		                      position="top"
+		                      formatter={(value) =>
+		                        typeof value === 'number' ? `${value.toFixed(0)}%` : ''
+		                      }
+		                    />
+		                  </Bar>
+			        </ComposedChart>
+			      </ResponsiveContainer>
 		    )}
 		  </div>
 		  {dailyCollectionsError && (
@@ -1032,73 +1224,107 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 			              <div className="agent-activity-heading">
 			                <span className="agent-activity-emoji" aria-hidden="true">🚨</span>
 			                <span className="agent-activity-title">
-			                  CRITICAL: [count] Officers with NO COLLECTION
+			                  CRITICAL: {criticalNoCollectionCount.toLocaleString()} Officers with NO COLLECTION
 			                </span>
 			              </div>
 			              <p className="agent-activity-description">
 			                These officers have not collected anything in the past 7 days. Immediate review required.
 			              </p>
-			              <button type="button" className="agent-activity-link">
+			              <button
+			                type="button"
+			                className="agent-activity-link"
+			                onClick={() => handleAgentActivityTileClick('critical_no_collection')}
+			              >
 			                View All No Collection Officers →
 			              </button>
 			            </div>
 			            <div className="status-tile glass agent-activity-tile agent-activity-warning">
 			              <div className="agent-activity-heading">
 			                <span className="agent-activity-emoji" aria-hidden="true">⚠️</span>
-			                <span className="agent-activity-title">[count] Officers STOPPED Collecting</span>
+			                <span className="agent-activity-title">
+			                  {stoppedCollectingCount.toLocaleString()} Officers STOPPED Collecting
+			                </span>
 			              </div>
 			              <p className="agent-activity-description">
 			                Were active early in the week but made zero collections in the last 3 days. Contact immediately.
 			              </p>
-			              <button type="button" className="agent-activity-link">
+			              <button
+			                type="button"
+			                className="agent-activity-link"
+			                onClick={() => handleAgentActivityTileClick('stopped_collecting')}
+			              >
 			                View Stopped Officers →
 			              </button>
 			            </div>
 			            <div className="status-tile glass agent-activity-tile agent-activity-decline">
 			              <div className="agent-activity-heading">
 			                <span className="agent-activity-emoji" aria-hidden="true">📉</span>
-			                <span className="agent-activity-title">[count] Officers in SEVERE DECLINE</span>
+			                <span className="agent-activity-title">
+			                  {severeDeclineCount.toLocaleString()} Officers in SEVERE DECLINE
+			                </span>
 			              </div>
 			              <p className="agent-activity-description">
 			                Collection dropped more than 70% compared to early week. Investigation needed.
 			              </p>
-			              <button type="button" className="agent-activity-link">
+			              <button
+			                type="button"
+			                className="agent-activity-link"
+			                onClick={() => handleAgentActivityTileClick('severe_decline')}
+			              >
 			                View Declining Officers →
 			              </button>
 			            </div>
 			            <div className="status-tile glass agent-activity-tile agent-activity-pending">
 			              <div className="agent-activity-heading">
 			                <span className="agent-activity-emoji" aria-hidden="true">⏳</span>
-			                <span className="agent-activity-title">[count] Officers NOT YET STARTED Today</span>
+			                <span className="agent-activity-title">
+			                  {notYetStartedTodayCount.toLocaleString()} Officers NOT YET STARTED Today
+			                </span>
 			              </div>
 			              <p className="agent-activity-description">
 			                Active this week but haven't collected today. Follow up for Saturday push.
 			              </p>
-			              <button type="button" className="agent-activity-link">
+			              <button
+			                type="button"
+			                className="agent-activity-link"
+			                onClick={() => handleAgentActivityTileClick('not_yet_started_today')}
+			              >
 			                View Not Started →
 			              </button>
 			            </div>
 			            <div className="status-tile glass agent-activity-tile agent-activity-growth">
 			              <div className="agent-activity-heading">
 			                <span className="agent-activity-emoji" aria-hidden="true">🌟</span>
-			                <span className="agent-activity-title">[count] Officers with STRONG GROWTH</span>
+			                <span className="agent-activity-title">
+			                  {strongGrowthCount.toLocaleString()} Officers with STRONG GROWTH
+			                </span>
 			              </div>
 			              <p className="agent-activity-description">
 			                Collection increased more than 50%. Recognize and learn from their success.
 			              </p>
-			              <button type="button" className="agent-activity-link">
+			              <button
+			                type="button"
+			                className="agent-activity-link"
+			                onClick={() => handleAgentActivityTileClick('strong_growth')}
+			              >
 			                View Top Performers →
 			              </button>
 			            </div>
 			            <div className="status-tile glass agent-activity-tile agent-activity-started">
 			              <div className="agent-activity-heading">
 			                <span className="agent-activity-emoji" aria-hidden="true">🌟</span>
-			                <span className="agent-activity-title">[count] Officers Started Today</span>
+			                <span className="agent-activity-title">
+			                  {startedTodayCount.toLocaleString()} Officers Started Today
+			                </span>
 			              </div>
 			              <p className="agent-activity-description">
 			                Have started collecting repayments today.
 			              </p>
-			              <button type="button" className="agent-activity-link">
+			              <button
+			                type="button"
+			                className="agent-activity-link"
+			                onClick={() => handleAgentActivityTileClick('started_today')}
+			              >
 			                View Active Today →
 			              </button>
 			            </div>
@@ -1271,6 +1497,30 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	        error={repaymentWatchError}
 	        onRefresh={fetchRepaymentWatch}
 	      />
+			      <AgentActivityModal
+			        isOpen={isAgentActivityModalOpen}
+			        onClose={() => setIsAgentActivityModalOpen(false)}
+			        categoryKey={agentActivityModalCategory}
+			        data={agentActivityModalData}
+			        loading={loadingAgentActivityModal}
+			        error={agentActivityModalError}
+			        onRefresh={
+			          agentActivityModalCategory
+			            ? () =>
+									fetchAgentActivityDetail(
+									  agentActivityModalCategory,
+									  agentActivityModalRegion,
+									  agentActivityModalWave,
+									)
+			            : null
+			        }
+			        regionFilter={agentActivityModalRegion}
+			        onRegionChange={handleAgentActivityRegionChange}
+			        availableRegions={filterOptions.regions}
+			        waveFilter={agentActivityModalWave}
+			        onWaveChange={handleAgentActivityWaveChange}
+			        availableWaves={filterOptions.waves}
+			      />
 	    </>
 	  );
 	};

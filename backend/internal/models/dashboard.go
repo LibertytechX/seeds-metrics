@@ -255,12 +255,50 @@ type RepaymentWatchOfficerRow struct {
 	RepaymentRate           float64 `json:"repayment_rate"`
 }
 
+// AgentActivitySummary represents aggregated counts for the Agent Activity
+// categories used in the Collections Control Centre.
+type AgentActivitySummary struct {
+	CriticalNoCollectionCount int `json:"critical_no_collection"`
+	StoppedCollectingCount    int `json:"stopped_collecting"`
+	SevereDeclineCount        int `json:"severe_decline"`
+	NotYetStartedTodayCount   int `json:"not_yet_started_today"`
+	StrongGrowthCount         int `json:"strong_growth"`
+	StartedTodayCount         int `json:"started_today"`
+}
+
+// AgentActivityDetailRow represents a single officer row in the Agent Activity
+// drilldown view. It contains 7-day per-day repayment amounts and an
+// activity/repayment rate, along with officer and location metadata.
+type AgentActivityDetailRow struct {
+	OfficerID      string  `json:"officer_id"`
+	OfficerName    string  `json:"officer_name"`
+	OfficerEmail   string  `json:"officer_email"`
+	Branch         string  `json:"branch"`
+	Region         string  `json:"region"`
+	RepaymentRate  float64 `json:"repayment_rate"`
+	Amount5DaysAgo float64 `json:"amount_5_days_ago"`
+	Amount4DaysAgo float64 `json:"amount_4_days_ago"`
+	Amount3DaysAgo float64 `json:"amount_3_days_ago"`
+	Amount2DaysAgo float64 `json:"amount_2_days_ago"`
+	Amount1DayAgo  float64 `json:"amount_1_day_ago"`
+	AmountToday    float64 `json:"amount_today"`
+	TotalCollected float64 `json:"total_collected"`
+}
+
 // DailyCollectionsPoint represents a single day in the collections time series
 // used by the Collections Control Centre daily chart.
 type DailyCollectionsPoint struct {
 	Date            string  `json:"date"`
 	CollectedAmount float64 `json:"collected_amount"`
 	RepaymentsCount int     `json:"repayments_count"`
+
+	// Repayment type breakdown for the day. These amounts always sum to
+	// CollectedAmount and are grouped using normalised payment_method values
+	// (e.g. AGENT_DEBIT, TRANSFER, ESCROW_DEBIT; everything else is "other").
+	AgentDebitAmount      float64 `json:"agent_debit_amount"`
+	TransferAmount        float64 `json:"transfer_amount"`
+	EscrowDebitAmount     float64 `json:"escrow_debit_amount"`
+	OtherRepaymentsAmount float64 `json:"other_repayments_amount"`
 }
 
 // TeamMember represents a team member for audit assignment

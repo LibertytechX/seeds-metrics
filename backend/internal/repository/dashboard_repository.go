@@ -3716,6 +3716,401 @@ func (r *DashboardRepository) GetOfficerCollectionsLeaderboard(filters map[strin
 	return result, nil
 }
 
+// GetAgentActivitySummary computes aggregated counts of officers in the
+// Collections Control Centre Agent Activity categories over a rolling 7-day
+// window (past 7 days including today). It respects the same core filters
+// (branch, region, channel, wave, loan_type) used by other collections
+// endpoints and applies the standard officer user_type filter. All date
+// comparisons are based on DATE(r.payment_date).
+func (r *DashboardRepository) GetAgentActivitySummary(filters map[string]interface{}) (*models.AgentActivitySummary, error) {
+	query := `
+			WITH filtered_loans AS (
+				SELECT DISTINCT
+					l.loan_id,
+					l.officer_id
+				FROM loans l
+				JOIN officers o ON l.officer_id = o.officer_id
+				WHERE (o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT') OR o.user_type IS NULL)
+		`
+
+	args := []interface{}{}
+	argCount := 1
+
+	// Apply filters (branch, region, channel, wave, loan_type) similar to
+	// GetOfficerCollectionsLeaderboard's loanQuery.
+	if branch, ok := filters["branch"].(string); ok && branch != "" {
+		query += fmt.Sprintf(" AND l.branch = $%d", argCount)
+		args = append(args, branch)
+		argCount++
+	}
+
+	if region, ok := filters["region"].(string); ok && region != "" {
+		regions := strings.Split(region, ",")
+		if len(regions) == 1 {
+			query += fmt.Sprintf(" AND l.region = $%d", argCount)
+			args = append(args, regions[0])
+			argCount++
+		} else {
+			placeholders := []string{}
+			for _, rgn := range regions {
+				placeholders = append(placeholders, fmt.Sprintf("$%d", argCount))
+				args = append(args, strings.TrimSpace(rgn))
+				argCount++
+			}
+			query += fmt.Sprintf(" AND l.region IN (%s)", strings.Join(placeholders, ", "))
+		}
+	}
+
+	if channel, ok := filters["channel"].(string); ok && channel != "" {
+		query += fmt.Sprintf(" AND l.channel = $%d", argCount)
+		args = append(args, channel)
+		argCount++
+	}
+
+	if wave, ok := filters["wave"].(string); ok && strings.TrimSpace(wave) != "" {
+		waves := strings.Split(wave, ",")
+		if len(waves) == 1 {
+			query += fmt.Sprintf(" AND l.wave = $%d", argCount)
+			args = append(args, strings.TrimSpace(waves[0]))
+			argCount++
+		} else {
+			placeholders := make([]string, len(waves))
+			for i, w := range waves {
+				placeholders[i] = fmt.Sprintf("$%d", argCount)
+				args = append(args, strings.TrimSpace(w))
+				argCount++
+			}
+			query += fmt.Sprintf(" AND l.wave IN (%s)", strings.Join(placeholders, ", "))
+		}
+	}
+
+	if loanType, ok := filters["loan_type"].(string); ok && loanType != "" {
+		loanTypes := strings.Split(loanType, ",")
+		if len(loanTypes) == 1 {
+			query += fmt.Sprintf(" AND l.loan_type = $%d", argCount)
+			args = append(args, strings.TrimSpace(loanTypes[0]))
+			argCount++
+		} else {
+			placeholders := make([]string, len(loanTypes))
+			for i, lt := range loanTypes {
+				placeholders[i] = fmt.Sprintf("$%d", argCount)
+				args = append(args, strings.TrimSpace(lt))
+				argCount++
+			}
+			query += fmt.Sprintf(" AND l.loan_type IN (%s)", strings.Join(placeholders, ", "))
+		}
+	}
+
+	query += `
+			),
+			officer_base AS (
+				SELECT DISTINCT officer_id
+				FROM filtered_loans
+			),
+			repayments_7d AS (
+				SELECT
+					fl.officer_id,
+					DATE(r.payment_date) AS payment_date,
+					SUM(r.payment_amount) AS amount
+				FROM filtered_loans fl
+				JOIN repayments r ON r.loan_id = fl.loan_id
+				WHERE r.is_reversed = FALSE
+					AND DATE(r.payment_date) >= (CURRENT_DATE - INTERVAL '6 days')
+					AND DATE(r.payment_date) <= CURRENT_DATE
+				GROUP BY fl.officer_id, DATE(r.payment_date)
+			),
+			per_officer AS (
+				SELECT
+					ob.officer_id,
+					COALESCE(SUM(r7.amount), 0) AS total_7d,
+					COALESCE(SUM(r7.amount) FILTER (
+						WHERE r7.payment_date >= (CURRENT_DATE - INTERVAL '6 days')
+							AND r7.payment_date <= (CURRENT_DATE - INTERVAL '3 days')
+					), 0) AS amount_first4,
+					COALESCE(SUM(r7.amount) FILTER (
+						WHERE r7.payment_date >= (CURRENT_DATE - INTERVAL '2 days')
+							AND r7.payment_date <= CURRENT_DATE
+					), 0) AS amount_last3,
+					COALESCE(COUNT(DISTINCT r7.payment_date) FILTER (
+						WHERE r7.payment_date >= (CURRENT_DATE - INTERVAL '6 days')
+							AND r7.payment_date <= CURRENT_DATE
+					), 0) AS days_with_collection_7d,
+					COALESCE(COUNT(DISTINCT r7.payment_date) FILTER (
+						WHERE r7.payment_date = CURRENT_DATE
+					), 0) AS days_with_collection_today
+				FROM officer_base ob
+				LEFT JOIN repayments_7d r7 ON ob.officer_id = r7.officer_id
+				GROUP BY ob.officer_id
+			)
+			SELECT
+				COALESCE(COUNT(*) FILTER (WHERE total_7d = 0), 0) AS critical_no_collection_count,
+				COALESCE(COUNT(*) FILTER (WHERE amount_first4 > 0 AND amount_last3 = 0), 0) AS stopped_collecting_count,
+				COALESCE(COUNT(*) FILTER (
+					WHERE amount_first4 > 0
+						AND amount_last3 > 0
+						AND amount_last3 < 0.3 * amount_first4
+				), 0) AS severe_decline_count,
+				COALESCE(COUNT(*) FILTER (
+					WHERE days_with_collection_7d >= 5
+						AND days_with_collection_today = 0
+				), 0) AS not_yet_started_today_count,
+				COALESCE(COUNT(*) FILTER (
+					WHERE amount_first4 > 0
+						AND amount_last3 > 1.5 * amount_first4
+				), 0) AS strong_growth_count,
+				COALESCE(COUNT(*) FILTER (WHERE days_with_collection_today > 0), 0) AS started_today_count
+			FROM per_officer;
+		`
+
+	row := r.db.QueryRow(query, args...)
+	summary := &models.AgentActivitySummary{}
+	if err := row.Scan(
+		&summary.CriticalNoCollectionCount,
+		&summary.StoppedCollectingCount,
+		&summary.SevereDeclineCount,
+		&summary.NotYetStartedTodayCount,
+		&summary.StrongGrowthCount,
+		&summary.StartedTodayCount,
+	); err != nil {
+		return nil, err
+	}
+
+	return summary, nil
+}
+
+// GetAgentActivityDetail returns per-officer 7-day repayment activity for a
+// specific Agent Activity category. It reuses the same 7-day window and
+// category logic as GetAgentActivitySummary but returns detailed rows instead
+// of aggregate counts. The same core filters (branch, region, channel, wave,
+// loan_type) are applied.
+func (r *DashboardRepository) GetAgentActivityDetail(filters map[string]interface{}, category string) ([]*models.AgentActivityDetailRow, error) {
+	query := `
+				WITH filtered_loans AS (
+					SELECT DISTINCT
+						l.loan_id,
+						l.officer_id,
+						l.branch,
+						l.region
+					FROM loans l
+					JOIN officers o ON l.officer_id = o.officer_id
+					WHERE (o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT') OR o.user_type IS NULL)
+			`
+
+	args := []interface{}{}
+	argCount := 1
+
+	// Apply filters (branch, region, channel, wave, loan_type) similar to
+	// GetAgentActivitySummary's loanQuery.
+	if branch, ok := filters["branch"].(string); ok && branch != "" {
+		query += fmt.Sprintf(" AND l.branch = $%d", argCount)
+		args = append(args, branch)
+		argCount++
+	}
+
+	if region, ok := filters["region"].(string); ok && region != "" {
+		regions := strings.Split(region, ",")
+		if len(regions) == 1 {
+			query += fmt.Sprintf(" AND l.region = $%d", argCount)
+			args = append(args, regions[0])
+			argCount++
+		} else {
+			placeholders := []string{}
+			for _, rgn := range regions {
+				placeholders = append(placeholders, fmt.Sprintf("$%d", argCount))
+				args = append(args, strings.TrimSpace(rgn))
+				argCount++
+			}
+			query += fmt.Sprintf(" AND l.region IN (%s)", strings.Join(placeholders, ", "))
+		}
+	}
+
+	if channel, ok := filters["channel"].(string); ok && channel != "" {
+		query += fmt.Sprintf(" AND l.channel = $%d", argCount)
+		args = append(args, channel)
+		argCount++
+	}
+
+	if wave, ok := filters["wave"].(string); ok && strings.TrimSpace(wave) != "" {
+		waves := strings.Split(wave, ",")
+		if len(waves) == 1 {
+			query += fmt.Sprintf(" AND l.wave = $%d", argCount)
+			args = append(args, strings.TrimSpace(waves[0]))
+			argCount++
+		} else {
+			placeholders := make([]string, len(waves))
+			for i, w := range waves {
+				placeholders[i] = fmt.Sprintf("$%d", argCount)
+				args = append(args, strings.TrimSpace(w))
+				argCount++
+			}
+			query += fmt.Sprintf(" AND l.wave IN (%s)", strings.Join(placeholders, ", "))
+		}
+	}
+
+	if loanType, ok := filters["loan_type"].(string); ok && loanType != "" {
+		loanTypes := strings.Split(loanType, ",")
+		if len(loanTypes) == 1 {
+			query += fmt.Sprintf(" AND l.loan_type = $%d", argCount)
+			args = append(args, strings.TrimSpace(loanTypes[0]))
+			argCount++
+		} else {
+			placeholders := make([]string, len(loanTypes))
+			for i, lt := range loanTypes {
+				placeholders[i] = fmt.Sprintf("$%d", argCount)
+				args = append(args, strings.TrimSpace(lt))
+				argCount++
+			}
+			query += fmt.Sprintf(" AND l.loan_type IN (%s)", strings.Join(placeholders, ", "))
+		}
+	}
+
+	query += `
+				),
+				officer_base AS (
+					SELECT DISTINCT officer_id
+					FROM filtered_loans
+				),
+				repayments_7d AS (
+					SELECT
+						fl.officer_id,
+						DATE(r.payment_date) AS payment_date,
+						SUM(r.payment_amount) AS amount
+					FROM filtered_loans fl
+					JOIN repayments r ON r.loan_id = fl.loan_id
+					WHERE r.is_reversed = FALSE
+						AND DATE(r.payment_date) >= (CURRENT_DATE - INTERVAL '6 days')
+						AND DATE(r.payment_date) <= CURRENT_DATE
+					GROUP BY fl.officer_id, DATE(r.payment_date)
+				),
+				per_officer AS (
+					SELECT
+						ob.officer_id,
+						COALESCE(SUM(r7.amount), 0) AS total_7d,
+						COALESCE(SUM(r7.amount) FILTER (
+							WHERE r7.payment_date >= (CURRENT_DATE - INTERVAL '6 days')
+								AND r7.payment_date <= (CURRENT_DATE - INTERVAL '3 days')
+						), 0) AS amount_first4,
+						COALESCE(SUM(r7.amount) FILTER (
+							WHERE r7.payment_date >= (CURRENT_DATE - INTERVAL '2 days')
+								AND r7.payment_date <= CURRENT_DATE
+						), 0) AS amount_last3,
+						COALESCE(COUNT(DISTINCT r7.payment_date) FILTER (
+							WHERE r7.payment_date >= (CURRENT_DATE - INTERVAL '6 days')
+								AND r7.payment_date <= CURRENT_DATE
+						), 0) AS days_with_collection_7d,
+						COALESCE(COUNT(DISTINCT r7.payment_date) FILTER (
+							WHERE r7.payment_date = CURRENT_DATE
+						), 0) AS days_with_collection_today,
+						COALESCE(SUM(r7.amount) FILTER (
+							WHERE r7.payment_date = (CURRENT_DATE - INTERVAL '6 days')
+						), 0) AS amount_5d_ago,
+						COALESCE(SUM(r7.amount) FILTER (
+							WHERE r7.payment_date = (CURRENT_DATE - INTERVAL '5 days')
+						), 0) AS amount_4d_ago,
+						COALESCE(SUM(r7.amount) FILTER (
+							WHERE r7.payment_date = (CURRENT_DATE - INTERVAL '4 days')
+						), 0) AS amount_3d_ago,
+						COALESCE(SUM(r7.amount) FILTER (
+							WHERE r7.payment_date = (CURRENT_DATE - INTERVAL '3 days')
+						), 0) AS amount_2d_ago,
+						COALESCE(SUM(r7.amount) FILTER (
+							WHERE r7.payment_date = (CURRENT_DATE - INTERVAL '1 day')
+						), 0) AS amount_1d_ago,
+						COALESCE(SUM(r7.amount) FILTER (
+							WHERE r7.payment_date = CURRENT_DATE
+						), 0) AS amount_today
+					FROM officer_base ob
+					LEFT JOIN repayments_7d r7 ON ob.officer_id = r7.officer_id
+					GROUP BY ob.officer_id
+				),
+				officer_info AS (
+					SELECT
+						fl.officer_id,
+						COALESCE(o.officer_name, '') AS officer_name,
+						COALESCE(o.officer_email, '') AS officer_email,
+						MODE() WITHIN GROUP (ORDER BY fl.branch) AS branch,
+						MODE() WITHIN GROUP (ORDER BY fl.region) AS region
+					FROM filtered_loans fl
+					JOIN officers o ON fl.officer_id = o.officer_id
+					GROUP BY fl.officer_id, o.officer_name, o.officer_email
+				)
+			SELECT
+				po.officer_id,
+				oi.officer_name,
+				oi.officer_email,
+				oi.branch,
+				oi.region,
+				CASE
+					WHEN po.days_with_collection_7d > 0 THEN (po.days_with_collection_7d::float / 7.0) * 100.0
+					ELSE 0
+				END AS repayment_rate,
+				po.amount_5d_ago,
+				po.amount_4d_ago,
+				po.amount_3d_ago,
+				po.amount_2d_ago,
+				po.amount_1d_ago,
+				po.amount_today,
+				po.total_7d AS total_collected
+			FROM per_officer po
+			JOIN officer_info oi ON po.officer_id = oi.officer_id
+		`
+
+	// Apply category-specific filter using the same logic as GetAgentActivitySummary.
+	switch category {
+	case "critical_no_collection":
+		query += " WHERE po.total_7d = 0"
+	case "stopped_collecting":
+		query += " WHERE po.amount_first4 > 0 AND po.amount_last3 = 0"
+	case "severe_decline":
+		query += " WHERE po.amount_first4 > 0 AND po.amount_last3 > 0 AND po.amount_last3 < 0.3 * po.amount_first4"
+	case "not_yet_started_today":
+		query += " WHERE po.days_with_collection_7d >= 5 AND po.days_with_collection_today = 0"
+	case "strong_growth":
+		query += " WHERE po.amount_first4 > 0 AND po.amount_last3 > 1.5 * po.amount_first4"
+	case "started_today":
+		query += " WHERE po.days_with_collection_today > 0"
+	default:
+		return nil, fmt.Errorf("unknown agent activity category: %s", category)
+	}
+
+	query += " ORDER BY po.total_7d DESC, oi.officer_name ASC"
+
+	rows, err := r.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	result := []*models.AgentActivityDetailRow{}
+	for rows.Next() {
+		row := &models.AgentActivityDetailRow{}
+		if err := rows.Scan(
+			&row.OfficerID,
+			&row.OfficerName,
+			&row.OfficerEmail,
+			&row.Branch,
+			&row.Region,
+			&row.RepaymentRate,
+			&row.Amount5DaysAgo,
+			&row.Amount4DaysAgo,
+			&row.Amount3DaysAgo,
+			&row.Amount2DaysAgo,
+			&row.Amount1DayAgo,
+			&row.AmountToday,
+			&row.TotalCollected,
+		); err != nil {
+			return nil, err
+		}
+		result = append(result, row)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return result, nil
+}
+
 // GetRepaymentWatchOfficers computes per-officer Wave 2 repayment performance for the
 // Repayment Watch view. It focuses on Wave 2 loans that are currently OPEN or
 // PAST_MATURITY and counts non-reversed repayments made today. It respects the same
@@ -3723,24 +4118,24 @@ func (r *DashboardRepository) GetOfficerCollectionsLeaderboard(filters map[strin
 // Control Centre.
 func (r *DashboardRepository) GetRepaymentWatchOfficers(filters map[string]interface{}) ([]*models.RepaymentWatchOfficerRow, error) {
 	query := `
-			SELECT
-				l.officer_id,
-				COALESCE(o.officer_name, '') AS officer_name,
-				COALESCE(o.officer_email, '') AS officer_email,
-				MODE() WITHIN GROUP (ORDER BY l.branch) AS branch,
-				MODE() WITHIN GROUP (ORDER BY l.region) AS region,
-				COUNT(DISTINCT l.loan_id) AS total_wave2_open_loans,
-				COUNT(DISTINCT r.loan_id) AS loans_with_repayment_today,
-				COALESCE(SUM(r.payment_amount), 0) AS amount_collected_today
-			FROM loans l
-			JOIN officers o ON l.officer_id = o.officer_id
-			LEFT JOIN repayments r ON r.loan_id = l.loan_id
-				AND r.is_reversed = FALSE
-				AND r.payment_date::date = CURRENT_DATE
-			WHERE 1=1
-				AND (o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT') OR o.user_type IS NULL)
-				AND l.django_status IN ('OPEN', 'PAST_MATURITY')
-		`
+				SELECT
+					l.officer_id,
+					COALESCE(o.officer_name, '') AS officer_name,
+					COALESCE(o.officer_email, '') AS officer_email,
+					MODE() WITHIN GROUP (ORDER BY l.branch) AS branch,
+					MODE() WITHIN GROUP (ORDER BY l.region) AS region,
+					COUNT(DISTINCT l.loan_id) AS total_wave2_open_loans,
+					COUNT(DISTINCT r.loan_id) AS loans_with_repayment_today,
+					COALESCE(SUM(r.payment_amount), 0) AS amount_collected_today
+				FROM loans l
+				JOIN officers o ON l.officer_id = o.officer_id
+				LEFT JOIN repayments r ON r.loan_id = l.loan_id
+					AND r.is_reversed = FALSE
+					AND r.payment_date::date = CURRENT_DATE
+				WHERE 1=1
+					AND (o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT') OR o.user_type IS NULL)
+					AND l.django_status IN ('OPEN', 'PAST_MATURITY')
+			`
 
 	args := []interface{}{}
 	argCount := 1
@@ -3816,13 +4211,13 @@ func (r *DashboardRepository) GetRepaymentWatchOfficers(filters map[string]inter
 	}
 
 	query += `
-			GROUP BY
-				l.officer_id,
-				o.officer_name,
-				o.officer_email
-			HAVING COUNT(DISTINCT l.loan_id) > 0
-			ORDER BY COUNT(DISTINCT l.loan_id) DESC
-		`
+				GROUP BY
+					l.officer_id,
+					o.officer_name,
+					o.officer_email
+				HAVING COUNT(DISTINCT l.loan_id) > 0
+				ORDER BY COUNT(DISTINCT l.loan_id) DESC
+			`
 
 	rows, err := r.db.Query(query, args...)
 	if err != nil {
@@ -3945,15 +4340,25 @@ func (r *DashboardRepository) GetDailyCollections(filters map[string]interface{}
 	}
 
 	query := `
-		SELECT
-			DATE(r.payment_date) AS payment_date,
-			COALESCE(SUM(r.payment_amount), 0) AS collected_amount,
-			COUNT(*) AS repayments_count
-		FROM repayments r
-		INNER JOIN loans l ON r.loan_id = l.loan_id
-		INNER JOIN officers o ON l.officer_id = o.officer_id
-		WHERE r.is_reversed = false
-			AND (o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT') OR o.user_type IS NULL)
+			SELECT
+				DATE(r.payment_date) AS payment_date,
+				COALESCE(SUM(r.payment_amount), 0) AS collected_amount,
+				COUNT(*) AS repayments_count,
+				-- Repayment type breakdown (normalised using UPPER(TRIM(payment_method)))
+				COALESCE(SUM(CASE WHEN UPPER(TRIM(r.payment_method)) = 'AGENT_DEBIT' THEN r.payment_amount END), 0) AS agent_debit_amount,
+				COALESCE(SUM(CASE WHEN UPPER(TRIM(r.payment_method)) = 'TRANSFER' THEN r.payment_amount END), 0) AS transfer_amount,
+				COALESCE(SUM(CASE WHEN UPPER(TRIM(r.payment_method)) = 'ESCROW_DEBIT' THEN r.payment_amount END), 0) AS escrow_debit_amount,
+				COALESCE(SUM(CASE
+					WHEN UPPER(TRIM(r.payment_method)) NOT IN ('AGENT_DEBIT', 'TRANSFER', 'ESCROW_DEBIT')
+						OR r.payment_method IS NULL
+						OR TRIM(r.payment_method) = ''
+					THEN r.payment_amount
+				END), 0) AS other_repayments_amount
+			FROM repayments r
+			INNER JOIN loans l ON r.loan_id = l.loan_id
+			INNER JOIN officers o ON l.officer_id = o.officer_id
+			WHERE r.is_reversed = false
+				AND (o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT') OR o.user_type IS NULL)
 	`
 
 	// Apply period restriction on repayment dates.
@@ -4228,7 +4633,15 @@ func (r *DashboardRepository) GetDailyCollections(filters map[string]interface{}
 	results := []*models.DailyCollectionsPoint{}
 	for rows.Next() {
 		point := &models.DailyCollectionsPoint{}
-		if err := rows.Scan(&point.Date, &point.CollectedAmount, &point.RepaymentsCount); err != nil {
+		if err := rows.Scan(
+			&point.Date,
+			&point.CollectedAmount,
+			&point.RepaymentsCount,
+			&point.AgentDebitAmount,
+			&point.TransferAmount,
+			&point.EscrowDebitAmount,
+			&point.OtherRepaymentsAmount,
+		); err != nil {
 			return nil, fmt.Errorf("failed to scan daily collections row: %w", err)
 		}
 		results = append(results, point)

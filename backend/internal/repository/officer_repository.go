@@ -17,26 +17,29 @@ func NewOfficerRepository(db *database.DB) *OfficerRepository {
 	return &OfficerRepository{db: db}
 }
 
-// Create inserts a new officer
+// Create inserts a new officer, or updates non-location fields if the officer already exists.
+//
+// IMPORTANT: We intentionally do NOT overwrite region/branch on conflict because these
+// fields are curated in Seeds Metrics via the verticals TSV pipeline, and Django's
+// user_branch/region mapping is too coarse. This prevents full syncs from
+// resetting manually-corrected regions/verticals.
 func (r *OfficerRepository) Create(ctx context.Context, input *models.OfficerInput) error {
 	query := `
-		INSERT INTO officers (
-			officer_id, officer_name, officer_phone,
-			region, branch, user_type, employment_status, hire_date,
-			created_at, updated_at
-		) VALUES (
-			$1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW()
-		)
-		ON CONFLICT (officer_id) DO UPDATE SET
-			officer_name = EXCLUDED.officer_name,
-			officer_phone = EXCLUDED.officer_phone,
-			region = EXCLUDED.region,
-			branch = EXCLUDED.branch,
-			user_type = EXCLUDED.user_type,
-			employment_status = EXCLUDED.employment_status,
-			hire_date = EXCLUDED.hire_date,
-			updated_at = NOW()
-	`
+			INSERT INTO officers (
+				officer_id, officer_name, officer_phone,
+				region, branch, user_type, employment_status, hire_date,
+				created_at, updated_at
+			) VALUES (
+				$1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW()
+			)
+			ON CONFLICT (officer_id) DO UPDATE SET
+				officer_name = EXCLUDED.officer_name,
+				officer_phone = EXCLUDED.officer_phone,
+				user_type = EXCLUDED.user_type,
+				employment_status = EXCLUDED.employment_status,
+				hire_date = EXCLUDED.hire_date,
+				updated_at = NOW()
+		`
 
 	// Set default employment status if not provided
 	employmentStatus := "Active"

@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/seeds-metrics/analytics-backend/internal/models"
@@ -830,6 +831,132 @@ func (h *DashboardHandler) GetRepaymentWatch(c *gin.Context) {
 		Data: map[string]interface{}{
 			"officers": officers,
 		},
+	})
+}
+
+// GetAgentActivityDetail handles GET /api/v1/collections/agent-activity-detail.
+// It returns per-officer 7-day repayment activity for a specific Agent Activity
+// category, using the same filters and rolling 7-day window as
+// GetAgentActivity.
+//
+// @Summary Get Agent Activity drilldown detail
+// @Description Get per-officer 7-day repayment activity for a specific Agent Activity category
+// @Tags Collections
+// @Accept json
+// @Produce json
+// @Param category query string true "Agent Activity category (critical_no_collection, stopped_collecting, severe_decline, not_yet_started_today, strong_growth, started_today)"
+// @Param branch query string false "Filter by branch"
+// @Param region query string false "Filter by region (supports comma-separated multi-select)"
+// @Param channel query string false "Filter by channel"
+// @Param wave query string false "Filter by wave"
+// @Param loan_type query string false "Filter by loan type (supports comma-separated multi-select)"
+// @Success 200 {object} models.APIResponse
+// @Failure 400 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
+// @Router /collections/agent-activity-detail [get]
+func (h *DashboardHandler) GetAgentActivityDetail(c *gin.Context) {
+	category := c.Query("category")
+	if category == "" {
+		c.JSON(http.StatusBadRequest, models.APIResponse{
+			Status:  "error",
+			Message: "Missing required category parameter",
+			Error:   newAPIError("BAD_REQUEST", "category query parameter is required"),
+		})
+		return
+	}
+
+	filters := make(map[string]interface{})
+	if branch := c.Query("branch"); branch != "" {
+		filters["branch"] = branch
+	}
+	if region := c.Query("region"); region != "" {
+		filters["region"] = region
+	}
+	if channel := c.Query("channel"); channel != "" {
+		filters["channel"] = channel
+	}
+	if wave := c.Query("wave"); wave != "" {
+		filters["wave"] = wave
+	}
+	if loanType := c.Query("loan_type"); loanType != "" {
+		filters["loan_type"] = loanType
+	}
+
+	rows, err := h.dashboardRepo.GetAgentActivityDetail(filters, category)
+	if err != nil {
+		// Distinguish between bad category and internal errors by error type/message.
+		statusCode := http.StatusInternalServerError
+		apiErrCode := "INTERNAL_ERROR"
+		if strings.Contains(err.Error(), "unknown agent activity category") {
+			statusCode = http.StatusBadRequest
+			apiErrCode = "BAD_REQUEST"
+		}
+
+		c.JSON(statusCode, models.APIResponse{
+			Status:  "error",
+			Message: "Failed to retrieve Agent Activity detail",
+			Error:   newAPIError(apiErrCode, err.Error()),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.APIResponse{
+		Status: "success",
+		Data: map[string]interface{}{
+			"officers": rows,
+		},
+	})
+}
+
+// GetAgentActivity handles GET /api/v1/collections/agent-activity
+// It returns aggregated counts of officers in the Agent Activity
+// categories over a rolling 7-day window (past 7 days including today).
+//
+// @Summary Get Agent Activity metrics
+// @Description Get counts of officers in 7-day rolling activity categories for the Collections Control Centre
+// @Tags Collections
+// @Accept json
+// @Produce json
+// @Param branch query string false "Filter by branch"
+// @Param region query string false "Filter by region (supports comma-separated multi-select)"
+// @Param channel query string false "Filter by channel"
+// @Param wave query string false "Filter by wave"
+// @Param loan_type query string false "Filter by loan type (supports comma-separated multi-select)"
+// @Success 200 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
+// @Router /collections/agent-activity [get]
+func (h *DashboardHandler) GetAgentActivity(c *gin.Context) {
+	filters := make(map[string]interface{})
+
+	if branch := c.Query("branch"); branch != "" {
+		filters["branch"] = branch
+	}
+	if region := c.Query("region"); region != "" {
+		filters["region"] = region
+	}
+	if channel := c.Query("channel"); channel != "" {
+		filters["channel"] = channel
+	}
+	if wave := c.Query("wave"); wave != "" {
+		filters["wave"] = wave
+	}
+	if loanType := c.Query("loan_type"); loanType != "" {
+		filters["loan_type"] = loanType
+	}
+
+	summary, err := h.dashboardRepo.GetAgentActivitySummary(filters)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, models.APIResponse{
+			Status:  "error",
+			Message: "Failed to retrieve Agent Activity metrics",
+			Error:   newAPIError("INTERNAL_ERROR", err.Error()),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.APIResponse{
+		Status: "success",
+		Data:   summary,
 	})
 }
 
