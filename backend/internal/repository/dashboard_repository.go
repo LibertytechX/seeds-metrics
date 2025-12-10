@@ -4022,6 +4022,9 @@ func (r *DashboardRepository) GetAgentActivityDetail(filters map[string]interfac
 							WHERE r7.payment_date = (CURRENT_DATE - INTERVAL '3 days')
 						), 0) AS amount_2d_ago,
 						COALESCE(SUM(r7.amount) FILTER (
+							WHERE r7.payment_date = (CURRENT_DATE - INTERVAL '2 days')
+						), 0) AS amount_2d_ago_exact,
+						COALESCE(SUM(r7.amount) FILTER (
 							WHERE r7.payment_date = (CURRENT_DATE - INTERVAL '1 day')
 						), 0) AS amount_1d_ago,
 						COALESCE(SUM(r7.amount) FILTER (
@@ -4055,14 +4058,15 @@ func (r *DashboardRepository) GetAgentActivityDetail(filters map[string]interfac
 							-- the per-day amounts but do not increase the denominator.
 							WHEN po.days_with_collection_7d > 0 THEN (po.days_with_collection_7d::float / 5.0) * 100.0
 					ELSE 0
-				END AS repayment_rate,
-				po.amount_5d_ago,
-				po.amount_4d_ago,
-				po.amount_3d_ago,
-				po.amount_2d_ago,
-				po.amount_1d_ago,
-				po.amount_today,
-				po.total_7d AS total_collected
+					END AS repayment_rate,
+					po.amount_5d_ago,
+					po.amount_4d_ago,
+					po.amount_3d_ago,
+					po.amount_2d_ago,
+					po.amount_2d_ago_exact,
+					po.amount_1d_ago,
+					po.amount_today,
+					po.total_7d AS total_collected
 			FROM per_officer po
 			JOIN officer_info oi ON po.officer_id = oi.officer_id
 		`
@@ -4107,6 +4111,7 @@ func (r *DashboardRepository) GetAgentActivityDetail(filters map[string]interfac
 			&row.Amount4DaysAgo,
 			&row.Amount3DaysAgo,
 			&row.Amount2DaysAgo,
+			&row.Amount2DaysAgoExact,
 			&row.Amount1DayAgo,
 			&row.AmountToday,
 			&row.TotalCollected,

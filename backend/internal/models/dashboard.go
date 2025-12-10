@@ -270,19 +270,20 @@ type AgentActivitySummary struct {
 // drilldown view. It contains 7-day per-day repayment amounts and an
 // activity/repayment rate, along with officer and location metadata.
 type AgentActivityDetailRow struct {
-	OfficerID      string  `json:"officer_id"`
-	OfficerName    string  `json:"officer_name"`
-	OfficerEmail   string  `json:"officer_email"`
-	Branch         string  `json:"branch"`
-	Region         string  `json:"region"`
-	RepaymentRate  float64 `json:"repayment_rate"`
-	Amount5DaysAgo float64 `json:"amount_5_days_ago"`
-	Amount4DaysAgo float64 `json:"amount_4_days_ago"`
-	Amount3DaysAgo float64 `json:"amount_3_days_ago"`
-	Amount2DaysAgo float64 `json:"amount_2_days_ago"`
-	Amount1DayAgo  float64 `json:"amount_1_day_ago"`
-	AmountToday    float64 `json:"amount_today"`
-	TotalCollected float64 `json:"total_collected"`
+	OfficerID           string  `json:"officer_id"`
+	OfficerName         string  `json:"officer_name"`
+	OfficerEmail        string  `json:"officer_email"`
+	Branch              string  `json:"branch"`
+	Region              string  `json:"region"`
+	RepaymentRate       float64 `json:"repayment_rate"`
+	Amount5DaysAgo      float64 `json:"amount_5_days_ago"`
+	Amount4DaysAgo      float64 `json:"amount_4_days_ago"`
+	Amount3DaysAgo      float64 `json:"amount_3_days_ago"`
+	Amount2DaysAgo      float64 `json:"amount_2_days_ago"`
+	Amount2DaysAgoExact float64 `json:"amount_2_days_ago_exact"`
+	Amount1DayAgo       float64 `json:"amount_1_day_ago"`
+	AmountToday         float64 `json:"amount_today"`
+	TotalCollected      float64 `json:"total_collected"`
 }
 
 // DailyCollectionsPoint represents a single day in the collections time series

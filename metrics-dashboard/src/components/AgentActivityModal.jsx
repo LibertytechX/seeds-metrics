@@ -90,6 +90,12 @@ const CATEGORY_CONFIG = {
           : typeof raw.amount2DaysAgo === 'number'
           ? raw.amount2DaysAgo
           : 0,
+	      amount2dAgoExact:
+	        typeof raw.amount_2_days_ago_exact === 'number'
+	          ? raw.amount_2_days_ago_exact
+	          : typeof raw.amount2DaysAgoExact === 'number'
+	          ? raw.amount2DaysAgoExact
+	          : 0,
       amount1dAgo:
         typeof raw.amount_1_day_ago === 'number'
           ? raw.amount_1_day_ago
@@ -111,27 +117,35 @@ const CATEGORY_CONFIG = {
     }));
 	  }, [data]);
 
-	  // Compute human-friendly day-of-week labels for the last 7 calendar days,
-	  // aligning with the backend's 7-day window. The amounts for "5/4/3/2/1 days
-	  // ago" correspond to specific offsets in that window, so we reuse the same
-	  // offsets here and show the weekday name instead of "N days ago".
-	  const dayLabels = useMemo(() => {
-	    const today = new Date();
-	    const labelForOffset = (offsetInDays) => {
-	      const d = new Date(today);
-	      d.setDate(d.getDate() - offsetInDays);
-	      return d.toLocaleDateString('en-NG', { weekday: 'short' });
-	    };
+				// Build column metadata for the last 7 calendar days, but only render
+				// business-day (Mon-Fri) columns in the table/CSV. This keeps weekend
+				// repayments in the totals while hiding Saturday/Sunday columns
+				// completely, even if there were repayments on those days. Now we
+				// include all 7 per-day amounts (D-6 through D-0) so that no weekday
+				// inside the 7-day window is ever missing from the visible columns.
+				const dayColumns = useMemo(() => {
+		    const today = new Date();
 
-	    return {
-	      amount5dAgo: labelForOffset(6),
-	      amount4dAgo: labelForOffset(5),
-	      amount3dAgo: labelForOffset(4),
-	      amount2dAgo: labelForOffset(3),
-	      amount1dAgo: labelForOffset(1),
-	      today: labelForOffset(0),
-	    };
-	  }, []);
+		    const buildColumn = (key, offsetInDays) => {
+		      const d = new Date(today);
+		      d.setDate(d.getDate() - offsetInDays);
+		      const label = d.toLocaleDateString('en-NG', { weekday: 'short' });
+		      const dayOfWeek = d.getDay(); // 0=Sun, 6=Sat in JS
+		      const isBusinessDay = dayOfWeek >= 1 && dayOfWeek <= 5;
+
+		      return { key, label, isBusinessDay };
+		    };
+
+					return [
+					  buildColumn('amount5dAgo', 6),
+					  buildColumn('amount4dAgo', 5),
+					  buildColumn('amount3dAgo', 4),
+					  buildColumn('amount2dAgo', 3),
+					  buildColumn('amount2dAgoExact', 2),
+					  buildColumn('amount1dAgo', 1),
+					  buildColumn('amountToday', 0),
+					];
+		  }, []);
 
 	  const formatCurrency = (value) => {
     const safe = typeof value === 'number' ? value : 0;
@@ -162,7 +176,7 @@ const CATEGORY_CONFIG = {
 	    return str;
 	  };
 
-	  const getCategoryLabelForFilename = () => {
+		  const getCategoryLabelForFilename = () => {
 	    if (categoryKey && CATEGORY_CONFIG[categoryKey]) {
 	      return categoryKey
 	        .split('_')
@@ -177,41 +191,37 @@ const CATEGORY_CONFIG = {
 		  const handleExportClick = () => {
 	    if (!canExport) return;
 
+		    const businessDayColumns = dayColumns.filter((col) => col.isBusinessDay);
+
 	    const headers = [
 	      'Officer Name',
 	      'Officer Email',
 	      'Branch',
 	      'Region',
 	      'Repayment Rate (%)',
-		      `Amount ${dayLabels.amount5dAgo}`,
-		      `Amount ${dayLabels.amount4dAgo}`,
-		      `Amount ${dayLabels.amount3dAgo}`,
-		      `Amount ${dayLabels.amount2dAgo}`,
-		      `Amount ${dayLabels.amount1dAgo}`,
-		      `Amount ${dayLabels.today}`,
+		      ...businessDayColumns.map((col) => `Amount ${col.label}`),
 	      'Total Collected',
 	    ];
 
-	    const dataRows = rows.map((row) => {
+		    const dataRows = rows.map((row) => {
 	      const repaymentRateValue =
 	        typeof row.repaymentRate === 'number' && !Number.isNaN(row.repaymentRate)
 	          ? row.repaymentRate.toFixed(1)
 	          : '0.0';
 
-	      return [
-	        escapeCsvValue(row.officerName || 'Unknown officer'),
-	        escapeCsvValue(row.officerEmail || ''),
-	        escapeCsvValue(row.branch || ''),
-	        escapeCsvValue(row.region || ''),
-	        escapeCsvValue(repaymentRateValue),
-	        escapeCsvValue(row.amount5dAgo ?? 0),
-	        escapeCsvValue(row.amount4dAgo ?? 0),
-	        escapeCsvValue(row.amount3dAgo ?? 0),
-	        escapeCsvValue(row.amount2dAgo ?? 0),
-	        escapeCsvValue(row.amount1dAgo ?? 0),
-	        escapeCsvValue(row.amountToday ?? 0),
-	        escapeCsvValue(row.totalCollected ?? 0),
-	      ].join(',');
+		      const amountValues = businessDayColumns.map((col) =>
+		        escapeCsvValue(row[col.key] ?? 0),
+		      );
+
+		      return [
+		        escapeCsvValue(row.officerName || 'Unknown officer'),
+		        escapeCsvValue(row.officerEmail || ''),
+		        escapeCsvValue(row.branch || ''),
+		        escapeCsvValue(row.region || ''),
+		        escapeCsvValue(repaymentRateValue),
+		        ...amountValues,
+		        escapeCsvValue(row.totalCollected ?? 0),
+		      ].join(',');
 	    });
 
 	    const csvLines = [headers.join(','), ...dataRows];
@@ -335,12 +345,11 @@ const CATEGORY_CONFIG = {
                     <th>Branch</th>
                     <th>Region</th>
                     <th>Repayment Rate</th>
-	                    <th>{dayLabels.amount5dAgo}</th>
-	                    <th>{dayLabels.amount4dAgo}</th>
-	                    <th>{dayLabels.amount3dAgo}</th>
-	                    <th>{dayLabels.amount2dAgo}</th>
-	                    <th>{dayLabels.amount1dAgo}</th>
-	                    <th>{dayLabels.today}</th>
+			            {dayColumns
+			              .filter((col) => col.isBusinessDay)
+			              .map((col) => (
+			                <th key={col.key}>{col.label}</th>
+			              ))}
                     <th>Total Collected</th>
                   </tr>
                 </thead>
@@ -362,12 +371,11 @@ const CATEGORY_CONFIG = {
                       <td>{officer.branch}</td>
                       <td>{officer.region}</td>
                       <td>{formatPercent(officer.repaymentRate)}</td>
-                      <td>{formatCurrency(officer.amount5dAgo)}</td>
-                      <td>{formatCurrency(officer.amount4dAgo)}</td>
-                      <td>{formatCurrency(officer.amount3dAgo)}</td>
-                      <td>{formatCurrency(officer.amount2dAgo)}</td>
-                      <td>{formatCurrency(officer.amount1dAgo)}</td>
-                      <td>{formatCurrency(officer.amountToday)}</td>
+			            {dayColumns
+			              .filter((col) => col.isBusinessDay)
+			              .map((col) => (
+			                <td key={col.key}>{formatCurrency(officer[col.key])}</td>
+			              ))}
                       <td>{formatCurrency(officer.totalCollected)}</td>
                     </tr>
                   ))}
