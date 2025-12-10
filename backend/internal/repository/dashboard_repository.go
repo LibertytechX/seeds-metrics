@@ -3831,10 +3831,14 @@ func (r *DashboardRepository) GetAgentActivitySummary(filters map[string]interfa
 						WHERE r7.payment_date >= (CURRENT_DATE - INTERVAL '2 days')
 							AND r7.payment_date <= CURRENT_DATE
 					), 0) AS amount_last3,
-					COALESCE(COUNT(DISTINCT r7.payment_date) FILTER (
-						WHERE r7.payment_date >= (CURRENT_DATE - INTERVAL '6 days')
-							AND r7.payment_date <= CURRENT_DATE
-					), 0) AS days_with_collection_7d,
+							-- Count of distinct business days (Mon-Fri) with at least one collection
+							-- in the 7-calendar-day window. Weekends are excluded from this count but
+							-- their repayments are still included in total_7d/amount_first4/amount_last3.
+							COALESCE(COUNT(DISTINCT r7.payment_date) FILTER (
+								WHERE r7.payment_date >= (CURRENT_DATE - INTERVAL '6 days')
+									AND r7.payment_date <= CURRENT_DATE
+									AND EXTRACT(ISODOW FROM r7.payment_date) BETWEEN 1 AND 5
+							), 0) AS days_with_collection_7d,
 					COALESCE(COUNT(DISTINCT r7.payment_date) FILTER (
 						WHERE r7.payment_date = CURRENT_DATE
 					), 0) AS days_with_collection_today
@@ -3994,9 +3998,13 @@ func (r *DashboardRepository) GetAgentActivityDetail(filters map[string]interfac
 							WHERE r7.payment_date >= (CURRENT_DATE - INTERVAL '2 days')
 								AND r7.payment_date <= CURRENT_DATE
 						), 0) AS amount_last3,
+						-- Count of distinct business days (Mon-Fri) with at least one collection
+						-- in the 7-calendar-day window. Weekends are excluded from this count but
+						-- their repayments are still included in total_7d/amount_first4/amount_last3.
 						COALESCE(COUNT(DISTINCT r7.payment_date) FILTER (
 							WHERE r7.payment_date >= (CURRENT_DATE - INTERVAL '6 days')
 								AND r7.payment_date <= CURRENT_DATE
+								AND EXTRACT(ISODOW FROM r7.payment_date) BETWEEN 1 AND 5
 						), 0) AS days_with_collection_7d,
 						COALESCE(COUNT(DISTINCT r7.payment_date) FILTER (
 							WHERE r7.payment_date = CURRENT_DATE
@@ -4041,7 +4049,11 @@ func (r *DashboardRepository) GetAgentActivityDetail(filters map[string]interfac
 				oi.branch,
 				oi.region,
 				CASE
-					WHEN po.days_with_collection_7d > 0 THEN (po.days_with_collection_7d::float / 7.0) * 100.0
+							-- Repayment rate is based on business days only. There are always 5
+							-- business days in any 7-calendar-day window, so we divide by 5.0
+							-- instead of 7. Weekend repayments still contribute to total_7d and
+							-- the per-day amounts but do not increase the denominator.
+							WHEN po.days_with_collection_7d > 0 THEN (po.days_with_collection_7d::float / 5.0) * 100.0
 					ELSE 0
 				END AS repayment_rate,
 				po.amount_5d_ago,

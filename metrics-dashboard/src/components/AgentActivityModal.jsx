@@ -109,9 +109,31 @@ const CATEGORY_CONFIG = {
           ? raw.totalCollected
           : 0,
     }));
-  }, [data]);
+	  }, [data]);
 
-  const formatCurrency = (value) => {
+	  // Compute human-friendly day-of-week labels for the last 7 calendar days,
+	  // aligning with the backend's 7-day window. The amounts for "5/4/3/2/1 days
+	  // ago" correspond to specific offsets in that window, so we reuse the same
+	  // offsets here and show the weekday name instead of "N days ago".
+	  const dayLabels = useMemo(() => {
+	    const today = new Date();
+	    const labelForOffset = (offsetInDays) => {
+	      const d = new Date(today);
+	      d.setDate(d.getDate() - offsetInDays);
+	      return d.toLocaleDateString('en-NG', { weekday: 'short' });
+	    };
+
+	    return {
+	      amount5dAgo: labelForOffset(6),
+	      amount4dAgo: labelForOffset(5),
+	      amount3dAgo: labelForOffset(4),
+	      amount2dAgo: labelForOffset(3),
+	      amount1dAgo: labelForOffset(1),
+	      today: labelForOffset(0),
+	    };
+	  }, []);
+
+	  const formatCurrency = (value) => {
     const safe = typeof value === 'number' ? value : 0;
     return new Intl.NumberFormat('en-NG', {
       style: 'currency',
@@ -128,7 +150,7 @@ const CATEGORY_CONFIG = {
 
   if (!isOpen) return null;
 
-	  const hasRows = rows.length > 0;
+		  const hasRows = rows.length > 0;
 	  const canExport = hasRows && !loading && !error;
 
 	  const escapeCsvValue = (value) => {
@@ -152,7 +174,7 @@ const CATEGORY_CONFIG = {
 	    return cleaned || 'Agent_Activity_Detail';
 	  };
 
-	  const handleExportClick = () => {
+		  const handleExportClick = () => {
 	    if (!canExport) return;
 
 	    const headers = [
@@ -161,12 +183,12 @@ const CATEGORY_CONFIG = {
 	      'Branch',
 	      'Region',
 	      'Repayment Rate (%)',
-	      'Amount 5 Days Ago',
-	      'Amount 4 Days Ago',
-	      'Amount 3 Days Ago',
-	      'Amount 2 Days Ago',
-	      'Amount 1 Day Ago',
-	      'Amount Today',
+		      `Amount ${dayLabels.amount5dAgo}`,
+		      `Amount ${dayLabels.amount4dAgo}`,
+		      `Amount ${dayLabels.amount3dAgo}`,
+		      `Amount ${dayLabels.amount2dAgo}`,
+		      `Amount ${dayLabels.amount1dAgo}`,
+		      `Amount ${dayLabels.today}`,
 	      'Total Collected',
 	    ];
 
@@ -313,12 +335,12 @@ const CATEGORY_CONFIG = {
                     <th>Branch</th>
                     <th>Region</th>
                     <th>Repayment Rate</th>
-                    <th>5 Days Ago</th>
-                    <th>4 Days Ago</th>
-                    <th>3 Days Ago</th>
-                    <th>2 Days Ago</th>
-                    <th>1 Day Ago</th>
-                    <th>Collected Today</th>
+	                    <th>{dayLabels.amount5dAgo}</th>
+	                    <th>{dayLabels.amount4dAgo}</th>
+	                    <th>{dayLabels.amount3dAgo}</th>
+	                    <th>{dayLabels.amount2dAgo}</th>
+	                    <th>{dayLabels.amount1dAgo}</th>
+	                    <th>{dayLabels.today}</th>
                     <th>Total Collected</th>
                   </tr>
                 </thead>

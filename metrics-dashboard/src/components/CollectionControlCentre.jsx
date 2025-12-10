@@ -1094,7 +1094,7 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 		            <div>
 		              <h3 className="collections-daily-card-title">Daily Collections</h3>
 		              <p className="collections-daily-card-subtitle">
-		                Collections due vs collected over the last 7 days
+		                Collections collected by repayment type over the last 7 days
 		              </p>
 		            </div>
 		            <div className="collections-daily-metric">
@@ -1127,9 +1127,6 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 		                  />
 		                  <RechartsTooltip
 		                    formatter={(value, name) => {
-		                      if (name === 'Due') {
-		                        return [formatCurrency(value), 'Due (expected)'];
-		                      }
 		                      if (
 		                        name === 'AGENT_DEBIT' ||
 		                        name === 'TRANSFER' ||
@@ -1161,13 +1158,6 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 		                    }}
 		                  />
 		                  <Legend />
-		                  <Bar
-		                    dataKey="due_amount"
-		                    name="Due"
-		                    barSize={22}
-		                    fill="#ff9800"
-		                    radius={[4, 4, 0, 0]}
-		                  />
 		                  <Bar
 		                    dataKey="agent_debit_amount"
 		                    name="AGENT_DEBIT"
