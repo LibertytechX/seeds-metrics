@@ -1,0 +1,33 @@
+# Local working data / analysis artifacts
+.DS_Store
+
+# Spreadsheet and tabular exports
+*.xls
+*.xlsx
+*.csv
+*.tsv
+
+# PDF documents
+*.pdf
+
+# Text scratch files
+*.txt
+
+# Local Python helper scripts not intended for version control
+*.py
+
+# Local Python bytecode/cache
+__pycache__/
+
+# Excel lock/temporary files
+~$*
+
+# Local sheets directory for data exports
+sheets/
+
+# Local helper shell scripts for supervisor/officer syncs
+export_django_supervisor_officers.sh
+export_metrics_officers.sh
+sync_officer_names_from_django_to_metrics.sh
+sync_officer_regions_from_supervisor_csv.sh
+
