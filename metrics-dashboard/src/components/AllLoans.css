@@ -376,27 +376,15 @@
 
 /* Quiet Loans toggle styles */
 .quiet-loans-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+	display: flex;
+	align-items: center;
+	gap: 8px;
 }
 
-.quiet-toggle-text {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.quiet-toggle-title {
-  font-size: 14px;
-  font-weight: 500;
-  color: #333;
-}
-
-.quiet-toggle-helper {
-  font-size: 12px;
-  color: #666;
+.quiet-loans-label {
+	font-size: 14px;
+	font-weight: 500;
+	color: #333;
 }
 
 .toggle-switch {

@@ -1497,23 +1497,20 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                 min="0"
               />
             </div>
-	            <div className="filter-group quiet-loans-toggle">
-	              <div className="quiet-toggle-text">
-	                <span className="quiet-toggle-title">Quiet Loans</span>
-	                <span className="quiet-toggle-helper">6+ days since last repayment (or no repayments)</span>
-	              </div>
-	              <label
-	                className="toggle-switch"
-	                title="Show only loans with 6+ days since last repayment (or no repayments)"
-	              >
-	                <input
-	                  type="checkbox"
-	                  checked={filters.quiet_loans}
-	                  onChange={(e) => handleFilterChange('quiet_loans', e.target.checked)}
-	                />
-	                <span className="slider" />
-	              </label>
-	            </div>
+            <div className="filter-group quiet-loans-toggle">
+              <span className="quiet-loans-label">Quiet Loans</span>
+              <label
+                className="toggle-switch"
+                title="Show only loans with 6+ days since last repayment (or no repayments)"
+              >
+                <input
+                  type="checkbox"
+                  checked={filters.quiet_loans}
+                  onChange={(e) => handleFilterChange('quiet_loans', e.target.checked)}
+                />
+                <span className="slider" />
+              </label>
+            </div>
 	            <div className="filter-group">
 	              <button className="clear-filters" onClick={clearFilters}>Clear All</button>
 	            </div>
