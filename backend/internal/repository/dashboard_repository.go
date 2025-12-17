@@ -1302,6 +1302,14 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 		argCount++
 	}
 
+	// Quiet Loans filter: when enabled, restrict to loans with 6+ days since
+	// last repayment or with no repayments at all. This keeps summary metrics
+	// aligned with the All Loans table and exports when the Quiet Loans toggle
+	// is active.
+	if quietLoans, ok := filters["quiet_loans"].(bool); ok && quietLoans {
+		query += " AND (l.days_since_last_repayment >= 6 OR l.days_since_last_repayment IS NULL)"
+	}
+
 	// Behavior-based filters (active/inactive/overdue_15d, early/late ROT, risky delay)
 	// kept in sync with GetAllLoans so summary metrics match the table and exports.
 	if behaviorLoanType, ok := filters["behavior_loan_type"].(string); ok && behaviorLoanType != "" {
@@ -1617,6 +1625,12 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 		repaymentsArgCount++
 	}
 
+	// Quiet Loans filter for repayments aggregates so that "Collection Today"
+	// and related metrics reflect the same quiet-loan population as the table.
+	if quietLoans, ok := filters["quiet_loans"].(bool); ok && quietLoans {
+		repaymentsWhere += " AND (l.days_since_last_repayment >= 6 OR l.days_since_last_repayment IS NULL)"
+	}
+
 	// Overall total repayments in the period
 	repaymentsTotalQuery := `
 			SELECT COALESCE(SUM(r.payment_amount), 0) as total_repayments_today
@@ -1885,6 +1899,12 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 		repaymentsWhereYesterday += fmt.Sprintf(" AND l.current_dpd <= $%d", repaymentsYesterdayArgCount)
 		repaymentsYesterdayArgs = append(repaymentsYesterdayArgs, dpdMax)
 		repaymentsYesterdayArgCount++
+	}
+
+	// Apply Quiet Loans filter for yesterday's repayments as well so period
+	// comparisons remain consistent when the toggle is active.
+	if quietLoans, ok := filters["quiet_loans"].(bool); ok && quietLoans {
+		repaymentsWhereYesterday += " AND (l.days_since_last_repayment >= 6 OR l.days_since_last_repayment IS NULL)"
 	}
 
 	repaymentsYesterdayQuery := `
@@ -2175,6 +2195,12 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 		missedQuery += fmt.Sprintf(" AND l.current_dpd <= $%d", missedArgCount)
 		missedArgs = append(missedArgs, dpdMax)
 		missedArgCount++
+	}
+
+	// Quiet Loans filter for missed repayments so that "missed today" metrics
+	// are computed on the same quiet-loan subset as the table when enabled.
+	if quietLoans, ok := filters["quiet_loans"].(bool); ok && quietLoans {
+		missedQuery += " AND (l.days_since_last_repayment >= 6 OR l.days_since_last_repayment IS NULL)"
 	}
 
 	var missedAmountToday float64
@@ -2617,6 +2643,15 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 		countQuery += fmt.Sprintf(" AND l.current_dpd <= $%d", argCount)
 		args = append(args, dpdMax)
 		argCount++
+	}
+
+	// Quiet Loans filter: when enabled, restrict to loans with 6+ days since last
+	// repayment or with no repayments at all. This is kept in sync with
+	// GetLoansSummaryMetrics so that table rows, summary cards, and exports all
+	// reflect the same filtered population.
+	if quietLoans, ok := filters["quiet_loans"].(bool); ok && quietLoans {
+		query += " AND (l.days_since_last_repayment >= 6 OR l.days_since_last_repayment IS NULL)"
+		countQuery += " AND (l.days_since_last_repayment >= 6 OR l.days_since_last_repayment IS NULL)"
 	}
 
 	// Behavior-based filters that were previously applied only on the frontend
@@ -3067,6 +3102,119 @@ func (r *DashboardRepository) GetBranches(filters map[string]interface{}) ([]*mo
 	}
 
 	return branches, nil
+}
+
+// GetVerticalLeadMetrics retrieves aggregated loan metrics grouped by vertical
+// lead name for the Credit Health by Branch "By Vertical Lead" view.
+func (r *DashboardRepository) GetVerticalLeadMetrics(filters map[string]interface{}) ([]*models.VerticalLeadMetricsRow, error) {
+	query := `
+		SELECT
+			COALESCE(NULLIF(l.vertical_lead_name, ''), 'Unassigned Vertical Lead') AS vertical_lead_name,
+			COUNT(DISTINCT l.branch) AS branches,
+			COUNT(DISTINCT l.officer_id) AS active_los,
+			COUNT(*) AS loans,
+			COALESCE(SUM(l.total_outstanding), 0) AS outstanding,
+			COALESCE(AVG(l.current_dpd), 0) AS avg_dpd,
+			COALESCE(MAX(l.max_dpd_ever), 0) AS max_dpd,
+			COUNT(CASE WHEN l.current_dpd = 0 THEN 1 END) AS dpd0,
+			COUNT(CASE WHEN l.current_dpd BETWEEN 1 AND 6 THEN 1 END) AS dpd1_6,
+			COUNT(CASE WHEN l.current_dpd BETWEEN 7 AND 14 THEN 1 END) AS dpd7_14,
+			COUNT(CASE WHEN l.current_dpd BETWEEN 14 AND 21 THEN 1 END) AS dpd14_21,
+			COUNT(CASE WHEN l.current_dpd > 21 THEN 1 END) AS dpd21_plus,
+			COUNT(CASE WHEN COALESCE(l.days_since_last_repayment, 0) > 7 THEN 1 END) AS quiet,
+			COALESCE(SUM(CASE WHEN COALESCE(l.days_since_last_repayment, 0) > 7 THEN l.total_outstanding ELSE 0 END), 0) AS quiet_value
+		FROM loans l
+		WHERE 1=1
+	`
+
+	args := []interface{}{}
+	argCount := 1
+
+	// Optional filters (kept consistent with GetBranches where relevant)
+	if branch, ok := filters["branch"].(string); ok && branch != "" {
+		query += fmt.Sprintf(" AND l.branch = $%d", argCount)
+		args = append(args, branch)
+		argCount++
+	}
+
+	if region, ok := filters["region"].(string); ok && region != "" {
+		// Support comma-separated regions for multi-select
+		regions := strings.Split(region, ",")
+		if len(regions) == 1 {
+			query += fmt.Sprintf(" AND l.region = $%d", argCount)
+			args = append(args, regions[0])
+			argCount++
+		} else {
+			// Build IN clause for multiple regions
+			placeholders := []string{}
+			for _, r := range regions {
+				placeholders = append(placeholders, fmt.Sprintf("$%d", argCount))
+				args = append(args, strings.TrimSpace(r))
+				argCount++
+			}
+			query += fmt.Sprintf(" AND l.region IN (%s)", strings.Join(placeholders, ", "))
+		}
+	}
+
+	if channel, ok := filters["channel"].(string); ok && channel != "" {
+		query += fmt.Sprintf(" AND l.channel = $%d", argCount)
+		args = append(args, channel)
+		argCount++
+	}
+
+	if userType, ok := filters["user_type"].(string); ok && userType != "" {
+		query += fmt.Sprintf(" AND l.user_type = $%d", argCount)
+		args = append(args, userType)
+		argCount++
+	}
+
+	if wave, ok := filters["wave"].(string); ok && wave != "" {
+		query += fmt.Sprintf(" AND l.wave = $%d", argCount)
+		args = append(args, wave)
+		argCount++
+	}
+
+	query += `
+		GROUP BY vertical_lead_name
+		ORDER BY vertical_lead_name
+	`
+
+	rows, err := r.db.Query(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	results := []*models.VerticalLeadMetricsRow{}
+	for rows.Next() {
+		row := &models.VerticalLeadMetricsRow{}
+		if err := rows.Scan(
+			&row.VerticalLeadName,
+			&row.Branches,
+			&row.ActiveLOs,
+			&row.Loans,
+			&row.Outstanding,
+			&row.AvgDPD,
+			&row.MaxDPD,
+			&row.DPD0,
+			&row.DPD1to6,
+			&row.DPD7to14,
+			&row.DPD14to21,
+			&row.DPD21Plus,
+			&row.Quiet,
+			&row.QuietValue,
+		); err != nil {
+			return nil, err
+		}
+
+		results = append(results, row)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return results, nil
 }
 
 // GetBranchCollectionsLeaderboard returns per-branch collections metrics for the
@@ -4891,6 +5039,40 @@ func (r *DashboardRepository) getVerticalLeads() ([]string, error) {
 	}
 
 	return verticalLeads, nil
+}
+
+// GetVerticalLeadNames returns the distinct vertical lead names used on loans.
+//
+// It includes a synthetic "Unassigned Vertical Lead" bucket for loans where
+// vertical_lead_name is NULL or blank, so that these loans are still
+// represented in the UI.
+func (r *DashboardRepository) GetVerticalLeadNames() ([]string, error) {
+	query := `
+		SELECT DISTINCT
+			COALESCE(NULLIF(l.vertical_lead_name, ''), 'Unassigned Vertical Lead') AS vertical_lead_name
+		FROM loans l
+		ORDER BY vertical_lead_name`
+
+	rows, err := r.db.Query(query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch vertical lead names: %w", err)
+	}
+	defer rows.Close()
+
+	names := []string{}
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, fmt.Errorf("failed to scan vertical lead name: %w", err)
+		}
+		names = append(names, name)
+	}
+
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating vertical lead name rows: %w", err)
+	}
+
+	return names, nil
 }
 
 // getDjangoStatuses returns the distinct raw Django status values stored on loans.django_status

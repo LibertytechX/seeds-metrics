@@ -100,6 +100,37 @@ class ApiService {
     }
   }
 
+		  async fetchVerticalLeads() {
+		    try {
+		      const response = await fetch(`${API_BASE_URL}/vertical-leads/list`);
+		      const data = await response.json();
+
+		      if (data.status === 'success') {
+		        return data.data.vertical_leads || [];
+		      }
+		      throw new Error(data.message || 'Failed to fetch vertical leads');
+		    } catch (error) {
+		      console.error('Error fetching vertical leads:', error);
+		      throw error;
+		    }
+		  }
+
+		  async fetchVerticalLeadMetrics(params = {}) {
+		    try {
+		      const queryParams = new URLSearchParams(params);
+		      const response = await fetch(`${API_BASE_URL}/vertical-leads/metrics?${queryParams}`);
+		      const data = await response.json();
+
+		      if (data.status === 'success') {
+		        return data.data.vertical_leads || [];
+		      }
+		      throw new Error(data.message || 'Failed to fetch vertical lead metrics');
+		    } catch (error) {
+		      console.error('Error fetching vertical lead metrics:', error);
+		      throw error;
+		    }
+		  }
+
   async fetchTeamMembers() {
     try {
       const response = await fetch(`${API_BASE_URL}/team-members`);

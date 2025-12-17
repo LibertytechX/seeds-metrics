@@ -5,6 +5,30 @@
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
+/* Inner tabs for Credit Health view */
+.credit-health-tabs {
+  display: flex;
+  gap: 8px;
+  border-bottom: 1px solid #e2e8f0;
+  margin-bottom: 16px;
+}
+
+.credit-health-tab {
+  padding: 8px 16px;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  color: #64748b;
+  border-bottom: 2px solid transparent;
+}
+
+.credit-health-tab.active {
+  color: #3b82f6;
+  border-bottom-color: #3b82f6;
+}
+
 /* Header */
 .branch-header {
   display: flex;
@@ -255,6 +279,29 @@
 .branch-name {
   font-weight: 600;
   color: #1e293b;
+}
+
+/* Vertical Lead table styles */
+.vertical-lead-section {
+  margin-top: 8px;
+}
+
+.vertical-lead-table .vertical-lead-name {
+  font-weight: 600;
+}
+
+.vertical-lead-total-row {
+  background: #f9fafb;
+  font-weight: 600;
+}
+
+.vertical-lead-total-row td {
+  border-top: 2px solid #e2e8f0;
+}
+
+.vertical-lead-table .status-cell {
+  text-align: center;
+  white-space: nowrap;
 }
 
 .amount {

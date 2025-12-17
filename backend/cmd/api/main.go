@@ -183,6 +183,13 @@ func setupRouter(cfg *config.Config, etlHandler *handlers.ETLHandler, customerHa
 			branches.GET("", dashboardHandler.GetBranches)
 		}
 
+		// Vertical lead endpoints
+		verticalLeads := v1.Group("/vertical-leads")
+		{
+			verticalLeads.GET("/list", dashboardHandler.GetVerticalLeadsList)
+			verticalLeads.GET("/metrics", dashboardHandler.GetVerticalLeadMetrics)
+		}
+
 		// Loans endpoints
 		loans := v1.Group("/loans")
 		{

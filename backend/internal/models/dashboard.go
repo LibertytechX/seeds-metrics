@@ -203,6 +203,25 @@ type DashboardBranchMetrics struct {
 	AvgRepaymentDelayRate float64 `json:"avg_repayment_delay_rate"`
 }
 
+// VerticalLeadMetricsRow represents aggregated loan metrics per vertical lead
+// for the Credit Health by Branch "By Vertical Lead" view.
+type VerticalLeadMetricsRow struct {
+	VerticalLeadName string  `json:"vertical_lead_name"`
+	Branches         int     `json:"branches"`
+	ActiveLOs        int     `json:"active_los"`
+	Loans            int     `json:"loans"`
+	Outstanding      float64 `json:"outstanding"`
+	AvgDPD           float64 `json:"avg_dpd"`
+	MaxDPD           int     `json:"max_dpd"`
+	DPD0             int     `json:"dpd0"`
+	DPD1to6          int     `json:"dpd1_6"`
+	DPD7to14         int     `json:"dpd7_14"`
+	DPD14to21        int     `json:"dpd14_21"`
+	DPD21Plus        int     `json:"dpd21_plus"`
+	Quiet            int     `json:"quiet"`
+	QuietValue       float64 `json:"quiet_value"`
+}
+
 // BranchCollectionsLeaderboardRow represents per-branch collections metrics for the
 // Collections Control Centre "Branch Leaderboard" table.
 type BranchCollectionsLeaderboardRow struct {

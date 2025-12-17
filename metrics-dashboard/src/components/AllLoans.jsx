@@ -31,6 +31,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     dpd_max: '', // DPD maximum value
     django_loan_types: [], // Multi-select loan types from Django (AJO, BNPL, PROSPER, DMO)
     django_verification_statuses: [], // Multi-select verification statuses from Django
+	    quiet_loans: false, // Toggle to show only quiet loans (6+ days since last repayment or no repayments)
   });
   const [allBranches, setAllBranches] = useState([]);
   const [allRegions, setAllRegions] = useState([]);
@@ -213,22 +214,23 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
 
 	    	  // Exclude loan_type, rot_type, delay_type, regions, statuses, performance_statuses, django_loan_types, django_verification_statuses, django_statuses, and vertical_lead_email from API params (will handle arrays separately)
       // Include customer_phone and DPD filters for server-side filtering
-      const apiFilters = Object.fromEntries(
-        Object.entries(filters)
-	          .filter(([k, v]) =>
-	            v !== '' &&
-	            k !== 'loan_type' &&
-	            k !== 'rot_type' &&
-	            k !== 'delay_type' &&
-	            k !== 'regions' &&
-	            k !== 'statuses' &&
-	            k !== 'performance_statuses' &&
-	            k !== 'django_loan_types' &&
-	            k !== 'django_verification_statuses' &&
-	    		        k !== 'django_statuses' &&
-	    		        k !== 'vertical_lead_email'
-	          )
-      );
+	      const apiFilters = Object.fromEntries(
+	        Object.entries(filters)
+		          .filter(([k, v]) =>
+		            v !== '' &&
+		            k !== 'loan_type' &&
+		            k !== 'rot_type' &&
+		            k !== 'delay_type' &&
+		            k !== 'regions' &&
+		            k !== 'statuses' &&
+		            k !== 'performance_statuses' &&
+		            k !== 'django_loan_types' &&
+		            k !== 'django_verification_statuses' &&
+				        k !== 'django_statuses' &&
+				        k !== 'vertical_lead_email' &&
+				        k !== 'quiet_loans'
+		          )
+	      );
 
       // Add django_loan_types as loan_type for API (comma-separated)
       if (filters.django_loan_types && filters.django_loan_types.length > 0) {
@@ -250,6 +252,13 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       if (filters.delay_type) {
         apiFilters.delay_type = filters.delay_type;
       }
+
+	      // Quiet Loans toggle: when true, include quiet_loans=true so backend
+	      // restricts to loans with 6+ days since last repayment (or no
+	      // repayments).
+	      if (filters.quiet_loans) {
+	        apiFilters.quiet_loans = 'true';
+	      }
 
       // Convert regions array to comma-separated string
       if (filters.regions && filters.regions.length > 0) {
@@ -351,25 +360,26 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
   useEffect(() => {
     if (initialFilter) {
       console.log('🔄 AllLoans: initialFilter changed:', initialFilter);
-      setFilters({
-        officer_id: initialFilter.officer_id || '',
-        branch: '',
-        regions: [],
-        wave: '',
-        channel: '',
-        statuses: [],
-        performance_statuses: [],
-	        django_statuses: [],
-	        customer_phone: '',
-	        vertical_lead_email: [],
-	        loan_type: initialFilter.loan_type || '',
-        rot_type: initialFilter.rot_type || '',
-        delay_type: initialFilter.delay_type || '',
-        dpd_min: '',
-        dpd_max: '',
-        django_loan_types: [],
-        django_verification_statuses: [],
-      });
+	      setFilters({
+	        officer_id: initialFilter.officer_id || '',
+	        branch: '',
+	        regions: [],
+	        wave: '',
+	        channel: '',
+	        statuses: [],
+	        performance_statuses: [],
+		        django_statuses: [],
+		        customer_phone: '',
+		        vertical_lead_email: [],
+		        loan_type: initialFilter.loan_type || '',
+	        rot_type: initialFilter.rot_type || '',
+	        delay_type: initialFilter.delay_type || '',
+	        dpd_min: '',
+	        dpd_max: '',
+	        django_loan_types: [],
+	        django_verification_statuses: [],
+	        quiet_loans: false,
+	      });
       setFilterLabel(
         initialFilter.officer_name ? `Officer: ${initialFilter.officer_name}` :
         initialFilter.label ? initialFilter.label : ''
@@ -497,6 +507,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       dpd_max: '',
       django_loan_types: [],
       django_verification_statuses: [],
+	      quiet_loans: false,
     });
     setFilterLabel('');
   };
@@ -597,21 +608,22 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     try {
       console.log('🔍 Exporting all filtered loans. Total count:', totalCount);
 
-	      // Prepare API filters (same logic as fetchLoans)
-	      const apiFilters = Object.fromEntries(
-	        Object.entries(filters).filter(([k, v]) =>
-	          v !== '' &&
-	          k !== 'loan_type' &&
-	          k !== 'rot_type' &&
-	          k !== 'delay_type' &&
-	          k !== 'regions' &&
-	          k !== 'statuses' &&
-	          k !== 'performance_statuses' &&
-	          k !== 'django_loan_types' &&
-	          k !== 'django_verification_statuses' &&
-	          k !== 'django_statuses'
-	        )
-	      );
+		      // Prepare API filters (same logic as fetchLoans)
+		      const apiFilters = Object.fromEntries(
+		        Object.entries(filters).filter(([k, v]) =>
+		          v !== '' &&
+		          k !== 'loan_type' &&
+		          k !== 'rot_type' &&
+		          k !== 'delay_type' &&
+		          k !== 'regions' &&
+		          k !== 'statuses' &&
+		          k !== 'performance_statuses' &&
+		          k !== 'django_loan_types' &&
+		          k !== 'django_verification_statuses' &&
+		          k !== 'django_statuses' &&
+		          k !== 'quiet_loans'
+		        )
+		      );
 
       // Convert regions array to comma-separated string
       if (filters.regions && filters.regions.length > 0) {
@@ -653,6 +665,12 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       if (filters.delay_type) {
         apiFilters.delay_type = filters.delay_type;
       }
+
+	      // Quiet Loans toggle for export as well so CSV matches on-screen table
+	      // when the filter is active.
+	      if (filters.quiet_loans) {
+	        apiFilters.quiet_loans = 'true';
+	      }
 
       const params = new URLSearchParams({
         page: 1,
@@ -852,8 +870,9 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
 	    (filters.statuses && filters.statuses.length > 0) ? 'statuses' : '',
 	    (filters.performance_statuses && filters.performance_statuses.length > 0) ? 'performance_statuses' : '',
 		    (filters.django_statuses && filters.django_statuses.length > 0) ? 'django_statuses' : '',
-	    (filters.django_loan_types && filters.django_loan_types.length > 0) ? 'django_loan_types' : '',
-	    (filters.django_verification_statuses && filters.django_verification_statuses.length > 0) ? 'django_verification_statuses' : '',
+		    (filters.django_loan_types && filters.django_loan_types.length > 0) ? 'django_loan_types' : '',
+		    (filters.django_verification_statuses && filters.django_verification_statuses.length > 0) ? 'django_verification_statuses' : '',
+		    filters.quiet_loans ? 'quiet_loans' : '',
 	  ].filter(Boolean).length;
 
   const handleViewRepayments = (loan) => {
@@ -1478,9 +1497,26 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                 min="0"
               />
             </div>
-            <div className="filter-group">
-              <button className="clear-filters" onClick={clearFilters}>Clear All</button>
-            </div>
+	            <div className="filter-group quiet-loans-toggle">
+	              <div className="quiet-toggle-text">
+	                <span className="quiet-toggle-title">Quiet Loans</span>
+	                <span className="quiet-toggle-helper">6+ days since last repayment (or no repayments)</span>
+	              </div>
+	              <label
+	                className="toggle-switch"
+	                title="Show only loans with 6+ days since last repayment (or no repayments)"
+	              >
+	                <input
+	                  type="checkbox"
+	                  checked={filters.quiet_loans}
+	                  onChange={(e) => handleFilterChange('quiet_loans', e.target.checked)}
+	                />
+	                <span className="slider" />
+	              </label>
+	            </div>
+	            <div className="filter-group">
+	              <button className="clear-filters" onClick={clearFilters}>Clear All</button>
+	            </div>
           </div>
         </div>
       )}

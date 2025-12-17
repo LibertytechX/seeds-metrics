@@ -486,6 +486,7 @@ func (h *DashboardHandler) GetEarlyIndicatorSummary(c *gin.Context) {
 // @Param channel query string false "Filter by channel"
 // @Param status query string false "Filter by normalized status"
 // @Param django_status query string false "Filter by raw Django status (comma-separated list; use __MISSING__ for missing)"
+// @Param quiet_loans query bool false "When true, only loans with 6+ days since last repayment or no repayments"
 // @Param customer_phone query string false "Filter by customer phone (partial match)"
 // @Param sort_by query string false "Sort field"
 // @Param sort_dir query string false "Sort direction (asc/desc)"
@@ -558,6 +559,14 @@ func (h *DashboardHandler) GetAllLoans(c *gin.Context) {
 	if dpdMax := c.Query("dpd_max"); dpdMax != "" {
 		if max, err := strconv.Atoi(dpdMax); err == nil {
 			filters["dpd_max"] = max
+		}
+	}
+	// Quiet Loans toggle: when true, restrict to loans with 6+ days since last
+	// repayment or no repayments recorded.
+	if quietLoans := c.Query("quiet_loans"); quietLoans != "" {
+		normalized := strings.ToLower(strings.TrimSpace(quietLoans))
+		if normalized == "true" || normalized == "1" {
+			filters["quiet_loans"] = true
 		}
 	}
 	if sortBy := c.Query("sort_by"); sortBy != "" {
@@ -1095,6 +1104,87 @@ func (h *DashboardHandler) GetBranches(c *gin.Context) {
 				"total_overdue_15d": totalOverdue15d,
 				"avg_par15_ratio":   avgPar15,
 			},
+		},
+	})
+}
+
+// GetVerticalLeadMetrics handles GET /api/v1/vertical-leads/metrics
+// @Summary Get aggregated vertical lead metrics
+// @Description Get aggregated loan metrics grouped by vertical lead name for the Credit Health by Branch "By Vertical Lead" view
+// @Tags VerticalLeads
+// @Accept json
+// @Produce json
+// @Param branch query string false "Filter by branch"
+// @Param region query string false "Filter by region"
+// @Param channel query string false "Filter by channel"
+// @Param user_type query string false "Filter by user type"
+// @Param wave query string false "Filter by wave"
+// @Success 200 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
+// @Router /vertical-leads/metrics [get]
+func (h *DashboardHandler) GetVerticalLeadMetrics(c *gin.Context) {
+	filters := make(map[string]interface{})
+
+	if branch := c.Query("branch"); branch != "" {
+		filters["branch"] = branch
+	}
+	if region := c.Query("region"); region != "" {
+		filters["region"] = region
+	}
+	if channel := c.Query("channel"); channel != "" {
+		filters["channel"] = channel
+	}
+	if userType := c.Query("user_type"); userType != "" {
+		filters["user_type"] = userType
+	}
+	if wave := c.Query("wave"); wave != "" {
+		filters["wave"] = wave
+	}
+
+	metrics, err := h.dashboardRepo.GetVerticalLeadMetrics(filters)
+	if err != nil {
+		log.Printf("failed to retrieve vertical lead metrics: %v", err)
+		c.JSON(http.StatusInternalServerError, models.APIResponse{
+			Status:  "error",
+			Message: "Failed to retrieve vertical lead metrics",
+			Error:   newAPIError("INTERNAL_ERROR", err.Error()),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.APIResponse{
+		Status: "success",
+		Data: map[string]interface{}{
+			"vertical_leads": metrics,
+		},
+	})
+}
+
+// GetVerticalLeadsList handles GET /api/v1/vertical-leads/list
+// @Summary Get list of vertical leads
+// @Description Get distinct vertical lead names from loans, including unassigned loans
+// @Tags VerticalLeads
+// @Accept json
+// @Produce json
+// @Success 200 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
+// @Router /vertical-leads/list [get]
+func (h *DashboardHandler) GetVerticalLeadsList(c *gin.Context) {
+	verticalLeads, err := h.dashboardRepo.GetVerticalLeadNames()
+	if err != nil {
+		log.Printf("failed to retrieve vertical leads: %v", err)
+		c.JSON(http.StatusInternalServerError, models.APIResponse{
+			Status:  "error",
+			Message: "Failed to retrieve vertical leads",
+			Error:   newAPIError("INTERNAL_ERROR", err.Error()),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.APIResponse{
+		Status: "success",
+		Data: map[string]interface{}{
+			"vertical_leads": verticalLeads,
 		},
 	})
 }
