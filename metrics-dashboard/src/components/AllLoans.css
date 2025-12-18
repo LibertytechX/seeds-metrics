@@ -375,8 +375,9 @@
 }
 
 /* Quiet Loans toggle styles */
-.quiet-loans-toggle {
+.filter-panel .filter-group.quiet-loans-toggle {
   display: flex;
+  flex-direction: row;
   align-items: center;
   justify-content: space-between;
   gap: 8px;
