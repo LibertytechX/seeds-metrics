@@ -212,6 +212,7 @@ type VerticalLeadMetricsRow struct {
 	ActiveLOs         int     `json:"active_los"`
 	Loans             int     `json:"loans"`
 	Outstanding       float64 `json:"outstanding"`
+	DailyTarget       float64 `json:"daily_target"`
 	AvgDPD            float64 `json:"avg_dpd"`
 	MaxDPD            int     `json:"max_dpd"`
 	DPD0              int     `json:"dpd0"`

@@ -237,23 +237,25 @@ const VERTICAL_LEAD_SUMMARY = [
 ];
 
 // Dummy metrics template for each vertical lead row (other than TOTAL).
+// NOTE: Only riskScore and status are currently used; other fields now
+// come from live backend metrics.
 const VERTICAL_LEAD_DUMMY_METRICS = {
-  branches: 4,
-  activeLOs: 10,
-  loans: 50,
-  outstanding: '₦10,126,941',
-  dailyTarget: '₦250,031',
-  avgDPD: 6.8,
-  maxDPD: 27,
-  dpd0: 30,
-  dpd1_6: 20,
-  dpd7_14: 15,
-  dpd14_21: 5,
-  dpd21_plus: 2,
-  quiet: 4,
-  quietValue: '₦1,396,400',
-  riskScore: 25,
-  status: '🟢 OK',
+	branches: 4,
+	activeLOs: 10,
+	loans: 50,
+	outstanding: '₦10,126,941',
+	dailyTarget: '₦250,031',
+	avgDPD: 6.8,
+	maxDPD: 27,
+	dpd0: 30,
+	dpd1_6: 20,
+	dpd7_14: 15,
+	dpd14_21: 5,
+	dpd21_plus: 2,
+	quiet: 4,
+	quietValue: '₦1,396,400',
+	riskScore: 25,
+	status: '🟢 OK',
 };
 
 // Dummy TOTAL row with aggregated placeholder values.
@@ -438,9 +440,10 @@ const CreditHealthByBranch = ({ branches: initialBranches, onFilterChange }) => 
 
 		    let totalBranches = 0;
 		    let totalActiveLOs = 0;
-		    let totalLoans = 0;
-		    let totalOutstanding = 0;
-		    let totalDPD0 = 0;
+			let totalLoans = 0;
+			let totalOutstanding = 0;
+			let totalDailyTarget = 0;
+			let totalDPD0 = 0;
 		    let totalDPD1to6 = 0;
 		    let totalDPD7to14 = 0;
 		    let totalDPD14to21 = 0;
@@ -455,9 +458,10 @@ const CreditHealthByBranch = ({ branches: initialBranches, onFilterChange }) => 
 
 		      totalBranches += row.branches || 0;
 		      totalActiveLOs += row.active_los || 0;
-		      totalLoans += loans;
-		      totalOutstanding += row.outstanding || 0;
-		      totalDPD0 += row.dpd0 || 0;
+				totalLoans += loans;
+				totalOutstanding += row.outstanding || 0;
+				totalDailyTarget += row.daily_target || 0;
+				totalDPD0 += row.dpd0 || 0;
 		      totalDPD1to6 += row.dpd1_6 || 0;
 		      totalDPD7to14 += row.dpd7_14 || 0;
 		      totalDPD14to21 += row.dpd14_21 || 0;
@@ -471,9 +475,10 @@ const CreditHealthByBranch = ({ branches: initialBranches, onFilterChange }) => 
 		        email: row.vertical_lead_email || '',
 		        branches: row.branches || 0,
 		        activeLOs: row.active_los || 0,
-		        loans,
-		        outstanding: row.outstanding || 0,
-		        avgDPD: avgDpd,
+					loans,
+					outstanding: row.outstanding || 0,
+						dailyTarget: row.daily_target || 0,
+						avgDPD: avgDpd,
 		        maxDPD: row.max_dpd || 0,
 		        dpd0: row.dpd0 || 0,
 		        dpd1_6: row.dpd1_6 || 0,
@@ -481,11 +486,9 @@ const CreditHealthByBranch = ({ branches: initialBranches, onFilterChange }) => 
 		        dpd14_21: row.dpd14_21 || 0,
 		        dpd21_plus: row.dpd21_plus || 0,
 		        quiet: row.quiet || 0,
-		        quietValue: row.quiet_value || 0,
-		        // Business fields still dummy for now
-		        dailyTarget: VERTICAL_LEAD_DUMMY_METRICS.dailyTarget,
-		        riskScore: VERTICAL_LEAD_DUMMY_METRICS.riskScore,
-		        status: VERTICAL_LEAD_DUMMY_METRICS.status,
+			        quietValue: row.quiet_value || 0,
+			        riskScore: VERTICAL_LEAD_DUMMY_METRICS.riskScore,
+			        status: VERTICAL_LEAD_DUMMY_METRICS.status,
 		      };
 		    });
 
@@ -501,8 +504,9 @@ const CreditHealthByBranch = ({ branches: initialBranches, onFilterChange }) => 
 		      branches: totalBranches,
 		      activeLOs: totalActiveLOs,
 		      loans: totalLoans,
-		      outstanding: totalOutstanding,
-		      avgDPD: totalAvgDPD,
+					outstanding: totalOutstanding,
+					dailyTarget: totalDailyTarget,
+					avgDPD: totalAvgDPD,
 		      maxDPD: rows.reduce((max, r) => (r.maxDPD > max ? r.maxDPD : max), 0),
 		      dpd0: totalDPD0,
 		      dpd1_6: totalDPD1to6,
@@ -510,11 +514,9 @@ const CreditHealthByBranch = ({ branches: initialBranches, onFilterChange }) => 
 		      dpd14_21: totalDPD14to21,
 		      dpd21_plus: totalDPD21Plus,
 		      quiet: totalQuiet,
-		      quietValue: totalQuietValue,
-		      // Keep business fields dummy for now on the TOTAL row as well
-		      dailyTarget: VERTICAL_LEAD_TOTAL_ROW.dailyTarget,
-		      riskScore: VERTICAL_LEAD_TOTAL_ROW.riskScore,
-		      status: VERTICAL_LEAD_TOTAL_ROW.status,
+			      quietValue: totalQuietValue,
+			      riskScore: VERTICAL_LEAD_TOTAL_ROW.riskScore,
+			      status: VERTICAL_LEAD_TOTAL_ROW.status,
 		      isTotal: true,
 		    };
 
@@ -828,9 +830,9 @@ const CreditHealthByBranch = ({ branches: initialBranches, onFilterChange }) => 
 		                  <td className="vertical-lead-email">{lead.email}</td>
 		                      <td className="count">{lead.branches}</td>
 		                      <td className="count">{lead.activeLOs}</td>
-		                      <td className="count">{lead.loans}</td>
-		                      <td className="amount">{formatCurrency(lead.outstanding)}</td>
-		                      <td className="amount">{lead.dailyTarget}</td>
+				              <td className="count">{lead.loans}</td>
+				              <td className="amount">{formatCurrency(lead.outstanding)}</td>
+				              <td className="amount">{formatCurrency(lead.dailyTarget)}</td>
 		                      <td className="metric">{formatDecimal(lead.avgDPD, 1)}</td>
 		                      <td className="metric">{lead.maxDPD}</td>
 		                      <td className="count">{lead.dpd0}</td>
