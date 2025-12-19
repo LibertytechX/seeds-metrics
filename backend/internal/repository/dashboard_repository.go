@@ -4002,10 +4002,10 @@ func (r *DashboardRepository) GetAgentActivitySummary(filters map[string]interfa
 						AND amount_last3 > 0
 						AND amount_last3 < 0.3 * amount_first4
 				), 0) AS severe_decline_count,
-				COALESCE(COUNT(*) FILTER (
-					WHERE days_with_collection_7d >= 5
-						AND days_with_collection_today = 0
-				), 0) AS not_yet_started_today_count,
+					COALESCE(COUNT(*) FILTER (
+						WHERE days_with_collection_7d > 0
+							AND days_with_collection_today = 0
+					), 0) AS not_yet_started_today_count,
 				COALESCE(COUNT(*) FILTER (
 					WHERE amount_first4 > 0
 						AND amount_last3 > 1.5 * amount_first4
@@ -4228,7 +4228,7 @@ func (r *DashboardRepository) GetAgentActivityDetail(filters map[string]interfac
 	case "severe_decline":
 		query += " WHERE po.amount_first4 > 0 AND po.amount_last3 > 0 AND po.amount_last3 < 0.3 * po.amount_first4"
 	case "not_yet_started_today":
-		query += " WHERE po.days_with_collection_7d >= 5 AND po.days_with_collection_today = 0"
+		query += " WHERE po.days_with_collection_7d > 0 AND po.days_with_collection_today = 0"
 	case "strong_growth":
 		query += " WHERE po.amount_first4 > 0 AND po.amount_last3 > 1.5 * po.amount_first4"
 	case "started_today":
