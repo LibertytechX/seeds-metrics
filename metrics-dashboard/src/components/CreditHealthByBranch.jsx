@@ -280,9 +280,9 @@ const VERTICAL_LEAD_TOTAL_ROW = {
   isTotal: true,
 };
 
-const CreditHealthByBranch = ({ branches: initialBranches, onFilterChange }) => {
-  const [sortConfig, setSortConfig] = useState({ key: 'branch', direction: 'asc' });
-  const [activeView, setActiveView] = useState('branch'); // 'branch' | 'verticalLead'
+	const CreditHealthByBranch = ({ branches: initialBranches, onFilterChange }) => {
+	  const [sortConfig, setSortConfig] = useState({ key: 'branch', direction: 'asc' });
+	  const [activeView, setActiveView] = useState('verticalLead'); // 'branch' | 'verticalLead'
   const [filters, setFilters] = useState({
     branch: '',
     region: '',
@@ -617,20 +617,20 @@ const CreditHealthByBranch = ({ branches: initialBranches, onFilterChange }) => 
   return (
     <div className="credit-health-branch">
       <div className="credit-health-tabs">
-        <button
-          type="button"
-          className={`credit-health-tab ${activeView === 'branch' ? 'active' : ''}`}
-          onClick={() => setActiveView('branch')}
-        >
-          By Branch
-        </button>
-        <button
-          type="button"
-          className={`credit-health-tab ${activeView === 'verticalLead' ? 'active' : ''}`}
-          onClick={() => setActiveView('verticalLead')}
-        >
-          By Vertical Lead
-        </button>
+	        <button
+	          type="button"
+	          className={`credit-health-tab ${activeView === 'verticalLead' ? 'active' : ''}`}
+	          onClick={() => setActiveView('verticalLead')}
+	        >
+	          By Vertical Lead
+	        </button>
+	        <button
+	          type="button"
+	          className={`credit-health-tab ${activeView === 'branch' ? 'active' : ''}`}
+	          onClick={() => setActiveView('branch')}
+	        >
+	          By Branch
+	        </button>
       </div>
 
       {activeView === 'branch' && (
