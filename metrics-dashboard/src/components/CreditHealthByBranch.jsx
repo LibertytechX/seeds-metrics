@@ -438,90 +438,96 @@ const VERTICAL_LEAD_TOTAL_ROW = {
 		      return [];
 		    }
 
-		    let totalBranches = 0;
-		    let totalActiveLOs = 0;
-			let totalLoans = 0;
-			let totalOutstanding = 0;
-			let totalDailyTarget = 0;
-			let totalDPD0 = 0;
-		    let totalDPD1to6 = 0;
-		    let totalDPD7to14 = 0;
-		    let totalDPD14to21 = 0;
-		    let totalDPD21Plus = 0;
-		    let totalQuiet = 0;
-		    let totalQuietValue = 0;
-		    let weightedDpdSum = 0;
+			    let totalBranches = 0;
+			    let totalActiveLOs = 0;
+				let totalLoans = 0;
+				let totalOutstanding = 0;
+				let totalDailyTarget = 0;
+				let totalDPD0 = 0;
+			    let totalDPD1to6 = 0;
+			    let totalDPD7to14 = 0;
+			    let totalDPD14to21 = 0;
+			    let totalDPD21Plus = 0;
+			    let totalQuiet = 0;
+			    let totalQuietValue = 0;
+			    let weightedDpdSum = 0;
 
-		    const rows = (verticalLeadMetrics || []).map((row) => {
-		      const loans = row.loans || 0;
-		      const avgDpd = row.avg_dpd || 0;
+			    const rows = (verticalLeadMetrics || []).map((row) => {
+			      const loans = row.loans || 0;
+			      const avgDpd = row.avg_dpd || 0;
+			      const outstanding = row.outstanding || 0;
+			      const quietValue = row.quiet_value || 0;
+			      const quietPercent = outstanding > 0 ? quietValue / outstanding : 0;
 
-		      totalBranches += row.branches || 0;
-		      totalActiveLOs += row.active_los || 0;
-				totalLoans += loans;
-				totalOutstanding += row.outstanding || 0;
-				totalDailyTarget += row.daily_target || 0;
-				totalDPD0 += row.dpd0 || 0;
-		      totalDPD1to6 += row.dpd1_6 || 0;
-		      totalDPD7to14 += row.dpd7_14 || 0;
-		      totalDPD14to21 += row.dpd14_21 || 0;
-		      totalDPD21Plus += row.dpd21_plus || 0;
-		      totalQuiet += row.quiet || 0;
-		      totalQuietValue += row.quiet_value || 0;
-		      weightedDpdSum += avgDpd * loans;
+			      totalBranches += row.branches || 0;
+			      totalActiveLOs += row.active_los || 0;
+					totalLoans += loans;
+					totalOutstanding += outstanding;
+					totalDailyTarget += row.daily_target || 0;
+					totalDPD0 += row.dpd0 || 0;
+			      totalDPD1to6 += row.dpd1_6 || 0;
+			      totalDPD7to14 += row.dpd7_14 || 0;
+			      totalDPD14to21 += row.dpd14_21 || 0;
+			      totalDPD21Plus += row.dpd21_plus || 0;
+			      totalQuiet += row.quiet || 0;
+			      totalQuietValue += quietValue;
+			      weightedDpdSum += avgDpd * loans;
 
-		      return {
-		        name: row.vertical_lead_name || 'Unassigned Vertical Lead',
-		        email: row.vertical_lead_email || '',
-		        branches: row.branches || 0,
-		        activeLOs: row.active_los || 0,
-					loans,
-					outstanding: row.outstanding || 0,
-						dailyTarget: row.daily_target || 0,
-						avgDPD: avgDpd,
-		        maxDPD: row.max_dpd || 0,
-		        dpd0: row.dpd0 || 0,
-		        dpd1_6: row.dpd1_6 || 0,
-		        dpd7_14: row.dpd7_14 || 0,
-		        dpd14_21: row.dpd14_21 || 0,
-		        dpd21_plus: row.dpd21_plus || 0,
-		        quiet: row.quiet || 0,
-			        quietValue: row.quiet_value || 0,
-			        riskScore: VERTICAL_LEAD_DUMMY_METRICS.riskScore,
-			        status: VERTICAL_LEAD_DUMMY_METRICS.status,
-		      };
-		    });
+			      return {
+			        name: row.vertical_lead_name || 'Unassigned Vertical Lead',
+			        email: row.vertical_lead_email || '',
+			        branches: row.branches || 0,
+			        activeLOs: row.active_los || 0,
+							loans,
+							outstanding,
+								dailyTarget: row.daily_target || 0,
+								avgDPD: avgDpd,
+			        maxDPD: row.max_dpd || 0,
+			        dpd0: row.dpd0 || 0,
+			        dpd1_6: row.dpd1_6 || 0,
+			        dpd7_14: row.dpd7_14 || 0,
+			        dpd14_21: row.dpd14_21 || 0,
+			        dpd21_plus: row.dpd21_plus || 0,
+			        quiet: row.quiet || 0,
+								quietValue,
+								quietPercent,
+								riskScore: VERTICAL_LEAD_DUMMY_METRICS.riskScore,
+								status: VERTICAL_LEAD_DUMMY_METRICS.status,
+			      };
+			    });
 
-		    if (rows.length === 0) {
-		      return rows;
-		    }
+			    if (rows.length === 0) {
+			      return rows;
+			    }
 
-		    const totalAvgDPD = totalLoans > 0 ? weightedDpdSum / totalLoans : 0;
+			    const totalAvgDPD = totalLoans > 0 ? weightedDpdSum / totalLoans : 0;
+			    const totalQuietPercent = totalOutstanding > 0 ? totalQuietValue / totalOutstanding : 0;
 
-		    const totalRow = {
-		      name: 'TOTAL',
-		      email: '',
-		      branches: totalBranches,
-		      activeLOs: totalActiveLOs,
-		      loans: totalLoans,
-					outstanding: totalOutstanding,
-					dailyTarget: totalDailyTarget,
-					avgDPD: totalAvgDPD,
-		      maxDPD: rows.reduce((max, r) => (r.maxDPD > max ? r.maxDPD : max), 0),
-		      dpd0: totalDPD0,
-		      dpd1_6: totalDPD1to6,
-		      dpd7_14: totalDPD7to14,
-		      dpd14_21: totalDPD14to21,
-		      dpd21_plus: totalDPD21Plus,
-		      quiet: totalQuiet,
-			      quietValue: totalQuietValue,
-			      riskScore: VERTICAL_LEAD_TOTAL_ROW.riskScore,
-			      status: VERTICAL_LEAD_TOTAL_ROW.status,
-		      isTotal: true,
-		    };
+			    const totalRow = {
+			      name: 'TOTAL',
+			      email: '',
+			      branches: totalBranches,
+			      activeLOs: totalActiveLOs,
+			      loans: totalLoans,
+						outstanding: totalOutstanding,
+						dailyTarget: totalDailyTarget,
+						avgDPD: totalAvgDPD,
+			      maxDPD: rows.reduce((max, r) => (r.maxDPD > max ? r.maxDPD : max), 0),
+			      dpd0: totalDPD0,
+			      dpd1_6: totalDPD1to6,
+			      dpd7_14: totalDPD7to14,
+			      dpd14_21: totalDPD14to21,
+			      dpd21_plus: totalDPD21Plus,
+			      quiet: totalQuiet,
+							quietValue: totalQuietValue,
+							quietPercent: totalQuietPercent,
+							riskScore: VERTICAL_LEAD_TOTAL_ROW.riskScore,
+							status: VERTICAL_LEAD_TOTAL_ROW.status,
+			      isTotal: true,
+			    };
 
-		    return [...rows, totalRow];
-		  }, [verticalLeadMetrics]);
+			    return [...rows, totalRow];
+			  }, [verticalLeadMetrics]);
 
   const handleSort = (key) => {
     setSortConfig(prev => ({
@@ -792,12 +798,11 @@ const VERTICAL_LEAD_TOTAL_ROW = {
 		            </div>
 		          </div>
 
-		          <div className="branch-table-container">
+		      <div className="branch-table-container">
 		            <table className="branch-table vertical-lead-table">
 		              <thead>
 		                <tr>
 		              <th>Vertical Lead</th>
-		              <th>Email</th>
 		                  <th>Branches</th>
 		                  <th>Active LOs</th>
 		                  <th>Loans</th>
@@ -811,12 +816,13 @@ const VERTICAL_LEAD_TOTAL_ROW = {
 		                  <th>DPD 14-21</th>
 		                  <th>DPD 21+</th>
 		                  <th>Quiet</th>
+		                  <th>Quiet %</th>
 		                  <th>Quiet Value</th>
 		                  <th>Risk Score</th>
 		                  <th>Status</th>
 		                </tr>
 		              </thead>
-		              <tbody>
+			              <tbody>
 		                {verticalLeadLoading ? (
 		                  <tr>
 		                <td colSpan="18" className="no-data">Loading vertical leads...</td>
@@ -826,28 +832,28 @@ const VERTICAL_LEAD_TOTAL_ROW = {
 		                <td colSpan="18" className="no-data">No vertical leads found</td>
 		                  </tr>
 		                ) : (
-		                  verticalLeadRows.map((lead) => (
-		                    <tr key={lead.name} className={lead.isTotal ? 'vertical-lead-total-row' : ''}>
-		                      <td className="vertical-lead-name">{lead.name}</td>
-		                  <td className="vertical-lead-email">{lead.email}</td>
-		                      <td className="count">{lead.branches}</td>
-		                      <td className="count">{lead.activeLOs}</td>
-				              <td className="count">{lead.loans}</td>
-				              <td className="amount">{formatCurrency(lead.outstanding)}</td>
-				              <td className="amount">{formatCurrency(lead.dailyTarget)}</td>
-		                      <td className="metric">{formatDecimal(lead.avgDPD, 1)}</td>
-		                      <td className="metric">{lead.maxDPD}</td>
-		                      <td className="count">{lead.dpd0}</td>
-		                      <td className="count">{lead.dpd1_6}</td>
-		                      <td className="count">{lead.dpd7_14}</td>
-		                      <td className="count">{lead.dpd14_21}</td>
-		                      <td className="count">{lead.dpd21_plus}</td>
-		                      <td className="count">{lead.quiet}</td>
-		                      <td className="amount">{formatCurrency(lead.quietValue)}</td>
-		                      <td className="metric">{lead.riskScore}</td>
-		                      <td className="status-cell">{lead.status}</td>
-		                    </tr>
-		                  ))
+				                  verticalLeadRows.map((lead) => (
+				                    <tr key={lead.name} className={lead.isTotal ? 'vertical-lead-total-row' : ''}>
+						                      <td className="vertical-lead-name">{lead.name}</td>
+					                      <td className="count">{lead.branches}</td>
+					                      <td className="count">{lead.activeLOs}</td>
+							              <td className="count">{lead.loans}</td>
+							              <td className="amount">{formatCurrency(lead.outstanding)}</td>
+							              <td className="amount">{formatCurrency(lead.dailyTarget)}</td>
+					                      <td className="metric">{formatDecimal(lead.avgDPD, 1)}</td>
+					                      <td className="metric">{lead.maxDPD}</td>
+					                      <td className="count">{lead.dpd0}</td>
+					                      <td className="count">{lead.dpd1_6}</td>
+					                      <td className="count">{lead.dpd7_14}</td>
+					                      <td className="count">{lead.dpd14_21}</td>
+					                      <td className="count">{lead.dpd21_plus}</td>
+					                      <td className="count">{lead.quiet}</td>
+					                      <td className="metric">{formatPercent(lead.quietPercent || 0)}</td>
+					                      <td className="amount">{formatCurrency(lead.quietValue)}</td>
+					                      <td className="metric">{lead.riskScore}</td>
+					                      <td className="status-cell">{lead.status}</td>
+					                    </tr>
+					                  ))
 		                )}
 		              </tbody>
 		            </table>
