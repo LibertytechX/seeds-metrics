@@ -468,6 +468,7 @@ const CreditHealthByBranch = ({ branches: initialBranches, onFilterChange }) => 
 
 		      return {
 		        name: row.vertical_lead_name || 'Unassigned Vertical Lead',
+		        email: row.vertical_lead_email || '',
 		        branches: row.branches || 0,
 		        activeLOs: row.active_los || 0,
 		        loans,
@@ -496,6 +497,7 @@ const CreditHealthByBranch = ({ branches: initialBranches, onFilterChange }) => 
 
 		    const totalRow = {
 		      name: 'TOTAL',
+		      email: '',
 		      branches: totalBranches,
 		      activeLOs: totalActiveLOs,
 		      loans: totalLoans,
@@ -790,7 +792,8 @@ const CreditHealthByBranch = ({ branches: initialBranches, onFilterChange }) => 
 		            <table className="branch-table vertical-lead-table">
 		              <thead>
 		                <tr>
-		                  <th>Vertical Lead</th>
+		              <th>Vertical Lead</th>
+		              <th>Email</th>
 		                  <th>Branches</th>
 		                  <th>Active LOs</th>
 		                  <th>Loans</th>
@@ -812,16 +815,17 @@ const CreditHealthByBranch = ({ branches: initialBranches, onFilterChange }) => 
 		              <tbody>
 		                {verticalLeadLoading ? (
 		                  <tr>
-		                    <td colSpan="17" className="no-data">Loading vertical leads...</td>
+		                <td colSpan="18" className="no-data">Loading vertical leads...</td>
 		                  </tr>
 		                ) : verticalLeadRows.length === 0 ? (
 		                  <tr>
-		                    <td colSpan="17" className="no-data">No vertical leads found</td>
+		                <td colSpan="18" className="no-data">No vertical leads found</td>
 		                  </tr>
 		                ) : (
 		                  verticalLeadRows.map((lead) => (
 		                    <tr key={lead.name} className={lead.isTotal ? 'vertical-lead-total-row' : ''}>
 		                      <td className="vertical-lead-name">{lead.name}</td>
+		                  <td className="vertical-lead-email">{lead.email}</td>
 		                      <td className="count">{lead.branches}</td>
 		                      <td className="count">{lead.activeLOs}</td>
 		                      <td className="count">{lead.loans}</td>

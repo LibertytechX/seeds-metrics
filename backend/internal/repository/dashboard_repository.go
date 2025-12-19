@@ -3109,20 +3109,21 @@ func (r *DashboardRepository) GetBranches(filters map[string]interface{}) ([]*mo
 func (r *DashboardRepository) GetVerticalLeadMetrics(filters map[string]interface{}) ([]*models.VerticalLeadMetricsRow, error) {
 	query := `
 		SELECT
-			COALESCE(NULLIF(l.vertical_lead_name, ''), 'Unassigned Vertical Lead') AS vertical_lead_name,
-			COUNT(DISTINCT l.branch) AS branches,
-			COUNT(DISTINCT l.officer_id) AS active_los,
-			COUNT(*) AS loans,
-			COALESCE(SUM(l.total_outstanding), 0) AS outstanding,
-			COALESCE(AVG(l.current_dpd), 0) AS avg_dpd,
-			COALESCE(MAX(l.max_dpd_ever), 0) AS max_dpd,
-			COUNT(CASE WHEN l.current_dpd = 0 THEN 1 END) AS dpd0,
-			COUNT(CASE WHEN l.current_dpd BETWEEN 1 AND 6 THEN 1 END) AS dpd1_6,
-			COUNT(CASE WHEN l.current_dpd BETWEEN 7 AND 14 THEN 1 END) AS dpd7_14,
-			COUNT(CASE WHEN l.current_dpd BETWEEN 14 AND 21 THEN 1 END) AS dpd14_21,
-			COUNT(CASE WHEN l.current_dpd > 21 THEN 1 END) AS dpd21_plus,
-			COUNT(CASE WHEN COALESCE(l.days_since_last_repayment, 0) > 7 THEN 1 END) AS quiet,
-			COALESCE(SUM(CASE WHEN COALESCE(l.days_since_last_repayment, 0) > 7 THEN l.total_outstanding ELSE 0 END), 0) AS quiet_value
+				COALESCE(NULLIF(l.vertical_lead_name, ''), 'Unassigned Vertical Lead') AS vertical_lead_name,
+				COALESCE(NULLIF(l.vertical_lead_email, ''), 'N/A') AS vertical_lead_email,
+				COUNT(DISTINCT l.branch) AS branches,
+				COUNT(DISTINCT l.officer_id) AS active_los,
+				COUNT(*) AS loans,
+				COALESCE(SUM(l.total_outstanding), 0) AS outstanding,
+				COALESCE(AVG(l.current_dpd), 0) AS avg_dpd,
+				COALESCE(MAX(l.max_dpd_ever), 0) AS max_dpd,
+				COUNT(CASE WHEN l.current_dpd = 0 THEN 1 END) AS dpd0,
+				COUNT(CASE WHEN l.current_dpd BETWEEN 1 AND 6 THEN 1 END) AS dpd1_6,
+				COUNT(CASE WHEN l.current_dpd BETWEEN 7 AND 14 THEN 1 END) AS dpd7_14,
+				COUNT(CASE WHEN l.current_dpd BETWEEN 14 AND 21 THEN 1 END) AS dpd14_21,
+				COUNT(CASE WHEN l.current_dpd > 21 THEN 1 END) AS dpd21_plus,
+				COUNT(CASE WHEN COALESCE(l.days_since_last_repayment, 0) > 7 THEN 1 END) AS quiet,
+				COALESCE(SUM(CASE WHEN COALESCE(l.days_since_last_repayment, 0) > 7 THEN l.total_outstanding ELSE 0 END), 0) AS quiet_value
 		FROM loans l
 		WHERE 1=1
 	`
@@ -3175,9 +3176,11 @@ func (r *DashboardRepository) GetVerticalLeadMetrics(filters map[string]interfac
 	}
 
 	query += `
-		GROUP BY vertical_lead_name
-		ORDER BY vertical_lead_name
-	`
+			GROUP BY
+				COALESCE(NULLIF(l.vertical_lead_name, ''), 'Unassigned Vertical Lead'),
+				COALESCE(NULLIF(l.vertical_lead_email, ''), 'N/A')
+			ORDER BY vertical_lead_name
+		`
 
 	rows, err := r.db.Query(query, args...)
 	if err != nil {
@@ -3190,6 +3193,7 @@ func (r *DashboardRepository) GetVerticalLeadMetrics(filters map[string]interfac
 		row := &models.VerticalLeadMetricsRow{}
 		if err := rows.Scan(
 			&row.VerticalLeadName,
+			&row.VerticalLeadEmail,
 			&row.Branches,
 			&row.ActiveLOs,
 			&row.Loans,
