@@ -594,13 +594,15 @@ const CreditHealthByBranch = ({ branches: initialBranches, onFilterChange }) => 
     document.body.removeChild(link);
   };
 
-  const formatCurrency = (value) => {
-    return new Intl.NumberFormat('en-NG', {
-      style: 'currency',
-      currency: 'NGN',
-      minimumFractionDigits: 0,
-    }).format(value);
-  };
+	  const formatCurrency = (value) => {
+	    const amount = typeof value === 'number' ? value : Number(value) || 0;
+	    return new Intl.NumberFormat('en-NG', {
+	      style: 'currency',
+	      currency: 'NGN',
+	      minimumFractionDigits: 2,
+	      maximumFractionDigits: 2,
+	    }).format(amount);
+	  };
 
   const formatPercent = (value) => {
     return `${(value * 100).toFixed(2)}%`;
