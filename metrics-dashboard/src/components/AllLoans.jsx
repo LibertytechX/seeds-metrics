@@ -1553,6 +1553,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
 		                <th>Previous DPD</th>
 			                <th>DPD Change</th>
 			                <th>Payment State</th>
+			                <th>Payment Lifetime</th>
                 <th onClick={() => handleSort('officer_name')}>Officer Name</th>
                 <th onClick={() => handleSort('region')}>Region</th>
                 <th onClick={() => handleSort('branch')}>Branch</th>
@@ -1624,6 +1625,15 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
 					                            ? loan.repayment_days_paid.toFixed(0)
 					                            : loan.repayment_days_paid
 					                        }days/${loan.repayment_days_due_today}days`
+				                      : 'N/A'}
+				                  </td>
+				                  <td className="days-since">
+				                    {loan.repayment_days_paid != null && loan.loan_term_days != null
+				                      ? `${
+					                          typeof loan.repayment_days_paid === 'number'
+					                            ? loan.repayment_days_paid.toFixed(0)
+					                            : loan.repayment_days_paid
+					                        }days/${loan.loan_term_days}days`
 				                      : 'N/A'}
 				                  </td>
                   <td>{loan.officer_name || 'N/A'}</td>
