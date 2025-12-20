@@ -1627,15 +1627,20 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
 					                        }days/${loan.repayment_days_due_today}days`
 				                      : 'N/A'}
 				                  </td>
-				                  <td className="days-since">
-				                    {loan.repayment_days_paid != null && loan.loan_term_days != null
-				                      ? `${
-					                          typeof loan.repayment_days_paid === 'number'
-					                            ? loan.repayment_days_paid.toFixed(0)
-					                            : loan.repayment_days_paid
-					                        }days/${loan.loan_term_days}days`
-				                      : 'N/A'}
-				                  </td>
+		                  <td className="days-since">
+			                    {(() => {
+			                      const tenureDays =
+			                        loan.loan_tenure != null ? loan.loan_tenure : loan.loan_term_days;
+			                      if (loan.repayment_days_paid == null || tenureDays == null) {
+			                        return 'N/A';
+			                      }
+			                      const paidDays =
+			                        typeof loan.repayment_days_paid === 'number'
+			                          ? loan.repayment_days_paid.toFixed(0)
+			                          : loan.repayment_days_paid;
+			                      return `${paidDays}days/${tenureDays}days`;
+			                    })()}
+			                  </td>
                   <td>{loan.officer_name || 'N/A'}</td>
                   <td>{loan.region || 'N/A'}</td>
                   <td>{loan.branch || 'N/A'}</td>
