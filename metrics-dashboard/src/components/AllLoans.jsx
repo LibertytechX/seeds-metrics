@@ -1554,6 +1554,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
 			                <th>DPD Change</th>
 			                <th>Payment State</th>
 			                <th>Payment Lifetime</th>
+			                <th>Payment Percent</th>
                 <th onClick={() => handleSort('officer_name')}>Officer Name</th>
                 <th onClick={() => handleSort('region')}>Region</th>
                 <th onClick={() => handleSort('branch')}>Branch</th>
@@ -1641,6 +1642,17 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
 			                      return `${paidDays}days/${tenureDays}days`;
 			                    })()}
 			                  </td>
+				                  <td className="score">
+				                    {(() => {
+				                      const paid = Number(loan.repayment_days_paid);
+				                      const due = Number(loan.repayment_days_due_today);
+				                      if (!Number.isFinite(paid) || !Number.isFinite(due) || due <= 0) {
+				                        return 'N/A';
+				                      }
+				                      const percent = (paid / due) * 100;
+				                      return `${percent.toFixed(2)}%`;
+				                    })()}
+				                  </td>
                   <td>{loan.officer_name || 'N/A'}</td>
                   <td>{loan.region || 'N/A'}</td>
                   <td>{loan.branch || 'N/A'}</td>
