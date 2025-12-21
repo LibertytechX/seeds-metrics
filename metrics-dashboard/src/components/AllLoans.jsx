@@ -1647,7 +1647,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
 				                      const paid = Number(loan.repayment_days_paid);
 				                      const due = Number(loan.repayment_days_due_today);
 				                      if (!Number.isFinite(paid) || !Number.isFinite(due) || due <= 0) {
-				                        return 'N/A';
+				                        return '0%';
 				                      }
 				                      const percent = (paid / due) * 100;
 				                      return `${percent.toFixed(2)}%`;
