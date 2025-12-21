@@ -622,22 +622,38 @@ const VERTICAL_LEAD_TOTAL_ROW = {
 
   return (
     <div className="credit-health-branch">
-      <div className="credit-health-tabs">
-	        <button
-	          type="button"
-	          className={`credit-health-tab ${activeView === 'verticalLead' ? 'active' : ''}`}
-	          onClick={() => setActiveView('verticalLead')}
-	        >
-	          By Vertical Lead
-	        </button>
-	        <button
-	          type="button"
-	          className={`credit-health-tab ${activeView === 'branch' ? 'active' : ''}`}
-	          onClick={() => setActiveView('branch')}
-	        >
-	          By Branch
-	        </button>
-      </div>
+	      <div className="credit-health-tabs">
+	        <div className="credit-health-tabs-left">
+		        <button
+		          type="button"
+		          className={`credit-health-tab ${activeView === 'verticalLead' ? 'active' : ''}`}
+		          onClick={() => setActiveView('verticalLead')}
+		        >
+		          By Vertical Lead
+		        </button>
+		        <button
+		          type="button"
+		          className={`credit-health-tab ${activeView === 'branch' ? 'active' : ''}`}
+		          onClick={() => setActiveView('branch')}
+		        >
+		          By Branch
+		        </button>
+	        </div>
+	        <div className="credit-health-tabs-right">
+	          <div className="wave-filter-inline">
+	            <Filter size={16} />
+	            <select
+	              value={filters.wave}
+	              onChange={(e) => handleFilterChange('wave', e.target.value)}
+	            >
+	              <option value="">All Waves</option>
+	              {(filterOptions.waves || []).map((wave) => (
+	                <option key={wave} value={wave}>{wave}</option>
+	              ))}
+	            </select>
+	          </div>
+	        </div>
+	      </div>
 
       {activeView === 'branch' && (
         <>

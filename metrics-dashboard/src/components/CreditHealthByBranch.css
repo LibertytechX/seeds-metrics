@@ -7,10 +7,21 @@
 
 /* Inner tabs for Credit Health view */
 .credit-health-tabs {
-  display: flex;
-  gap: 8px;
-  border-bottom: 1px solid #e2e8f0;
-  margin-bottom: 16px;
+	display: flex;
+	justify-content: space-between;
+	align-items: center;
+	gap: 8px;
+	border-bottom: 1px solid #e2e8f0;
+	margin-bottom: 16px;
+}
+
+.credit-health-tabs-left {
+	display: flex;
+	gap: 8px;
+}
+
+.credit-health-tabs-right {
+	margin-left: auto;
 }
 
 .credit-health-tab {
@@ -27,6 +38,27 @@
 .credit-health-tab.active {
   color: #3b82f6;
   border-bottom-color: #3b82f6;
+}
+
+.wave-filter-inline {
+	display: flex;
+	align-items: center;
+	gap: 6px;
+}
+
+.wave-filter-inline select {
+	padding: 6px 10px;
+	border: 1px solid #cbd5e1;
+	border-radius: 4px;
+	font-size: 13px;
+	background: white;
+	cursor: pointer;
+}
+
+.wave-filter-inline select:focus {
+	outline: none;
+	border-color: #3b82f6;
+	box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 
 /* Header */
