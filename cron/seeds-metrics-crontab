@@ -8,6 +8,8 @@
 # Expected duration: ~6 minutes
 # Purpose: Keep repayments data up to date with Django
 0 */6 * * * cd /home/seeds-metrics-backend/backend && source .env && /usr/local/go/bin/go run scripts/sync_repayments_incremental.go >> /var/log/seeds-metrics-repayments-sync.log 2>&1
+30 * * * * cd /home/seeds-metrics-backend/backend && /usr/local/go/bin/go run ./scripts/sync_repayments_incremental.go >> /var/log/seeds-metrics-repayments-sync.log 2>&1
+1 * * * * cd /home/seeds-metrics-backend/backend && /usr/local/go/bin/go run ./scripts/sync_repayments_incremental.go >> /var/log/seeds-metrics-repayments-sync.log 2>&1
 
 # Job 2: Recalculate Computed Fields (Every 6 hours at 00:10, 06:10, 12:10, 18:10 UTC)
 # Expected duration: < 1 minute
@@ -25,3 +27,8 @@
 # Purpose: Full sync of officers, customers, loans, and repayments from Django
 0 1 * * 0 cd /home/seeds-metrics-backend/backend && /usr/local/go/bin/go run scripts/sync_from_django.go >> /var/log/seeds-metrics-full-sync.log 2>&1
 
+
+# Job 5: Holiday Sync (Daily at 02:00 UTC)
+# Expected duration: < 5 minutes
+# Purpose: Keep holiday table (public + agent holidays) in sync with Django for business day calculations
+0 2 * * * cd /home/seeds-metrics-backend/backend && timeout 300 ./bin/sync_holidays >> /var/log/holiday-sync.log 2>&1
