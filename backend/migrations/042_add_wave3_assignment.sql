@@ -6,8 +6,9 @@
 --   - Recalculate wave for all existing loans using the new rules
 --
 -- Wave rules after this migration:
+--   Wave 2 (special window): all loans with disbursement_date between 2025-10-01 and 2025-12-31 (inclusive), regardless of officer hire_date
 --   Wave 3: officer hire_date >= 2026-01-01 OR disbursement_date >= 2026-01-01
---   Wave 2: officer hire_date >= 2025-10-01 OR disbursement_date >= 2025-10-20
+--   Wave 2 (general rule): officer hire_date >= 2025-10-01 OR disbursement_date >= 2025-10-20 (outside the special window)
 --   Wave 1: all other loans
 
 BEGIN;
@@ -36,12 +37,16 @@ BEGIN
     FROM officers
     WHERE officer_id = NEW.officer_id;
 
+    -- Wave 2 (special window): all loans disbursed between 2025-10-01 and 2025-12-31
+    IF NEW.disbursement_date BETWEEN '2025-10-01'::DATE AND '2025-12-31'::DATE THEN
+        NEW.wave := 'Wave 2';
+
     -- Wave 3: officer hired on/after 2026-01-01 OR loan disbursed on/after 2026-01-01
-    IF (officer_hire_date >= '2026-01-01'::DATE)
+    ELSIF (officer_hire_date >= '2026-01-01'::DATE)
        OR (NEW.disbursement_date >= '2026-01-01'::DATE) THEN
         NEW.wave := 'Wave 3';
 
-    -- Wave 2: officer hired on/after 2025-10-01 OR loan disbursed on/after 2025-10-20
+    -- Wave 2 (general rule): officer hired on/after 2025-10-01 OR loan disbursed on/after 2025-10-20
     ELSIF (officer_hire_date >= '2025-10-01'::DATE)
        OR (NEW.disbursement_date >= '2025-10-20'::DATE) THEN
         NEW.wave := 'Wave 2';
@@ -56,7 +61,7 @@ END;
 $$ LANGUAGE plpgsql;
 
 COMMENT ON FUNCTION assign_loan_wave() IS
-'Automatically assigns loan wave based on officer hire_date and loan disbursement_date. Wave 3: hire_date/disbursement >= 2026-01-01; Wave 2: hire_date >= 2025-10-01 or disbursement >= 2025-10-20; else Wave 1.';
+'Automatically assigns loan wave based on officer hire_date and loan disbursement_date. Wave 2: all loans disbursed between 2025-10-01 and 2025-12-31 (inclusive), regardless of hire_date; Wave 3: hire_date or disbursement >= 2026-01-01; Wave 2 (general): hire_date >= 2025-10-01 or disbursement >= 2025-10-20; else Wave 1.';
 
 -- ============================================================================
 -- STEP 3: Recalculate wave for all existing loans using the new rules
@@ -64,6 +69,8 @@ COMMENT ON FUNCTION assign_loan_wave() IS
 
 UPDATE loans l
 SET wave = CASE
+    WHEN l.disbursement_date BETWEEN '2025-10-01'::DATE AND '2025-12-31'::DATE
+    THEN 'Wave 2'
     WHEN (
         SELECT o.hire_date >= '2026-01-01'::DATE
         FROM officers o
