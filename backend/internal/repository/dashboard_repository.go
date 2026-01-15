@@ -3282,6 +3282,12 @@ func (r *DashboardRepository) GetBranchCollectionsLeaderboard(filters map[string
 		loanArgCount++
 	}
 
+	if officerID, ok := filters["officer_id"].(string); ok && officerID != "" {
+		loanQuery += fmt.Sprintf(" AND l.officer_id = $%d", loanArgCount)
+		loanArgs = append(loanArgs, officerID)
+		loanArgCount++
+	}
+
 	if loanType, ok := filters["loan_type"].(string); ok && loanType != "" {
 		// Support comma-separated loan types for multi-select
 		loanTypes := strings.Split(loanType, ",")
@@ -3421,6 +3427,12 @@ func (r *DashboardRepository) GetBranchCollectionsLeaderboard(filters map[string
 	if wave, ok := filters["wave"].(string); ok && wave != "" {
 		repayQuery += fmt.Sprintf(" AND l.wave = $%d", repayArgCount)
 		repayArgs = append(repayArgs, wave)
+		repayArgCount++
+	}
+
+	if officerID, ok := filters["officer_id"].(string); ok && officerID != "" {
+		repayQuery += fmt.Sprintf(" AND l.officer_id = $%d", repayArgCount)
+		repayArgs = append(repayArgs, officerID)
 		repayArgCount++
 	}
 

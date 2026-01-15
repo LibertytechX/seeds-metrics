@@ -654,6 +654,9 @@ func (h *DashboardHandler) GetBranchCollectionsLeaderboard(c *gin.Context) {
 	if region := c.Query("region"); region != "" {
 		filters["region"] = region
 	}
+	if officerID := c.Query("officer_id"); officerID != "" {
+		filters["officer_id"] = officerID
+	}
 	if channel := c.Query("channel"); channel != "" {
 		filters["channel"] = channel
 	}
