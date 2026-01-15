@@ -1310,6 +1310,13 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 		query += " AND (l.days_since_last_repayment >= 6 OR l.days_since_last_repayment IS NULL)"
 	}
 
+	// FIMR filter: when enabled, restrict to loans with fimr_tagged = true.
+	// This keeps summary metrics aligned with the All Loans table and exports
+	// when the FIMR toggle is active.
+	if fimrTagged, ok := filters["fimr_tagged"].(bool); ok && fimrTagged {
+		query += " AND l.fimr_tagged = true"
+	}
+
 	// Behavior-based filters (active/inactive/overdue_15d, early/late ROT, risky delay)
 	// kept in sync with GetAllLoans so summary metrics match the table and exports.
 	if behaviorLoanType, ok := filters["behavior_loan_type"].(string); ok && behaviorLoanType != "" {
@@ -1631,6 +1638,12 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 		repaymentsWhere += " AND (l.days_since_last_repayment >= 6 OR l.days_since_last_repayment IS NULL)"
 	}
 
+	// FIMR filter for repayments aggregates so that "Collection Today"
+	// and related metrics reflect the same FIMR-loan population as the table.
+	if fimrTagged, ok := filters["fimr_tagged"].(bool); ok && fimrTagged {
+		repaymentsWhere += " AND l.fimr_tagged = true"
+	}
+
 	// Overall total repayments in the period
 	repaymentsTotalQuery := `
 			SELECT COALESCE(SUM(r.payment_amount), 0) as total_repayments_today
@@ -1905,6 +1918,12 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 	// comparisons remain consistent when the toggle is active.
 	if quietLoans, ok := filters["quiet_loans"].(bool); ok && quietLoans {
 		repaymentsWhereYesterday += " AND (l.days_since_last_repayment >= 6 OR l.days_since_last_repayment IS NULL)"
+	}
+
+	// Apply FIMR filter for yesterday's repayments as well so period
+	// comparisons remain consistent when the toggle is active.
+	if fimrTagged, ok := filters["fimr_tagged"].(bool); ok && fimrTagged {
+		repaymentsWhereYesterday += " AND l.fimr_tagged = true"
 	}
 
 	repaymentsYesterdayQuery := `
@@ -2201,6 +2220,12 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 	// are computed on the same quiet-loan subset as the table when enabled.
 	if quietLoans, ok := filters["quiet_loans"].(bool); ok && quietLoans {
 		missedQuery += " AND (l.days_since_last_repayment >= 6 OR l.days_since_last_repayment IS NULL)"
+	}
+
+	// FIMR filter for missed repayments so that "missed today" metrics
+	// are computed on the same FIMR-loan subset as the table when enabled.
+	if fimrTagged, ok := filters["fimr_tagged"].(bool); ok && fimrTagged {
+		missedQuery += " AND l.fimr_tagged = true"
 	}
 
 	var missedAmountToday float64
@@ -2652,6 +2677,14 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 	if quietLoans, ok := filters["quiet_loans"].(bool); ok && quietLoans {
 		query += " AND (l.days_since_last_repayment >= 6 OR l.days_since_last_repayment IS NULL)"
 		countQuery += " AND (l.days_since_last_repayment >= 6 OR l.days_since_last_repayment IS NULL)"
+	}
+
+	// FIMR filter: when enabled, restrict to loans with fimr_tagged = true.
+	// This is kept in sync with GetLoansSummaryMetrics so that table rows,
+	// summary cards, and exports all reflect the same filtered population.
+	if fimrTagged, ok := filters["fimr_tagged"].(bool); ok && fimrTagged {
+		query += " AND l.fimr_tagged = true"
+		countQuery += " AND l.fimr_tagged = true"
 	}
 
 	// Behavior-based filters that were previously applied only on the frontend

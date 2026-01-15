@@ -32,6 +32,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     django_loan_types: [], // Multi-select loan types from Django (AJO, BNPL, PROSPER, DMO)
     django_verification_statuses: [], // Multi-select verification statuses from Django
 	    quiet_loans: false, // Toggle to show only quiet loans (6+ days since last repayment or no repayments)
+	    fimr: false, // Toggle to show only FIMR-tagged loans
   });
   const [allBranches, setAllBranches] = useState([]);
   const [allRegions, setAllRegions] = useState([]);
@@ -228,7 +229,8 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
 		            k !== 'django_verification_statuses' &&
 				        k !== 'django_statuses' &&
 				        k !== 'vertical_lead_email' &&
-				        k !== 'quiet_loans'
+				        k !== 'quiet_loans' &&
+				        k !== 'fimr'
 		          )
 	      );
 
@@ -258,6 +260,12 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
 	      // repayments).
 	      if (filters.quiet_loans) {
 	        apiFilters.quiet_loans = 'true';
+	      }
+
+	      // FIMR toggle: when true, include fimr_tagged=true so backend
+	      // restricts to loans with fimr_tagged = true.
+	      if (filters.fimr) {
+	        apiFilters.fimr_tagged = 'true';
 	      }
 
       // Convert regions array to comma-separated string
@@ -379,6 +387,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
 	        django_loan_types: [],
 	        django_verification_statuses: [],
 	        quiet_loans: false,
+	        fimr: false,
 	      });
       setFilterLabel(
         initialFilter.officer_name ? `Officer: ${initialFilter.officer_name}` :
@@ -508,6 +517,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       django_loan_types: [],
       django_verification_statuses: [],
 	      quiet_loans: false,
+	      fimr: false,
     });
     setFilterLabel('');
   };
@@ -621,7 +631,8 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
 		          k !== 'django_loan_types' &&
 		          k !== 'django_verification_statuses' &&
 		          k !== 'django_statuses' &&
-		          k !== 'quiet_loans'
+		          k !== 'quiet_loans' &&
+		          k !== 'fimr'
 		        )
 		      );
 
@@ -670,6 +681,12 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
 	      // when the filter is active.
 	      if (filters.quiet_loans) {
 	        apiFilters.quiet_loans = 'true';
+	      }
+
+	      // FIMR toggle for export as well so CSV matches on-screen table
+	      // when the filter is active.
+	      if (filters.fimr) {
+	        apiFilters.fimr_tagged = 'true';
 	      }
 
       const params = new URLSearchParams({
@@ -873,6 +890,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
 		    (filters.django_loan_types && filters.django_loan_types.length > 0) ? 'django_loan_types' : '',
 		    (filters.django_verification_statuses && filters.django_verification_statuses.length > 0) ? 'django_verification_statuses' : '',
 		    filters.quiet_loans ? 'quiet_loans' : '',
+		    filters.fimr ? 'fimr' : '',
 	  ].filter(Boolean).length;
 
   const handleViewRepayments = (loan) => {
@@ -1507,6 +1525,20 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                   type="checkbox"
                   checked={filters.quiet_loans}
                   onChange={(e) => handleFilterChange('quiet_loans', e.target.checked)}
+                />
+                <span className="slider" />
+              </label>
+            </div>
+            <div className="filter-group fimr-toggle">
+              <span className="fimr-label">FIMR</span>
+              <label
+                className="toggle-switch"
+                title="Show only FIMR-tagged loans (First Installment Missed Repayment)"
+              >
+                <input
+                  type="checkbox"
+                  checked={filters.fimr}
+                  onChange={(e) => handleFilterChange('fimr', e.target.checked)}
                 />
                 <span className="slider" />
               </label>

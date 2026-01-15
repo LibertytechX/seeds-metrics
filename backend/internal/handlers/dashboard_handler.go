@@ -569,6 +569,13 @@ func (h *DashboardHandler) GetAllLoans(c *gin.Context) {
 			filters["quiet_loans"] = true
 		}
 	}
+	// FIMR toggle: when true, restrict to loans with fimr_tagged = true.
+	if fimrTagged := c.Query("fimr_tagged"); fimrTagged != "" {
+		normalized := strings.ToLower(strings.TrimSpace(fimrTagged))
+		if normalized == "true" || normalized == "1" {
+			filters["fimr_tagged"] = true
+		}
+	}
 	if sortBy := c.Query("sort_by"); sortBy != "" {
 		filters["sort_by"] = sortBy
 	}
