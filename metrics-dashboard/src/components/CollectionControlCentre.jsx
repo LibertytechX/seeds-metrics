@@ -14,6 +14,7 @@ import {
 	import './CollectionControlCentre.css';
 	import RepaymentWatchModal from './RepaymentWatchModal';
 	import AgentActivityModal from './AgentActivityModal';
+	import SearchableSelect from './SearchableSelect';
 
 // Reuse the same sentinel value used in AllLoans and backend (MissingValueSentinel)
 const MISSING_VALUE = '__MISSING__';
@@ -33,6 +34,7 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
     branch: '',
     product: '',
     wave: '',
+    officer_id: '',
   });
 
   const [filterOptions, setFilterOptions] = useState({
@@ -40,6 +42,7 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
     branches: [],
     products: [],
     waves: [],
+    officers: [],
   });
 
 					const [summaryMetrics, setSummaryMetrics] = useState(null);
@@ -96,7 +99,7 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	  const [syncingRepayments, setSyncingRepayments] = useState(false);
 	  const [syncResult, setSyncResult] = useState(null);
 
-	  // Fetch dropdown options (regions, branches, products/loan types, waves)
+	  // Fetch dropdown options (regions, branches, products/loan types, waves, officers)
 	  useEffect(() => {
 	    const fetchFilterOptions = async () => {
 	      try {
@@ -105,26 +108,29 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	        const API_BASE_URL = import.meta.env.VITE_API_URL ||
 	          (import.meta.env.MODE === 'production' ? '/api/v1' : 'http://localhost:8081/api/v1');
 
-	        const [regionsRes, branchesRes, productsRes, wavesRes] = await Promise.all([
+	        const [regionsRes, branchesRes, productsRes, wavesRes, officersRes] = await Promise.all([
 	          fetch(`${API_BASE_URL}/filters/regions`),
 	          fetch(`${API_BASE_URL}/filters/branches`),
 	          fetch(`${API_BASE_URL}/filters/loan-types`),
 	          fetch(`${API_BASE_URL}/filters/waves`),
+	          fetch(`${API_BASE_URL}/filters/officers`),
 	        ]);
 
-	        const [regionsData, branchesData, productsData, wavesData] = await Promise.all([
+	        const [regionsData, branchesData, productsData, wavesData, officersData] = await Promise.all([
 	          regionsRes.json(),
 	          branchesRes.json(),
 	          productsRes.json(),
 	          wavesRes.json(),
+	          officersRes.json(),
 	        ]);
 
 	        const regions = regionsData?.data?.regions || [];
 	        const branches = (branchesData?.data?.branches || []).map((b) => b.branch || b);
 	        const products = productsData?.data?.['loan-types'] || [];
 	        const waves = wavesData?.data?.waves || [];
+	        const officers = officersData?.data?.officers || [];
 
-	        setFilterOptions({ regions, branches, products, waves });
+	        setFilterOptions({ regions, branches, products, waves, officers });
 	      } catch (err) {
 	        console.error('Error fetching Collection Control Centre filter options:', err);
 	      } finally {
@@ -162,6 +168,9 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 		        if (filters.wave) {
 		          baseParams.set('wave', filters.wave);
 		        }
+	        if (filters.officer_id) {
+	          baseParams.set('officer_id', filters.officer_id);
+	        }
 	        if (filters.period) {
 	          baseParams.set('period', filters.period);
 	        }
@@ -228,7 +237,7 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	    };
 
 		    	fetchSummaryMetrics();
-		  }, [filters.branch, filters.region, filters.product, filters.wave, filters.period]);
+		  }, [filters.branch, filters.region, filters.product, filters.wave, filters.officer_id, filters.period]);
 
 	  // Fetch branch collections leaderboard (per-branch breakdown) when filters change.
 	  useEffect(() => {
@@ -253,6 +262,9 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 		        if (filters.wave) {
 		          params.set('wave', filters.wave);
 		        }
+	        if (filters.officer_id) {
+	          params.set('officer_id', filters.officer_id);
+	        }
 
 	        // Apply django_status filter based on period (today_only vs others)
 	        // This matches the same logic used for summary metrics so totals align
@@ -283,7 +295,7 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	    };
 
 		    	fetchBranchLeaderboard();
-		  }, [filters.branch, filters.region, filters.product, filters.wave, filters.period]);
+		  }, [filters.branch, filters.region, filters.product, filters.wave, filters.officer_id, filters.period]);
 
 		  // Fetch daily collections time series for the chart whenever core filters change.
 		  useEffect(() => {
@@ -311,6 +323,9 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 		        if (filters.wave) {
 		          params.set('wave', filters.wave);
 		        }
+		        if (filters.officer_id) {
+		          params.set('officer_id', filters.officer_id);
+		        }
 
 		        const queryString = params.toString();
 		        const url = queryString
@@ -334,7 +349,7 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 		    };
 
 			    fetchDailyCollections();
-				  }, [filters.branch, filters.region, filters.product, filters.wave, filters.period]);
+				  }, [filters.branch, filters.region, filters.product, filters.wave, filters.officer_id, filters.period]);
 
 			  // Fetch Agent Activity summary (rolling last 7 days, including today)
 			  // whenever core filters change. This endpoint always uses an internal
@@ -361,6 +376,9 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 			        if (filters.wave) {
 			          params.set('wave', filters.wave);
 			        }
+			        if (filters.officer_id) {
+			          params.set('officer_id', filters.officer_id);
+			        }
 
 			        const queryString = params.toString();
 			        const url = queryString
@@ -386,7 +404,7 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 			    };
 
 			    fetchAgentActivity();
-			  }, [filters.branch, filters.region, filters.product, filters.wave]);
+			  }, [filters.branch, filters.region, filters.product, filters.wave, filters.officer_id]);
 
   const handleFilterChange = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -711,6 +729,7 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	      if (filters.branch) params.set('branch', filters.branch);
 	      if (filters.product) params.set('loan_type', filters.product);
 	      if (filters.wave) params.set('wave', filters.wave);
+	      if (filters.officer_id) params.set('officer_id', filters.officer_id);
 
 	      const queryString = params.toString();
 	      const url = queryString
@@ -921,6 +940,30 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	              <option key={wave} value={wave}>{wave}</option>
 	            ))}
 	          </select>
+	        </div>
+
+	        <div className="filter-group">
+	          <label>Loan Officer</label>
+	          <SearchableSelect
+	            options={filterOptions.officers}
+	            selectedValue={filters.officer_id}
+	            onChange={(value) => handleFilterChange('officer_id', value)}
+	            placeholder="All Loan Officers"
+	            getOptionLabel={(officer) => {
+	              if (typeof officer === 'object') {
+	                return officer.email
+	                  ? `${officer.name} (${officer.email})`
+	                  : officer.name;
+	              }
+	              return officer;
+	            }}
+	            getOptionValue={(officer) => {
+	              if (typeof officer === 'object') {
+	                return officer.officer_id;
+	              }
+	              return officer;
+	            }}
+	          />
 	        </div>
 
       </div>
