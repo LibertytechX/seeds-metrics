@@ -2356,7 +2356,8 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 			l.business_days_since_disbursement,
 			l.loan_type,
 			l.verification_status,
-			COALESCE(rp.repayments_in_period, 0) AS repayments_today
+			COALESCE(rp.repayments_in_period, 0) AS repayments_today,
+			l.repayment_type
 		FROM loans l
 		JOIN officers o ON l.officer_id = o.officer_id
 	` + repaymentsJoin + `
@@ -2771,7 +2772,7 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 		loan := &models.AllLoan{}
 		var customerPhone, officerID, firstPaymentDueDate, maturityDate sql.NullString
 		var verticalLeadName, verticalLeadEmail, performanceStatus sql.NullString
-		var loanType, verificationStatus, djangoStatus sql.NullString
+		var loanType, verificationStatus, djangoStatus, repaymentType sql.NullString
 		var repaymentAmount, timelinessScore, repaymentHealth, repaymentDelayRate sql.NullFloat64
 		var dailyRepaymentAmount, repaymentDaysPaid sql.NullFloat64
 		var repaymentsToday sql.NullFloat64
@@ -2820,6 +2821,7 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 			&loanType,
 			&verificationStatus,
 			&repaymentsToday,
+			&repaymentType,
 		)
 		if err != nil {
 			return nil, 0, err
@@ -2902,6 +2904,9 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 		if businessDaysSinceDisbursement.Valid {
 			val := int(businessDaysSinceDisbursement.Int64)
 			loan.BusinessDaysSinceDisbursement = &val
+		}
+		if repaymentType.Valid {
+			loan.RepaymentType = &repaymentType.String
 		}
 
 		loans = append(loans, loan)
