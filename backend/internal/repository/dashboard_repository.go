@@ -1042,8 +1042,7 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 					END
 				), 0) as past_maturity_outstanding,
 				COALESCE(SUM(CASE WHEN UPPER(l.performance_status) = 'PERFORMING' THEN 1 ELSE 0 END), 0) as performing_loans_count,
-				COALESCE(SUM(CASE WHEN UPPER(l.performance_status) = 'PERFORMING' THEN l.actual_outstanding ELSE 0 END), 0) as performing_actual_outstanding,
-				COALESCE(SUM(CASE WHEN l.is_disbursed = TRUE AND UPPER(l.supervisor_disbursement_status) = 'SUCCESSFUL' THEN l.loan_amount ELSE 0 END), 0) as total_disbursement
+				COALESCE(SUM(CASE WHEN UPPER(l.performance_status) = 'PERFORMING' THEN l.actual_outstanding ELSE 0 END), 0) as performing_actual_outstanding
 			FROM loans l
 			JOIN officers o ON l.officer_id = o.officer_id
 			WHERE 1=1
@@ -1348,7 +1347,7 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 
 	// Execute query
 	var totalLoans, atRiskCount, criticalCount, excellentDelayCount, okayDelayCount, criticalDelayCount, performingLoansCount int
-	var totalPortfolioAmount, atRiskAmount, atRiskOutstanding, totalAmountInDPD, totalDueForToday, pastMaturityOutstanding, performingActualOutstanding, totalDisbursement float64
+	var totalPortfolioAmount, atRiskAmount, atRiskOutstanding, totalAmountInDPD, totalDueForToday, pastMaturityOutstanding, performingActualOutstanding float64
 
 	err := r.db.QueryRow(query, args...).Scan(
 		&totalLoans,
@@ -1365,7 +1364,6 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 		&pastMaturityOutstanding,
 		&performingLoansCount,
 		&performingActualOutstanding,
-		&totalDisbursement,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate summary metrics: %w", err)
@@ -2252,6 +2250,90 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 	percentageDueCollected := 0.0
 	if totalDueForToday > 0 {
 		percentageDueCollected = (totalRepaymentsToday / totalDueForToday) * 100
+	}
+
+	// Calculate total disbursement for the selected period based on disbursement_date
+	disbursementQuery := `
+		SELECT COALESCE(SUM(l.loan_amount), 0) as total_disbursement
+		FROM loans l
+		JOIN officers o ON l.officer_id = o.officer_id
+		WHERE l.is_disbursed = TRUE
+			AND UPPER(l.supervisor_disbursement_status) = 'SUCCESSFUL'
+			AND (o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT') OR o.user_type IS NULL)
+	`
+
+	// Apply period filter on disbursement_date
+	switch period {
+	case "this_week":
+		disbursementQuery += `
+			AND DATE(l.disbursement_date) >= DATE_TRUNC('week', CURRENT_DATE)::date
+			AND DATE(l.disbursement_date) <= CURRENT_DATE
+		`
+	case "this_month":
+		disbursementQuery += `
+			AND DATE(l.disbursement_date) >= DATE_TRUNC('month', CURRENT_DATE)::date
+			AND DATE(l.disbursement_date) <= CURRENT_DATE
+		`
+	case "last_month":
+		disbursementQuery += `
+			AND DATE(l.disbursement_date) >= (DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '1 month')::date
+			AND DATE(l.disbursement_date) < DATE_TRUNC('month', CURRENT_DATE)::date
+		`
+	default: // "today", "today_only", or any unrecognised value
+		disbursementQuery += `
+			AND DATE(l.disbursement_date) = CURRENT_DATE
+		`
+	}
+
+	// Apply the same filters as the main query
+	disbursementArgs := []interface{}{}
+	disbursementArgCount := 1
+
+	if officerID, ok := filters["officer_id"].(string); ok && officerID != "" {
+		disbursementQuery += fmt.Sprintf(" AND l.officer_id = $%d", disbursementArgCount)
+		disbursementArgs = append(disbursementArgs, officerID)
+		disbursementArgCount++
+	}
+
+	if branch, ok := filters["branch"].(string); ok && branch != "" {
+		disbursementQuery += fmt.Sprintf(" AND l.branch = $%d", disbursementArgCount)
+		disbursementArgs = append(disbursementArgs, branch)
+		disbursementArgCount++
+	}
+
+	if region, ok := filters["region"].(string); ok && region != "" {
+		regions := strings.Split(region, ",")
+		if len(regions) == 1 {
+			disbursementQuery += fmt.Sprintf(" AND l.region = $%d", disbursementArgCount)
+			disbursementArgs = append(disbursementArgs, regions[0])
+			disbursementArgCount++
+		} else {
+			placeholders := make([]string, len(regions))
+			for i, r := range regions {
+				placeholders[i] = fmt.Sprintf("$%d", disbursementArgCount)
+				disbursementArgs = append(disbursementArgs, r)
+				disbursementArgCount++
+			}
+			disbursementQuery += fmt.Sprintf(" AND l.region IN (%s)", strings.Join(placeholders, ","))
+		}
+	}
+
+	if product, ok := filters["product"].(string); ok && product != "" {
+		disbursementQuery += fmt.Sprintf(" AND l.product = $%d", disbursementArgCount)
+		disbursementArgs = append(disbursementArgs, product)
+		disbursementArgCount++
+	}
+
+	if wave, ok := filters["wave"].(string); ok && wave != "" {
+		disbursementQuery += fmt.Sprintf(" AND l.wave = $%d", disbursementArgCount)
+		disbursementArgs = append(disbursementArgs, wave)
+		disbursementArgCount++
+	}
+
+	var totalDisbursement float64
+	err = r.db.QueryRow(disbursementQuery, disbursementArgs...).Scan(&totalDisbursement)
+	if err != nil {
+		return nil, fmt.Errorf("failed to calculate total disbursement: %w", err)
 	}
 
 	// Build response
