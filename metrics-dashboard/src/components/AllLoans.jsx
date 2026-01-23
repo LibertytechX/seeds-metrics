@@ -534,7 +534,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     const headers = [
       'Loan ID', 'Customer Name', 'Customer Phone', 'Officer Name', 'Region', 'Branch',
       'Vertical Lead Name', 'Vertical Lead Email',
-      'Channel', 'Loan Type', 'Verification Status', 'Loan Amount', 'Repayment Amount', 'Disbursement Date',
+      'Channel', 'Loan Type', 'Repayment Type', 'Verification Status', 'Loan Amount', 'Repayment Amount', 'Disbursement Date',
       'First Repayment Due Date', 'Loan Tenure', 'Maturity Date',
 		      'Daily Repayment Amount', 'Repayment Days Due Today', 'Repayment Days Paid', 'Business Days Since Disbursement',
 		      'Timeliness Score', 'Repayment Health', 'Repayment Delay Rate %', 'Wave', 'Days Since Last Repayment', 'Current DPD', 'Previous DPD', 'DPD Change',
@@ -553,6 +553,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       loan.vertical_lead_email || 'N/A',
       loan.channel || 'N/A',
       loan.loan_type || 'N/A',
+      loan.repayment_type || 'N/A',
       loan.verification_status || 'N/A',
       loan.loan_amount,
       loan.repayment_amount || 'N/A',
@@ -713,7 +714,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
 	        const headers = [
 	          'Loan ID', 'Customer Name', 'Customer Phone', 'Officer Name', 'Region', 'Branch',
 	          'Vertical Lead Name', 'Vertical Lead Email',
-	          'Channel', 'Loan Type', 'Verification Status', 'Loan Amount', 'Repayment Amount', 'Disbursement Date',
+	          'Channel', 'Loan Type', 'Repayment Type', 'Verification Status', 'Loan Amount', 'Repayment Amount', 'Disbursement Date',
 	          'First Repayment Due Date', 'Loan Tenure', 'Maturity Date',
 	          'Daily Repayment Amount', 'Repayment Days Due Today', 'Repayment Days Paid', 'Business Days Since Disbursement',
 	          'Timeliness Score', 'Repayment Health', 'Repayment Delay Rate %', 'Wave', 'Days Since Last Repayment', 'Current DPD', 'Previous DPD', 'DPD Change',
@@ -732,6 +733,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
           loan.vertical_lead_email || 'N/A',
           loan.channel || 'N/A',
           loan.loan_type || 'N/A',
+          loan.repayment_type || 'N/A',
           loan.verification_status || 'N/A',
           loan.loan_amount,
           loan.repayment_amount || 'N/A',
@@ -1594,6 +1596,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                 <th onClick={() => handleSort('vertical_lead_email')}>Vertical Lead Email</th>
                 <th onClick={() => handleSort('channel')}>Channel</th>
                 <th onClick={() => handleSort('loan_type')}>Loan Type</th>
+                <th onClick={() => handleSort('repayment_type')}>Repayment Type</th>
 	                <th onClick={() => handleSort('verification_status')}>Verification Status</th>
 	                <th onClick={() => handleSort('loan_amount')}>Loan Amount</th>
                 <th onClick={() => handleSort('days_since_last_repayment')}>Days Since Last Repayment</th>
@@ -1692,6 +1695,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                   <td>{loan.vertical_lead_email || 'N/A'}</td>
                   <td>{loan.channel || 'N/A'}</td>
 	                  <td>{loan.loan_type || 'N/A'}</td>
+	                  <td>{loan.repayment_type || 'N/A'}</td>
 	                  <td>{loan.verification_status || 'N/A'}</td>
 	                  <td className="amount">{formatCurrency(loan.loan_amount)}</td>
                   <td className="days-since">{loan.days_since_last_repayment != null ? loan.days_since_last_repayment : 'N/A'}</td>
@@ -1778,6 +1782,8 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
         actualOutstanding={selectedLoan?.actual_outstanding}
         maturityDate={selectedLoan?.maturity_date}
         firstPaymentDueDate={selectedLoan?.first_payment_due_date}
+        repaymentType={selectedLoan?.repayment_type}
+        dailyRepaymentAmount={selectedLoan?.daily_repayment_amount}
       />
     </div>
   );

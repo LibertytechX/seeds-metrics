@@ -15,6 +15,8 @@ const LoanRepaymentsModal = ({
   actualOutstanding,
   maturityDate,
   firstPaymentDueDate,
+  repaymentType,
+  dailyRepaymentAmount,
 }) => {
   const [repayments, setRepayments] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -258,6 +260,18 @@ const LoanRepaymentsModal = ({
                   <span className="loan-repayments-summary-item">
                     <span className="loan-repayments-summary-label">First Payment Due Date:</span>
                     <span className="loan-repayments-summary-value">{formatDate(firstPaymentDueDate)}</span>
+                  </span>
+                )}
+                {repaymentType && (
+                  <span className="loan-repayments-summary-item">
+                    <span className="loan-repayments-summary-label">Repayment Type:</span>
+                    <span className="loan-repayments-summary-value">{repaymentType}</span>
+                  </span>
+                )}
+                {dailyRepaymentAmount != null && (
+                  <span className="loan-repayments-summary-item">
+                    <span className="loan-repayments-summary-label">Daily Repayment Amount:</span>
+                    <span className="loan-repayments-summary-value">{formatCurrency(dailyRepaymentAmount)}</span>
                   </span>
                 )}
               </div>
