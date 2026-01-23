@@ -636,6 +636,7 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 			    summaryMetrics?.portfolio_health?.performing_actual_outstanding ?? null;
 			  const portfolioHealthCount =
 			    summaryMetrics?.portfolio_health?.performing_loans_count ?? null;
+			  const totalDisbursement = summaryMetrics?.total_disbursement ?? null;
 
   const handleCardClick = (target) => {
     // Placeholder click handlers – these will later open specific drilldown tables
@@ -1081,6 +1082,17 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
           <div className="card-label">Portfolio Outstanding</div>
           <div className="card-value">{totalPortfolioAmount != null ? formatCurrency(totalPortfolioAmount) : '—'}</div>
           <div className="card-subtitle">Total portfolio amount for selected filters</div>
+        </button>
+
+        {/* Total Disbursement */}
+        <button
+          type="button"
+          className="collection-card kpi-blue"
+          onClick={() => handleCardClick('total-disbursement')}
+        >
+          <div className="card-label">Total Disbursement</div>
+          <div className="card-value">{totalDisbursement != null ? formatCurrency(totalDisbursement) : '—'}</div>
+          <div className="card-subtitle">Total loan amount disbursed successfully</div>
         </button>
 
 	        {/* 7. Portfolio Health – performing loans outstanding */}

@@ -86,7 +86,8 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     repaymentDelayCategories: { excellent: 0, okay: 0, critical: 0 },
     totalDueForToday: 0,
     totalRepaymentsToday: 0,
-    percentageOfDueCollected: 0
+    percentageOfDueCollected: 0,
+    totalDisbursement: 0
   });
 
   // Close dropdown when clicking outside
@@ -353,7 +354,8 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
             },
             totalDueForToday: data.data.summary_metrics.total_due_for_today || 0,
             totalRepaymentsToday: data.data.summary_metrics.total_repayments_today || 0,
-            percentageOfDueCollected: data.data.summary_metrics.percentage_of_due_collected || 0
+            percentageOfDueCollected: data.data.summary_metrics.percentage_of_due_collected || 0,
+            totalDisbursement: data.data.summary_metrics.total_disbursement || 0
           });
         }
       }
@@ -1082,6 +1084,10 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
             Collected: ₦{summaryMetrics.totalRepaymentsToday.toLocaleString('en-NG', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} |
             Collection Rate: {summaryMetrics.percentageOfDueCollected.toFixed(2)}%
           </div>
+        </div>
+        <div className="summary-card">
+          <div className="summary-label">Total Disbursement</div>
+          <div className="summary-value">₦{(summaryMetrics.totalDisbursement / 1000000000).toFixed(2)}B</div>
         </div>
         <div className="summary-card at-risk">
           <div className="summary-label">At Risk Loans (DPD &gt; 14)</div>

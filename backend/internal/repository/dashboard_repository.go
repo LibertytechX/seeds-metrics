@@ -1042,7 +1042,8 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 					END
 				), 0) as past_maturity_outstanding,
 				COALESCE(SUM(CASE WHEN UPPER(l.performance_status) = 'PERFORMING' THEN 1 ELSE 0 END), 0) as performing_loans_count,
-				COALESCE(SUM(CASE WHEN UPPER(l.performance_status) = 'PERFORMING' THEN l.actual_outstanding ELSE 0 END), 0) as performing_actual_outstanding
+				COALESCE(SUM(CASE WHEN UPPER(l.performance_status) = 'PERFORMING' THEN l.actual_outstanding ELSE 0 END), 0) as performing_actual_outstanding,
+				COALESCE(SUM(CASE WHEN l.is_disbursed = TRUE AND UPPER(l.supervisor_disbursement_status) = 'SUCCESSFUL' THEN l.loan_amount ELSE 0 END), 0) as total_disbursement
 			FROM loans l
 			JOIN officers o ON l.officer_id = o.officer_id
 			WHERE 1=1
@@ -1347,7 +1348,7 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 
 	// Execute query
 	var totalLoans, atRiskCount, criticalCount, excellentDelayCount, okayDelayCount, criticalDelayCount, performingLoansCount int
-	var totalPortfolioAmount, atRiskAmount, atRiskOutstanding, totalAmountInDPD, totalDueForToday, pastMaturityOutstanding, performingActualOutstanding float64
+	var totalPortfolioAmount, atRiskAmount, atRiskOutstanding, totalAmountInDPD, totalDueForToday, pastMaturityOutstanding, performingActualOutstanding, totalDisbursement float64
 
 	err := r.db.QueryRow(query, args...).Scan(
 		&totalLoans,
@@ -1364,6 +1365,7 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 		&pastMaturityOutstanding,
 		&performingLoansCount,
 		&performingActualOutstanding,
+		&totalDisbursement,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to calculate summary metrics: %w", err)
@@ -2284,6 +2286,7 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 		"missed_repayments_today":       missedAmountToday,
 		"missed_repayments_today_count": missedCountToday,
 		"past_maturity_outstanding":     pastMaturityOutstanding,
+		"total_disbursement":            totalDisbursement,
 	}
 
 	return metrics, nil
