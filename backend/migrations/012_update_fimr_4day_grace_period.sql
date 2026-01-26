@@ -27,6 +27,7 @@ DECLARE
     v_disbursement_date DATE;
     v_current_dpd INTEGER;
     v_loan_amount DECIMAL(15, 2);
+    v_repayment_amount DECIMAL(15, 2);
     v_interest_rate DECIMAL(5, 4);
     v_loan_term_days INTEGER;
     v_fee_amount DECIMAL(15, 2);
@@ -42,8 +43,8 @@ BEGIN
     v_loan_id := NEW.loan_id;
 
     -- Get loan details
-    SELECT loan_amount, interest_rate, loan_term_days, fee_amount, max_dpd_ever, disbursement_date
-    INTO v_loan_amount, v_interest_rate, v_loan_term_days, v_fee_amount, v_max_dpd, v_disbursement_date
+    SELECT loan_amount, repayment_amount, interest_rate, loan_term_days, fee_amount, max_dpd_ever, disbursement_date
+    INTO v_loan_amount, v_repayment_amount, v_interest_rate, v_loan_term_days, v_fee_amount, v_max_dpd, v_disbursement_date
     FROM loans
     WHERE loan_id = v_loan_id;
 
@@ -123,9 +124,9 @@ BEGIN
             v_expected_days INTEGER;
             v_paid_days DECIMAL(15, 2);
         BEGIN
-            -- Calculate daily payment rate (total loan amount / loan term)
+            -- Calculate daily payment rate (repayment amount / loan term)
             IF v_loan_term_days > 0 THEN
-                v_daily_payment_rate := v_loan_amount / v_loan_term_days;
+                v_daily_payment_rate := COALESCE(v_repayment_amount, v_loan_amount) / v_loan_term_days;
             ELSE
                 v_daily_payment_rate := 0;
             END IF;

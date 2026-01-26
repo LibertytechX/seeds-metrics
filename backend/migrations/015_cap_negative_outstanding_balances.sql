@@ -30,6 +30,7 @@ DECLARE
     v_disbursement_date DATE;
     v_current_dpd INTEGER;
     v_loan_amount DECIMAL(15, 2);
+    v_repayment_amount DECIMAL(15, 2);
     v_interest_rate DECIMAL(5, 4);
     v_loan_term_days INTEGER;
     v_fee_amount DECIMAL(15, 2);
@@ -49,8 +50,8 @@ BEGIN
     v_loan_id := NEW.loan_id;
 
     -- Get loan details
-    SELECT loan_amount, interest_rate, loan_term_days, fee_amount, max_dpd_ever, disbursement_date
-    INTO v_loan_amount, v_interest_rate, v_loan_term_days, v_fee_amount, v_max_dpd, v_disbursement_date
+    SELECT loan_amount, repayment_amount, interest_rate, loan_term_days, fee_amount, max_dpd_ever, disbursement_date
+    INTO v_loan_amount, v_repayment_amount, v_interest_rate, v_loan_term_days, v_fee_amount, v_max_dpd, v_disbursement_date
     FROM loans
     WHERE loan_id = v_loan_id;
 
@@ -78,20 +79,20 @@ BEGIN
     -- ========================================================================
     -- UPDATED: Calculate outstanding balances with GREATEST() to cap at 0
     -- ========================================================================
-    
+
     -- Calculate principal outstanding (cap at 0 if over-paid)
     v_principal_outstanding := GREATEST(0, v_loan_amount - v_total_principal_paid);
-    
+
     -- Calculate interest outstanding (cap at 0 if over-paid)
-    v_interest_outstanding := GREATEST(0, 
+    v_interest_outstanding := GREATEST(0,
         (v_loan_amount * v_interest_rate * v_loan_term_days / 365) - v_total_interest_paid
     );
-    
+
     -- Calculate fees outstanding (cap at 0 if over-paid)
-    v_fees_outstanding := GREATEST(0, 
+    v_fees_outstanding := GREATEST(0,
         COALESCE(v_fee_amount, 0) - v_total_fees_paid
     );
-    
+
     -- Calculate total outstanding (cap at 0)
     v_total_outstanding := GREATEST(0,
         v_principal_outstanding + v_interest_outstanding + v_fees_outstanding
@@ -147,9 +148,9 @@ BEGIN
             v_expected_days INTEGER;
             v_paid_days DECIMAL(15, 2);
         BEGIN
-            -- Calculate daily payment rate (total loan amount / loan term)
+            -- Calculate daily payment rate (repayment amount / loan term)
             IF v_loan_term_days > 0 THEN
-                v_daily_payment_rate := v_loan_amount / v_loan_term_days;
+                v_daily_payment_rate := COALESCE(v_repayment_amount, v_loan_amount) / v_loan_term_days;
             ELSE
                 v_daily_payment_rate := 0;
             END IF;
@@ -257,10 +258,10 @@ $$ LANGUAGE plpgsql;
 UPDATE loans
 SET
     principal_outstanding = GREATEST(0, loan_amount - total_principal_paid),
-    interest_outstanding = GREATEST(0, 
+    interest_outstanding = GREATEST(0,
         (loan_amount * interest_rate * loan_term_days / 365) - total_interest_paid
     ),
-    fees_outstanding = GREATEST(0, 
+    fees_outstanding = GREATEST(0,
         COALESCE(fee_amount, 0) - total_fees_paid
     ),
     total_outstanding = GREATEST(0,
@@ -270,10 +271,10 @@ SET
     ),
     actual_outstanding = GREATEST(0, actual_outstanding),
     updated_at = CURRENT_TIMESTAMP
-WHERE 
-    principal_outstanding < 0 
-    OR interest_outstanding < 0 
-    OR fees_outstanding < 0 
+WHERE
+    principal_outstanding < 0
+    OR interest_outstanding < 0
+    OR fees_outstanding < 0
     OR total_outstanding < 0
     OR actual_outstanding < 0;
 
@@ -282,19 +283,19 @@ WHERE
 -- ============================================================================
 
 -- Check for any remaining negative balances (should return 0 rows)
-SELECT 
+SELECT
     'Loans with negative balances (should be 0)' as check_description,
     COUNT(*) as count
 FROM loans
-WHERE 
-    principal_outstanding < 0 
-    OR interest_outstanding < 0 
-    OR fees_outstanding < 0 
+WHERE
+    principal_outstanding < 0
+    OR interest_outstanding < 0
+    OR fees_outstanding < 0
     OR total_outstanding < 0
     OR actual_outstanding < 0;
 
 -- Check officer 'adeyinka232803@gmail.com' portfolio total
-SELECT 
+SELECT
     'Officer adeyinka232803@gmail.com portfolio check' as check_description,
     COUNT(*) as total_loans,
     SUM(principal_outstanding) as portfolio_total,
@@ -303,7 +304,7 @@ FROM loans
 WHERE officer_id = 'adeyinka232803@gmail.com';
 
 -- Summary of over-paid loans (now showing 0 outstanding instead of negative)
-SELECT 
+SELECT
     'Over-paid loans summary' as check_description,
     COUNT(*) as overpaid_loan_count,
     SUM(total_principal_paid - loan_amount) as total_overpayment_amount
