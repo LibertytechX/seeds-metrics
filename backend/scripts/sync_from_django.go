@@ -278,6 +278,14 @@ func syncLoans(ctx context.Context, djangoRepo *repository.DjangoRepository, loa
 				input.FeeAmount = &fee
 			}
 
+			// Disbursement fields
+			if isDisbursed, ok := loanData["is_disbursed"].(bool); ok {
+				input.IsDisbursed = &isDisbursed
+			}
+			if supervisorStatus, ok := loanData["supervisor_disbursement_status"].(string); ok && supervisorStatus != "" {
+				input.SupervisorDisbursementStatus = &supervisorStatus
+			}
+
 			// Create/update loan
 			if err := loanRepo.Create(ctx, input); err != nil {
 				log.Printf("❌ Failed to sync loan %s: %v", input.LoanID, err)

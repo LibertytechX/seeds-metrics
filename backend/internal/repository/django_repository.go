@@ -392,6 +392,8 @@ func (r *DjangoRepository) GetLoans(ctx context.Context, limit, offset int) ([]m
 				l.performance_status,
 			l.loan_type,
 			l.verification_stage as verification_status,
+			l.is_disbursed,
+			l.supervisor_disbursement_status,
 			l.created_at,
 			l.updated_at
 		FROM loans_ajoloan l
@@ -416,6 +418,8 @@ func (r *DjangoRepository) GetLoans(ctx context.Context, limit, offset int) ([]m
 		var loanAmount, repaymentAmount, interestRate, feeAmount float64
 		var loanTermDays int
 		var disbursementDate, firstPaymentDueDate, maturityDate sql.NullTime
+		var isDisbursed bool
+		var supervisorDisbursementStatus sql.NullString
 		var createdAt, updatedAt time.Time
 
 		err := rows.Scan(
@@ -441,6 +445,8 @@ func (r *DjangoRepository) GetLoans(ctx context.Context, limit, offset int) ([]m
 			&performanceStatus,
 			&loanType,
 			&verificationStatus,
+			&isDisbursed,
+			&supervisorDisbursementStatus,
 			&createdAt,
 			&updatedAt,
 		)
@@ -485,6 +491,10 @@ func (r *DjangoRepository) GetLoans(ctx context.Context, limit, offset int) ([]m
 		}
 		if verificationStatus.Valid {
 			loan["verification_status"] = verificationStatus.String
+		}
+		loan["is_disbursed"] = isDisbursed
+		if supervisorDisbursementStatus.Valid {
+			loan["supervisor_disbursement_status"] = supervisorDisbursementStatus.String
 		}
 		if disbursementDate.Valid {
 			loan["disbursement_date"] = disbursementDate.Time.Format("2006-01-02")
