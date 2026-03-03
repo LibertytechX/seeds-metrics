@@ -132,8 +132,8 @@ func (r *LoanRepository) GetByID(ctx context.Context, loanID string) (*models.Lo
 			status, closed_date,
 			current_dpd, max_dpd_ever, first_payment_missed,
 			first_payment_due_date, first_payment_received_date,
-			principal_outstanding, interest_outstanding, fees_outstanding, total_outstanding,
-			total_principal_paid, total_interest_paid, total_fees_paid,
+			COALESCE(principal_outstanding, 0) as principal_outstanding, COALESCE(interest_outstanding, 0) as interest_outstanding, COALESCE(fees_outstanding, 0) as fees_outstanding, COALESCE(total_outstanding, 0) as total_outstanding,
+			COALESCE(total_principal_paid, 0) as total_principal_paid, COALESCE(total_interest_paid, 0) as total_interest_paid, COALESCE(total_fees_paid, 0) as total_fees_paid,
 			fimr_tagged, early_indicator_tagged,
 			created_at, updated_at
 		FROM loans
@@ -174,7 +174,7 @@ func (r *LoanRepository) List(ctx context.Context, filter *models.LoanFilter) ([
 	query := `
 		SELECT
 			l.loan_id, l.customer_name, l.customer_phone, l.officer_name, l.branch,
-			l.loan_amount, l.disbursement_date, l.current_dpd, l.total_outstanding,
+			l.loan_amount, l.disbursement_date, l.current_dpd, COALESCE(l.total_outstanding, 0) as total_outstanding,
 			l.fimr_tagged, l.status
 		FROM loans l
 		INNER JOIN officers o ON l.officer_id = o.officer_id
