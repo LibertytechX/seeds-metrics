@@ -1,33 +1,31 @@
-version: '3.8'
-
 services:
-  # PostgreSQL Database - DISABLED (using external database on host)
-  # The application now connects to PostgreSQL running on the host machine at localhost:5433
-  # postgres:
-  #   image: postgres:14-alpine
-  #   container_name: analytics-postgres
-  #   environment:
-  #     POSTGRES_USER: analytics_user
-  #     POSTGRES_PASSWORD: analytics_password
-  #     POSTGRES_DB: analytics_db
-  #   ports:
-  #     - "5433:5432"
-  #   volumes:
-  #     - postgres_data:/var/lib/postgresql/data
-  #   healthcheck:
-  #     test: ["CMD-SHELL", "pg_isready -U analytics_user -d analytics_db"]
-  #     interval: 10s
-  #     timeout: 5s
-  #     retries: 5
-  #   networks:
-  #     - analytics-network
+  # PostgreSQL Database
+  postgres:
+    image: postgres:14-alpine
+    container_name: analytics-postgres
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 19sedimat54
+      POSTGRES_DB: seedsmetrics
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d seedsmetrics"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - analytics-network
+    restart: unless-stopped
 
   # Redis Cache
   redis:
     image: redis:7-alpine
     container_name: analytics-redis
     ports:
-      - "6379:6379"
+      - "6380:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -37,6 +35,7 @@ services:
       retries: 5
     networks:
       - analytics-network
+    restart: unless-stopped
 
   # Analytics API Service
   api:
@@ -45,34 +44,24 @@ services:
       dockerfile: Dockerfile
     container_name: analytics-api
     env_file:
-      - .env
-    # Environment variables can also be set here (will override .env file)
-    environment:
-      # Database - Using host.docker.internal to access host machine's PostgreSQL
-      DB_HOST: host.docker.internal
-      DB_PORT: 5432
-      DB_USER: postgres
-      DB_PASSWORD: 19sedimat54
-      DB_NAME: seedsmetrics
-      DB_SSLMODE: disable
+      - .env.docker
     ports:
-      - "8080:8080"
+      - "8081:8081"
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
-    # Allow container to access host network for external PostgreSQL
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
     networks:
       - analytics-network
     restart: unless-stopped
 
 volumes:
-  # postgres_data volume removed - using external database
+  postgres_data:
+    driver: local
   redis_data:
     driver: local
 
 networks:
   analytics-network:
     driver: bridge
-
