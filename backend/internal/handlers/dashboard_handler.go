@@ -1559,3 +1559,43 @@ func (h *DashboardHandler) SyncNewRepayments(c *gin.Context) {
 		},
 	})
 }
+
+// CalculateDPD handles POST /api/v1/loans/calculate-dpd
+// @Summary Calculate DPD for a loan
+// @Description Calculates DPD using the exact database logic/business day count for arbitrary loan parameters.
+// @Tags Loans
+// @Accept json
+// @Produce json
+// @Param request body models.DPDCalculationRequest true "DPD Calculation Request"
+// @Success 200 {object} models.APIResponse{data=models.DPDCalculationResponse}
+// @Failure 400 {object} models.APIResponse
+// @Failure 500 {object} models.APIResponse
+// @Router /loans/calculate-dpd [post]
+func (h *DashboardHandler) CalculateDPD(c *gin.Context) {
+	var req models.DPDCalculationRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, models.APIResponse{
+			Status:  "error",
+			Message: "Invalid request payload",
+			Error:   newAPIError("INVALID_PAYLOAD", err.Error()),
+		})
+		return
+	}
+
+	result, err := h.dashboardRepo.CalculateDPD(req)
+	if err != nil {
+		log.Printf("❌ Error calculating DPD: %v", err)
+		c.JSON(http.StatusInternalServerError, models.APIResponse{
+			Status:  "error",
+			Message: "Failed to calculate DPD",
+			Error:   newAPIError("CALCULATION_ERROR", err.Error()),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, models.APIResponse{
+		Status:  "success",
+		Message: "DPD calculated successfully",
+		Data:    result,
+	})
+}

@@ -5407,3 +5407,77 @@ func (r *DashboardRepository) UpdatePastMaturityStatus() (int64, error) {
 
 	return rowsAffected, nil
 }
+
+// CalculateDPD calculates DPD for a hypothetical loan or one not yet in the DB.
+// It uses the same count_business_days methodology as the main trigger.
+func (r *DashboardRepository) CalculateDPD(req models.DPDCalculationRequest) (models.DPDCalculationResponse, error) {
+	var resp models.DPDCalculationResponse
+
+	// Default current date to today if not provided
+	currentDateExpr := "CURRENT_DATE"
+	if req.CurrentDate != nil && *req.CurrentDate != "" {
+		currentDateExpr = fmt.Sprintf("'%s'::DATE", *req.CurrentDate)
+	}
+
+	query := fmt.Sprintf(`
+		WITH params AS (
+			SELECT
+				$1::DECIMAL(15, 2) as repayment_amount,
+				$2::INTEGER as loan_term_days,
+				$3::DECIMAL(15, 2) as total_repayments,
+				$4::DATE as first_payment_due_date,
+				$5::DATE as maturity_date,
+				%s as current_date
+		),
+		calc AS (
+			SELECT
+				repayment_amount,
+				loan_term_days,
+				total_repayments,
+				first_payment_due_date,
+				maturity_date,
+				current_date,
+				CASE WHEN loan_term_days > 0 THEN repayment_amount / loan_term_days ELSE 0 END as daily_repayment_amount,
+				LEAST(current_date, maturity_date) as calc_end_date
+			FROM params
+		),
+		final_calc AS (
+			SELECT
+				*,
+				CASE
+					WHEN calc_end_date >= first_payment_due_date THEN count_business_days(first_payment_due_date, calc_end_date)
+					ELSE 0
+				END as repayment_days_due_today,
+				CASE
+					WHEN daily_repayment_amount > 0 THEN total_repayments / daily_repayment_amount
+					ELSE 0
+				END as repayment_days_paid
+			FROM calc
+		)
+		SELECT
+			GREATEST(0, repayment_days_due_today - repayment_days_paid::INTEGER) as current_dpd,
+			daily_repayment_amount,
+			repayment_days_paid,
+			repayment_days_due_today
+		FROM final_calc
+	`, currentDateExpr)
+
+	err := r.db.QueryRow(query,
+		req.RepaymentAmount,
+		req.LoanTermDays,
+		req.TotalRepayments,
+		req.FirstPaymentDueDate,
+		req.MaturityDate,
+	).Scan(
+		&resp.CurrentDPD,
+		&resp.DailyRepaymentAmount,
+		&resp.RepaymentDaysPaid,
+		&resp.RepaymentDaysDueToday,
+	)
+
+	if err != nil {
+		return resp, fmt.Errorf("failed to calculate DPD: %w", err)
+	}
+
+	return resp, nil
+}
