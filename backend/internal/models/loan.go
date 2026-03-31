@@ -201,3 +201,22 @@ type TopRiskLoan struct {
 	Channel               string  `json:"channel"`
 	DaysSinceDisbursement int     `json:"days_since_disbursement"`
 }
+
+// DPDCalculationRequest represents the input for DPD calculation API
+type DPDCalculationRequest struct {
+	RepaymentAmount     decimal.Decimal `json:"repayment_amount" binding:"required"`
+	LoanTermDays        int             `json:"loan_term_days" binding:"required"`
+	TotalRepayments     decimal.Decimal `json:"total_repayments"`
+	FirstPaymentDueDate string          `json:"first_payment_due_date" binding:"required"` // YYYY-MM-DD
+	MaturityDate        string          `json:"maturity_date" binding:"required"`         // YYYY-MM-DD
+	CurrentDate         *string         `json:"current_date"`                              // YYYY-MM-DD (optional)
+}
+
+// DPDCalculationResponse represents the output for DPD calculation API
+type DPDCalculationResponse struct {
+	CurrentDPD            int             `json:"current_dpd"`
+	DailyRepaymentAmount  decimal.Decimal `json:"daily_repayment_amount"`
+	RepaymentDaysPaid     decimal.Decimal `json:"repayment_days_paid"`
+	RepaymentDaysDueToday int             `json:"repayment_days_due_today"`
+}
+
