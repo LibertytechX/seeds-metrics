@@ -749,9 +749,10 @@ type LoanCreditBureauKYCRow struct {
 	CBCreatedAt  sql.NullTime
 }
 
-// GetLoanCreditBureauKYCForSync retrieves loan + KYC + credit bureau data from Django
-// using a priority chain: credit_bureau_result > borrower_worthiness > credit_bureau_metadata
-func (r *DjangoRepository) GetLoanCreditBureauKYCForSync(ctx context.Context) ([]*LoanCreditBureauKYCRow, error) {
+// GetLoanCreditBureauKYCForSyncBatch retrieves a batch of loan + KYC + credit bureau data from Django
+// using a priority chain: credit_bureau_result > borrower_worthiness > credit_bureau_metadata.
+// Uses LIMIT/OFFSET to avoid loading all rows into memory at once.
+func (r *DjangoRepository) GetLoanCreditBureauKYCForSyncBatch(ctx context.Context, limit, offset int) ([]*LoanCreditBureauKYCRow, error) {
 	query := `
 		SELECT
 			l.id AS django_loan_id,
@@ -813,11 +814,13 @@ func (r *DjangoRepository) GetLoanCreditBureauKYCForSync(ctx context.Context) ([
 			ORDER BY mm.created_at DESC LIMIT 1
 		) m ON true
 		WHERE cbr.id IS NOT NULL OR w.id IS NOT NULL OR m.id IS NOT NULL
+		ORDER BY l.id
+		LIMIT $1 OFFSET $2
 	`
 
-	rows, err := r.db.QueryContext(ctx, query)
+	rows, err := r.db.QueryContext(ctx, query, limit, offset)
 	if err != nil {
-		return nil, fmt.Errorf("failed to query loan credit bureau KYC: %w", err)
+		return nil, fmt.Errorf("failed to query loan credit bureau KYC batch (offset=%d): %w", offset, err)
 	}
 	defer rows.Close()
 
