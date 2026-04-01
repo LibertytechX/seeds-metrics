@@ -139,6 +139,7 @@ func (r *CreditBureauRepository) GetLoanCreditBureauKYCCount(ctx context.Context
 // GetLoanCreditBureauKYCPaginated returns paginated records ordered by date_disbursed DESC
 func (r *CreditBureauRepository) GetLoanCreditBureauKYCPaginated(ctx context.Context, page, limit int, source string, includeImages bool) ([]*models.LoanCreditBureauKYC, error) {
 	// Build column list - exclude images by default
+	// Use COALESCE for JSONB columns to avoid NULL scan errors with json.RawMessage
 	cols := []string{
 		"id", "django_loan_id", "loan_ref", "loan_amount", "tenor", "tenor_in_days",
 		"borrower_full_name", "borrower_phone_number", "loan_status", "date_disbursed",
@@ -149,11 +150,14 @@ func (r *CreditBureauRepository) GetLoanCreditBureauKYCPaginated(ctx context.Con
 		cols = append(cols, "id_card_image", "selfie_image")
 	}
 	cols = append(cols,
-		"cb_result", "cb_status", "cb_reason", "cb_decision", "cb_decision_status", "cb_credibility",
-		"cb_bad_loans_institutions", "cb_bad_loans_institutions_count",
+		"COALESCE(cb_result, 'null'::jsonb)", "cb_status", "cb_reason",
+		"COALESCE(cb_decision, 'null'::jsonb)", "cb_decision_status",
+		"COALESCE(cb_credibility, 'null'::jsonb)",
+		"COALESCE(cb_bad_loans_institutions, 'null'::jsonb)", "cb_bad_loans_institutions_count",
 		"cb_count_of_open_loans", "cb_total_outstanding", "cb_debt_threshold",
-		"cb_high_outstanding_debt", "cb_open_loan_institutions", "cb_max_debt_institution_count",
-		"cb_legacy_response", "cb_no_of_defaulted_loans", "cb_monthly_repayment_amount",
+		"cb_high_outstanding_debt",
+		"COALESCE(cb_open_loan_institutions, 'null'::jsonb)", "cb_max_debt_institution_count",
+		"COALESCE(cb_legacy_response, 'null'::jsonb)", "cb_no_of_defaulted_loans", "cb_monthly_repayment_amount",
 		"cb_data_source", "cb_created_at", "synced_at", "created_at", "updated_at",
 	)
 
