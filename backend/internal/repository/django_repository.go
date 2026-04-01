@@ -702,6 +702,157 @@ func (r *DjangoRepository) GetRepaymentsByLoanID(ctx context.Context, loanID str
 	return repayments, nil
 }
 
+// LoanCreditBureauKYCRow represents a raw row from the Django sync query
+type LoanCreditBureauKYCRow struct {
+	DjangoLoanID     int64
+	LoanRef          string
+	LoanAmount       sql.NullFloat64
+	Tenor            sql.NullString
+	TenorInDays      sql.NullInt32
+	BorrowerFullName sql.NullString
+	BorrowerPhone    sql.NullString
+	LoanStatus       sql.NullString
+	DateDisbursed    sql.NullTime
+
+	VerificationNumber sql.NullString
+	VerificationType   sql.NullString
+	NIN                sql.NullString
+	DateOfBirth        sql.NullString
+	IsVerified         sql.NullBool
+	Address            sql.NullString
+
+	FaceMatch   sql.NullBool
+	IDCardImage sql.NullString
+	SelfieImage sql.NullString
+
+	CBResult         []byte
+	CBDecision       []byte
+	CBDecisionStatus sql.NullString
+	CBCredibility    []byte
+
+	CBStatus                    sql.NullBool
+	CBReason                    sql.NullString
+	CBBadLoansInstitutions      []byte
+	CBBadLoansInstitutionsCount sql.NullInt32
+	CBCountOfOpenLoans          sql.NullInt32
+	CBTotalOutstanding          sql.NullFloat64
+	CBDebtThreshold             sql.NullFloat64
+	CBHighOutstandingDebt       sql.NullBool
+	CBOpenLoanInstitutions      []byte
+	CBMaxDebtInstitutionCount   sql.NullInt32
+
+	CBLegacyResponse         sql.NullString
+	CBNoOfDefaultedLoans     sql.NullInt32
+	CBMonthlyRepaymentAmount sql.NullFloat64
+
+	CBDataSource string
+	CBCreatedAt  sql.NullTime
+}
+
+// GetLoanCreditBureauKYCForSync retrieves loan + KYC + credit bureau data from Django
+// using a priority chain: credit_bureau_result > borrower_worthiness > credit_bureau_metadata
+func (r *DjangoRepository) GetLoanCreditBureauKYCForSync(ctx context.Context) ([]*LoanCreditBureauKYCRow, error) {
+	query := `
+		SELECT
+			l.id AS django_loan_id,
+			l.loan_ref,
+			l.amount AS loan_amount,
+			l.tenor,
+			l.tenor_in_days,
+			l.borrower_full_name,
+			l.borrower_phone_number,
+			l.status AS loan_status,
+			l.date_disbursed,
+			bi.verification_number,
+			bi.verification_type,
+			bi.nin,
+			bi.date_of_birth,
+			bi.is_verified,
+			u.address,
+			bi.face_match,
+			bi.base_64_img_string AS id_card_image,
+			bi.snapped_image AS selfie_image,
+			cbr.result AS cb_result,
+			cbr.decision AS cb_decision,
+			cbr.decision_status AS cb_decision_status,
+			cbr.credibility AS cb_credibility,
+			COALESCE(cbr.status, w.credit_worthy) AS cb_status,
+			COALESCE(cbr.reason, w.reason) AS cb_reason,
+			COALESCE(cbr.bad_loans_institutions, array_to_json(w.bad_loans_institions)::jsonb) AS cb_bad_loans_institutions,
+			COALESCE(cbr.bad_loans_institutions_count, w.bad_loans_institions_count) AS cb_bad_loans_institutions_count,
+			COALESCE(cbr.count_of_open_loans, w.count_of_open_loans) AS cb_count_of_open_loans,
+			COALESCE(cbr.total_outstanding, w.total_outstanding) AS cb_total_outstanding,
+			COALESCE(cbr.debt_threshold, w.debt_threshold) AS cb_debt_threshold,
+			COALESCE(cbr.high_outstanding_debt, w.high_outstanding_debt) AS cb_high_outstanding_debt,
+			COALESCE(cbr.open_loan_institutions, array_to_json(w.open_loan_institutions)::jsonb) AS cb_open_loan_institutions,
+			COALESCE(cbr.max_debt_institution_count, w.max_debt_institution_count) AS cb_max_debt_institution_count,
+			m.response AS cb_legacy_response,
+			m.no_of_defaulted_loans AS cb_no_of_defaulted_loans,
+			m.monthly_repayment_amount AS cb_monthly_repayment_amount,
+			CASE
+				WHEN cbr.id IS NOT NULL THEN 'credit_bureau_result'
+				WHEN w.id IS NOT NULL THEN 'borrower_worthiness'
+				WHEN m.id IS NOT NULL THEN 'credit_bureau_metadata'
+				ELSE 'none'
+			END AS cb_data_source,
+			COALESCE(cbr.created_at, w.created_at, m.created_at) AS cb_created_at
+		FROM loans_ajoloan l
+		LEFT JOIN loans_borrowerinfo bi ON bi.loan_id = l.id
+		LEFT JOIN accounts_customuser u ON u.id = l.borrower_id
+		LEFT JOIN credit_bureau_creditbureauresult cbr ON cbr.loan_reference = l.loan_ref
+		LEFT JOIN LATERAL (
+			SELECT ww.*
+			FROM loans_borrowercreditbureauworthiness ww
+			WHERE ww.borrower_id = l.borrower_id
+			ORDER BY ww.created_at DESC LIMIT 1
+		) w ON true
+		LEFT JOIN LATERAL (
+			SELECT mm.*
+			FROM loans_creditbureaumetadata mm
+			WHERE mm.ajo_user_id = l.borrower_id AND mm.status = 'SUCCESS'
+			ORDER BY mm.created_at DESC LIMIT 1
+		) m ON true
+		WHERE cbr.id IS NOT NULL OR w.id IS NOT NULL OR m.id IS NOT NULL
+	`
+
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query loan credit bureau KYC: %w", err)
+	}
+	defer rows.Close()
+
+	var results []*LoanCreditBureauKYCRow
+	for rows.Next() {
+		row := &LoanCreditBureauKYCRow{}
+		err := rows.Scan(
+			&row.DjangoLoanID, &row.LoanRef, &row.LoanAmount,
+			&row.Tenor, &row.TenorInDays, &row.BorrowerFullName,
+			&row.BorrowerPhone, &row.LoanStatus, &row.DateDisbursed,
+			&row.VerificationNumber, &row.VerificationType, &row.NIN,
+			&row.DateOfBirth, &row.IsVerified, &row.Address,
+			&row.FaceMatch, &row.IDCardImage, &row.SelfieImage,
+			&row.CBResult, &row.CBDecision, &row.CBDecisionStatus, &row.CBCredibility,
+			&row.CBStatus, &row.CBReason,
+			&row.CBBadLoansInstitutions, &row.CBBadLoansInstitutionsCount,
+			&row.CBCountOfOpenLoans, &row.CBTotalOutstanding,
+			&row.CBDebtThreshold, &row.CBHighOutstandingDebt,
+			&row.CBOpenLoanInstitutions, &row.CBMaxDebtInstitutionCount,
+			&row.CBLegacyResponse, &row.CBNoOfDefaultedLoans, &row.CBMonthlyRepaymentAmount,
+			&row.CBDataSource, &row.CBCreatedAt,
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to scan loan credit bureau KYC row: %w", err)
+		}
+		results = append(results, row)
+	}
+
+	if err = rows.Err(); err != nil {
+		return nil, fmt.Errorf("error iterating loan credit bureau KYC rows: %w", err)
+	}
+
+	return results, nil
+}
+
 // HealthCheck verifies the Django database connection is healthy
 func (r *DjangoRepository) HealthCheck(ctx context.Context) error {
 	query := `SELECT 1`

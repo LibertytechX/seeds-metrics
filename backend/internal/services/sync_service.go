@@ -3,6 +3,7 @@ package services
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log"
 
@@ -14,17 +15,19 @@ import (
 
 // SyncService handles data synchronization operations
 type SyncService struct {
-	djangoRepo    *repository.DjangoRepository
-	repaymentRepo *repository.RepaymentRepository
-	loanRepo      *repository.LoanRepository
+	djangoRepo       *repository.DjangoRepository
+	repaymentRepo    *repository.RepaymentRepository
+	loanRepo         *repository.LoanRepository
+	creditBureauRepo *repository.CreditBureauRepository
 }
 
 // NewSyncService creates a new sync service
 func NewSyncService(djangoDB *sql.DB, seedsDB *database.DB) *SyncService {
 	return &SyncService{
-		djangoRepo:    repository.NewDjangoRepository(djangoDB),
-		repaymentRepo: repository.NewRepaymentRepository(seedsDB),
-		loanRepo:      repository.NewLoanRepository(seedsDB),
+		djangoRepo:       repository.NewDjangoRepository(djangoDB),
+		repaymentRepo:    repository.NewRepaymentRepository(seedsDB),
+		loanRepo:         repository.NewLoanRepository(seedsDB),
+		creditBureauRepo: repository.NewCreditBureauRepository(seedsDB),
 	}
 }
 
@@ -223,4 +226,197 @@ func (s *SyncService) SyncNewRepayments(ctx context.Context) (*SyncNewRepayments
 	}
 
 	return result, nil
+}
+
+// SyncLoanCreditBureauKYCResult contains the result of syncing loan credit bureau KYC data
+type SyncLoanCreditBureauKYCResult struct {
+	TotalFetched      int    `json:"total_fetched"`
+	TotalUpserted     int    `json:"total_upserted"`
+	TotalErrors       int    `json:"total_errors"`
+	LegacyConverted   int    `json:"legacy_converted"`
+	LegacyConvertFail int    `json:"legacy_convert_fail"`
+	Message           string `json:"message"`
+}
+
+// SyncLoanCreditBureauKYC fetches loan + KYC + credit bureau data from Django and upserts into metrics DB
+func (s *SyncService) SyncLoanCreditBureauKYC(ctx context.Context) (*SyncLoanCreditBureauKYCResult, error) {
+	log.Printf("🔄 Starting loan credit bureau KYC sync...")
+
+	// Fetch all rows from Django
+	rows, err := s.djangoRepo.GetLoanCreditBureauKYCForSync(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch loan credit bureau KYC from Django: %w", err)
+	}
+	log.Printf("📦 Fetched %d loan credit bureau KYC rows from Django", len(rows))
+
+	legacyConverted := 0
+	legacyConvertFail := 0
+
+	// Convert rows to model records
+	records := make([]*models.LoanCreditBureauKYC, 0, len(rows))
+	for _, row := range rows {
+		rec := &models.LoanCreditBureauKYC{
+			DjangoLoanID: row.DjangoLoanID,
+			LoanRef:      row.LoanRef,
+			CBDataSource: row.CBDataSource,
+		}
+
+		// Loan fields
+		if row.LoanAmount.Valid {
+			v := row.LoanAmount.Float64
+			rec.LoanAmount = &v
+		}
+		if row.Tenor.Valid {
+			rec.Tenor = &row.Tenor.String
+		}
+		if row.TenorInDays.Valid {
+			v := int(row.TenorInDays.Int32)
+			rec.TenorInDays = &v
+		}
+		if row.BorrowerFullName.Valid {
+			rec.BorrowerFullName = &row.BorrowerFullName.String
+		}
+		if row.BorrowerPhone.Valid {
+			rec.BorrowerPhone = &row.BorrowerPhone.String
+		}
+		if row.LoanStatus.Valid {
+			rec.LoanStatus = &row.LoanStatus.String
+		}
+		if row.DateDisbursed.Valid {
+			rec.DateDisbursed = &row.DateDisbursed.Time
+		}
+
+		// KYC fields
+		if row.VerificationNumber.Valid {
+			rec.VerificationNumber = &row.VerificationNumber.String
+		}
+		if row.VerificationType.Valid {
+			rec.VerificationType = &row.VerificationType.String
+		}
+		if row.NIN.Valid {
+			rec.NIN = &row.NIN.String
+		}
+		if row.DateOfBirth.Valid {
+			rec.DateOfBirth = &row.DateOfBirth.String
+		}
+		if row.IsVerified.Valid {
+			rec.IsVerified = &row.IsVerified.Bool
+		}
+		if row.Address.Valid {
+			rec.Address = &row.Address.String
+		}
+		if row.FaceMatch.Valid {
+			rec.FaceMatch = &row.FaceMatch.Bool
+		}
+		if row.IDCardImage.Valid {
+			rec.IDCardImage = &row.IDCardImage.String
+		}
+		if row.SelfieImage.Valid {
+			rec.SelfieImage = &row.SelfieImage.String
+		}
+
+		// Credit bureau JSON fields
+		if len(row.CBResult) > 0 {
+			rec.CBResult = json.RawMessage(row.CBResult)
+		}
+		if len(row.CBDecision) > 0 {
+			rec.CBDecision = json.RawMessage(row.CBDecision)
+		}
+		if row.CBDecisionStatus.Valid {
+			rec.CBDecisionStatus = &row.CBDecisionStatus.String
+		}
+		if len(row.CBCredibility) > 0 {
+			rec.CBCredibility = json.RawMessage(row.CBCredibility)
+		}
+		if row.CBStatus.Valid {
+			rec.CBStatus = &row.CBStatus.Bool
+		}
+		if row.CBReason.Valid {
+			rec.CBReason = &row.CBReason.String
+		}
+		if len(row.CBBadLoansInstitutions) > 0 {
+			rec.CBBadLoansInstitutions = json.RawMessage(row.CBBadLoansInstitutions)
+		}
+		if row.CBBadLoansInstitutionsCount.Valid {
+			v := int(row.CBBadLoansInstitutionsCount.Int32)
+			rec.CBBadLoansInstitutionsCount = &v
+		}
+		if row.CBCountOfOpenLoans.Valid {
+			v := int(row.CBCountOfOpenLoans.Int32)
+			rec.CBCountOfOpenLoans = &v
+		}
+		if row.CBTotalOutstanding.Valid {
+			v := row.CBTotalOutstanding.Float64
+			rec.CBTotalOutstanding = &v
+		}
+		if row.CBDebtThreshold.Valid {
+			v := row.CBDebtThreshold.Float64
+			rec.CBDebtThreshold = &v
+		}
+		if row.CBHighOutstandingDebt.Valid {
+			rec.CBHighOutstandingDebt = &row.CBHighOutstandingDebt.Bool
+		}
+		if len(row.CBOpenLoanInstitutions) > 0 {
+			rec.CBOpenLoanInstitutions = json.RawMessage(row.CBOpenLoanInstitutions)
+		}
+		if row.CBMaxDebtInstitutionCount.Valid {
+			v := int(row.CBMaxDebtInstitutionCount.Int32)
+			rec.CBMaxDebtInstitutionCount = &v
+		}
+
+		// Legacy metadata: convert Python repr to JSON
+		if row.CBLegacyResponse.Valid && row.CBLegacyResponse.String != "" {
+			jsonStr, err := pythonReprToJSON(row.CBLegacyResponse.String)
+			if err != nil {
+				log.Printf("⚠️  Failed to convert legacy response for loan %d: %v", row.DjangoLoanID, err)
+				legacyConvertFail++
+			} else {
+				rec.CBLegacyResponse = json.RawMessage(jsonStr)
+				legacyConverted++
+			}
+		}
+		if row.CBNoOfDefaultedLoans.Valid {
+			v := int(row.CBNoOfDefaultedLoans.Int32)
+			rec.CBNoOfDefaultedLoans = &v
+		}
+		if row.CBMonthlyRepaymentAmount.Valid {
+			v := row.CBMonthlyRepaymentAmount.Float64
+			rec.CBMonthlyRepaymentAmount = &v
+		}
+		if row.CBCreatedAt.Valid {
+			rec.CBCreatedAt = &row.CBCreatedAt.Time
+		}
+
+		records = append(records, rec)
+	}
+
+	// Batch upsert in chunks of 500
+	batchSize := 500
+	totalUpserted := 0
+	for i := 0; i < len(records); i += batchSize {
+		end := i + batchSize
+		if end > len(records) {
+			end = len(records)
+		}
+		batch := records[i:end]
+		upserted, err := s.creditBureauRepo.UpsertLoanCreditBureauKYC(ctx, batch)
+		if err != nil {
+			log.Printf("❌ Batch upsert error: %v", err)
+		}
+		totalUpserted += upserted
+		log.Printf("📊 Upserted batch %d-%d: %d records", i, end, upserted)
+	}
+
+	totalErrors := len(records) - totalUpserted
+	log.Printf("✅ Loan credit bureau KYC sync complete: %d fetched, %d upserted, %d errors, %d legacy converted, %d legacy failed",
+		len(rows), totalUpserted, totalErrors, legacyConverted, legacyConvertFail)
+
+	return &SyncLoanCreditBureauKYCResult{
+		TotalFetched:      len(rows),
+		TotalUpserted:     totalUpserted,
+		TotalErrors:       totalErrors,
+		LegacyConverted:   legacyConverted,
+		LegacyConvertFail: legacyConvertFail,
+		Message:           fmt.Sprintf("Synced %d loan credit bureau KYC records (%d errors, %d legacy converted, %d legacy failed)", totalUpserted, totalErrors, legacyConverted, legacyConvertFail),
+	}, nil
 }

@@ -32,3 +32,13 @@
 # Expected duration: < 5 minutes
 # Purpose: Keep holiday table (public + agent holidays) in sync with Django for business day calculations
 0 2 * * * cd /home/seeds-metrics-backend/backend && timeout 300 ./bin/sync_holidays >> /var/log/holiday-sync.log 2>&1
+
+# Job 6: Credit Bureau Data Sync (Daily at 00:00 UTC / 1 AM WAT)
+# Expected duration: < 5 minutes
+# Purpose: Sync credit bureau results and raw dumps from Django source DB
+0 0 * * * curl -s -X POST https://metrics.seedsandpennies.com/api/v1/credit-bureau/sync >> /var/log/seeds-metrics-credit-bureau-sync.log 2>&1
+
+# Job 7: Loan Credit Bureau KYC Sync (Daily at 01:15 UTC / 2:15 AM WAT)
+# Expected duration: < 10 minutes
+# Purpose: Sync denormalized loan + KYC + credit bureau data from Django source DB
+15 1 * * * curl -s -X POST https://metrics.seedsandpennies.com/api/v1/loans/credit-bureau-kyc/sync >> /var/log/seeds-metrics-loan-cb-kyc-sync.log 2>&1

@@ -80,14 +80,18 @@ func main() {
 	metricsService := services.NewMetricsService()
 	syncService := services.NewSyncService(djangoDB.DB, db)
 
+	// Initialize credit bureau repository
+	creditBureauRepo := repository.NewCreditBureauRepository(db)
+
 	// Initialize handlers
 	etlHandler := handlers.NewETLHandler(loanRepo, repaymentRepo, officerRepo)
 	customerHandler := handlers.NewCustomerHandler(customerRepo)
 	healthHandler := handlers.NewHealthHandler(db, djangoRepo)
 	dashboardHandler := handlers.NewDashboardHandler(dashboardRepo, repaymentRepo, metricsService, syncService)
+	creditBureauHandler := handlers.NewCreditBureauHandler(creditBureauRepo, syncService)
 
 	// Setup router
-	router := setupRouter(cfg, etlHandler, customerHandler, healthHandler, dashboardHandler)
+	router := setupRouter(cfg, etlHandler, customerHandler, healthHandler, dashboardHandler, creditBureauHandler)
 
 	// Start server
 	addr := fmt.Sprintf("%s:%s", cfg.Server.Host, cfg.Server.Port)
@@ -108,7 +112,7 @@ func main() {
 	log.Println("🛑 Shutting down server...")
 }
 
-func setupRouter(cfg *config.Config, etlHandler *handlers.ETLHandler, customerHandler *handlers.CustomerHandler, healthHandler *handlers.HealthHandler, dashboardHandler *handlers.DashboardHandler) *gin.Engine {
+func setupRouter(cfg *config.Config, etlHandler *handlers.ETLHandler, customerHandler *handlers.CustomerHandler, healthHandler *handlers.HealthHandler, dashboardHandler *handlers.DashboardHandler, creditBureauHandler *handlers.CreditBureauHandler) *gin.Engine {
 	router := gin.Default()
 
 	// CORS middleware
@@ -199,6 +203,8 @@ func setupRouter(cfg *config.Config, etlHandler *handlers.ETLHandler, customerHa
 			loans.POST("/calculate-dpd", dashboardHandler.CalculateDPD)
 			loans.POST("/update-past-maturity", dashboardHandler.UpdatePastMaturityStatus)
 			loans.POST("/:loan_id/sync-repayments", dashboardHandler.SyncLoanRepayments)
+			loans.GET("/credit-bureau-kyc", creditBureauHandler.GetLoanCreditBureauKYC)
+			loans.POST("/credit-bureau-kyc/sync", creditBureauHandler.SyncLoanCreditBureauKYC)
 		}
 
 		// Sync endpoints
