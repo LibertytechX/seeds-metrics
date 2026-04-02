@@ -33,7 +33,7 @@ func NewCreditBureauHandler(creditBureauRepo *repository.CreditBureauRepository,
 // @Param page query int false "Page number" default(1)
 // @Param limit query int false "Results per page" default(5)
 // @Param source query string false "Filter by CB data source (credit_bureau_result, borrower_worthiness, credit_bureau_metadata)"
-// @Param include_images query bool false "Include base64 images in response" default(false)
+// @Param include_images query bool false "Include base64 images in response" default(true)
 // @Success 200 {object} models.PaginatedResponse
 // @Failure 500 {object} models.APIResponse
 // @Router /loans/credit-bureau-kyc [get]
@@ -41,7 +41,7 @@ func (h *CreditBureauHandler) GetLoanCreditBureauKYC(c *gin.Context) {
 	page, _ := strconv.Atoi(c.DefaultQuery("page", "1"))
 	limit, _ := strconv.Atoi(c.DefaultQuery("limit", "5"))
 	source := c.Query("source")
-	includeImages := c.DefaultQuery("include_images", "false") == "true"
+	includeImages := c.DefaultQuery("include_images", "true") == "true"
 
 	if page < 1 {
 		page = 1
@@ -111,4 +111,3 @@ func (h *CreditBureauHandler) SyncLoanCreditBureauKYC(c *gin.Context) {
 		Data:    result,
 	})
 }
-
