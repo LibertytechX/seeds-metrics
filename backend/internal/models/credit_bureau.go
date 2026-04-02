@@ -62,6 +62,7 @@ type LoanCreditBureauKYC struct {
 	BorrowerFullName *string    `json:"borrower_full_name" db:"borrower_full_name"`
 	BorrowerPhone    *string    `json:"borrower_phone_number" db:"borrower_phone_number"`
 	LoanStatus       *string    `json:"loan_status" db:"loan_status"`
+	LoanType         *string    `json:"loan_type" db:"loan_type"`
 	DateDisbursed    *time.Time `json:"date_disbursed" db:"date_disbursed"`
 
 	// Borrower KYC

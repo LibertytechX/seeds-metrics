@@ -327,6 +327,9 @@ func (s *SyncService) convertKYCRow(row *repository.LoanCreditBureauKYCRow, lega
 	if row.LoanStatus.Valid {
 		rec.LoanStatus = &row.LoanStatus.String
 	}
+	if row.LoanType.Valid {
+		rec.LoanType = &row.LoanType.String
+	}
 	if row.DateDisbursed.Valid {
 		rec.DateDisbursed = &row.DateDisbursed.Time
 	}

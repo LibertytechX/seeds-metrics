@@ -712,6 +712,7 @@ type LoanCreditBureauKYCRow struct {
 	BorrowerFullName sql.NullString
 	BorrowerPhone    sql.NullString
 	LoanStatus       sql.NullString
+	LoanType         sql.NullString
 	DateDisbursed    sql.NullTime
 
 	VerificationNumber sql.NullString
@@ -763,6 +764,7 @@ func (r *DjangoRepository) GetLoanCreditBureauKYCForSyncBatch(ctx context.Contex
 			l.borrower_full_name,
 			l.borrower_phone_number,
 			l.status AS loan_status,
+			l.loan_type,
 			l.date_disbursed,
 			bi.verification_number,
 			bi.verification_type,
@@ -813,7 +815,9 @@ func (r *DjangoRepository) GetLoanCreditBureauKYCForSyncBatch(ctx context.Contex
 			WHERE mm.ajo_user_id = l.borrower_id AND mm.status = 'SUCCESS'
 			ORDER BY mm.created_at DESC LIMIT 1
 		) m ON true
-		WHERE cbr.id IS NOT NULL OR w.id IS NOT NULL OR m.id IS NOT NULL
+		WHERE (cbr.id IS NOT NULL OR w.id IS NOT NULL OR m.id IS NOT NULL)
+			AND l.date_disbursed IS NOT NULL
+			AND COALESCE(l.loan_type, '') NOT IN ('BNPL', 'RNPL', 'MERCHANT_OVERDRAFT')
 		ORDER BY l.id
 		LIMIT $1 OFFSET $2
 	`
@@ -830,7 +834,7 @@ func (r *DjangoRepository) GetLoanCreditBureauKYCForSyncBatch(ctx context.Contex
 		err := rows.Scan(
 			&row.DjangoLoanID, &row.LoanRef, &row.LoanAmount,
 			&row.Tenor, &row.TenorInDays, &row.BorrowerFullName,
-			&row.BorrowerPhone, &row.LoanStatus, &row.DateDisbursed,
+			&row.BorrowerPhone, &row.LoanStatus, &row.LoanType, &row.DateDisbursed,
 			&row.VerificationNumber, &row.VerificationType, &row.NIN,
 			&row.DateOfBirth, &row.IsVerified, &row.Address,
 			&row.FaceMatch, &row.IDCardImage, &row.SelfieImage,

@@ -31,7 +31,7 @@ func (r *CreditBureauRepository) UpsertLoanCreditBureauKYC(ctx context.Context, 
 	query := `
 		INSERT INTO loan_credit_bureau_kyc (
 			django_loan_id, loan_ref, loan_amount, tenor, tenor_in_days,
-			borrower_full_name, borrower_phone_number, loan_status, date_disbursed,
+			borrower_full_name, borrower_phone_number, loan_status, loan_type, date_disbursed,
 			verification_number, verification_type, nin, date_of_birth, is_verified, address,
 			face_match, id_card_image, selfie_image,
 			cb_result, cb_status, cb_reason, cb_decision, cb_decision_status, cb_credibility,
@@ -41,8 +41,8 @@ func (r *CreditBureauRepository) UpsertLoanCreditBureauKYC(ctx context.Context, 
 			cb_legacy_response, cb_no_of_defaulted_loans, cb_monthly_repayment_amount,
 			cb_data_source, cb_created_at, synced_at, updated_at
 		) VALUES (
-			$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,
-			$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,NOW(),NOW()
+			$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,
+			$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,NOW(),NOW()
 		)
 		ON CONFLICT (django_loan_id) DO UPDATE SET
 			loan_ref = EXCLUDED.loan_ref,
@@ -52,6 +52,7 @@ func (r *CreditBureauRepository) UpsertLoanCreditBureauKYC(ctx context.Context, 
 			borrower_full_name = EXCLUDED.borrower_full_name,
 			borrower_phone_number = EXCLUDED.borrower_phone_number,
 			loan_status = EXCLUDED.loan_status,
+			loan_type = EXCLUDED.loan_type,
 			date_disbursed = EXCLUDED.date_disbursed,
 			verification_number = EXCLUDED.verification_number,
 			verification_type = EXCLUDED.verification_type,
@@ -89,7 +90,7 @@ func (r *CreditBureauRepository) UpsertLoanCreditBureauKYC(ctx context.Context, 
 	for _, rec := range records {
 		_, err := r.db.ExecContext(ctx, query,
 			rec.DjangoLoanID, rec.LoanRef, rec.LoanAmount, rec.Tenor, rec.TenorInDays,
-			rec.BorrowerFullName, rec.BorrowerPhone, rec.LoanStatus, rec.DateDisbursed,
+			rec.BorrowerFullName, rec.BorrowerPhone, rec.LoanStatus, rec.LoanType, rec.DateDisbursed,
 			rec.VerificationNumber, rec.VerificationType, rec.NIN, rec.DateOfBirth, rec.IsVerified, rec.Address,
 			rec.FaceMatch, rec.IDCardImage, rec.SelfieImage,
 			nullableJSON(rec.CBResult), rec.CBStatus, rec.CBReason,
@@ -119,12 +120,13 @@ func nullableJSON(data json.RawMessage) interface{} {
 }
 
 // GetLoanCreditBureauKYCCount returns the total count of records, optionally filtered by source
+// Excludes undisbursed loans and BNPL/RNPL/MERCHANT_OVERDRAFT loan types
 func (r *CreditBureauRepository) GetLoanCreditBureauKYCCount(ctx context.Context, source string) (int, error) {
-	query := `SELECT COUNT(*) FROM loan_credit_bureau_kyc`
+	query := `SELECT COUNT(*) FROM loan_credit_bureau_kyc WHERE date_disbursed IS NOT NULL AND COALESCE(loan_type, '') NOT IN ('BNPL', 'RNPL', 'MERCHANT_OVERDRAFT')`
 	args := []interface{}{}
 
 	if source != "" {
-		query += ` WHERE cb_data_source = $1`
+		query += ` AND cb_data_source = $1`
 		args = append(args, source)
 	}
 
@@ -142,7 +144,7 @@ func (r *CreditBureauRepository) GetLoanCreditBureauKYCPaginated(ctx context.Con
 	// Use COALESCE for JSONB columns to avoid NULL scan errors with json.RawMessage
 	cols := []string{
 		"id", "django_loan_id", "loan_ref", "loan_amount", "tenor", "tenor_in_days",
-		"borrower_full_name", "borrower_phone_number", "loan_status", "date_disbursed",
+		"borrower_full_name", "borrower_phone_number", "loan_status", "loan_type", "date_disbursed",
 		"verification_number", "verification_type", "nin", "date_of_birth", "is_verified", "address",
 		"face_match",
 	}
@@ -161,12 +163,12 @@ func (r *CreditBureauRepository) GetLoanCreditBureauKYCPaginated(ctx context.Con
 		"cb_data_source", "cb_created_at", "synced_at", "created_at", "updated_at",
 	)
 
-	query := fmt.Sprintf("SELECT %s FROM loan_credit_bureau_kyc", strings.Join(cols, ", "))
+	query := fmt.Sprintf("SELECT %s FROM loan_credit_bureau_kyc WHERE date_disbursed IS NOT NULL AND COALESCE(loan_type, '') NOT IN ('BNPL', 'RNPL', 'MERCHANT_OVERDRAFT')", strings.Join(cols, ", "))
 	args := []interface{}{}
 	argIdx := 1
 
 	if source != "" {
-		query += fmt.Sprintf(" WHERE cb_data_source = $%d", argIdx)
+		query += fmt.Sprintf(" AND cb_data_source = $%d", argIdx)
 		args = append(args, source)
 		argIdx++
 	}
@@ -187,7 +189,7 @@ func (r *CreditBureauRepository) GetLoanCreditBureauKYCPaginated(ctx context.Con
 		rec := &models.LoanCreditBureauKYC{}
 		dest := []interface{}{
 			&rec.ID, &rec.DjangoLoanID, &rec.LoanRef, &rec.LoanAmount, &rec.Tenor, &rec.TenorInDays,
-			&rec.BorrowerFullName, &rec.BorrowerPhone, &rec.LoanStatus, &rec.DateDisbursed,
+			&rec.BorrowerFullName, &rec.BorrowerPhone, &rec.LoanStatus, &rec.LoanType, &rec.DateDisbursed,
 			&rec.VerificationNumber, &rec.VerificationType, &rec.NIN, &rec.DateOfBirth, &rec.IsVerified, &rec.Address,
 			&rec.FaceMatch,
 		}
