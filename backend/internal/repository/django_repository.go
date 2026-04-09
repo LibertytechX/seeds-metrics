@@ -818,6 +818,11 @@ func (r *DjangoRepository) GetLoanCreditBureauKYCForSyncBatch(ctx context.Contex
 		WHERE (cbr.id IS NOT NULL OR w.id IS NOT NULL OR m.id IS NOT NULL)
 			AND l.date_disbursed IS NOT NULL
 			AND COALESCE(l.loan_type, '') NOT IN ('BNPL', 'RNPL', 'MERCHANT_OVERDRAFT')
+			AND EXISTS (
+				SELECT 1 FROM payment_transaction pt
+				WHERE pt.quotation_id = l.loan_ref::text
+				AND pt.transfer_provider = 'VFD_PROVIDER'
+			)
 		ORDER BY l.id
 		LIMIT $1 OFFSET $2
 	`
