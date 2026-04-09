@@ -363,6 +363,29 @@ func (s *SyncService) convertKYCRow(row *repository.LoanCreditBureauKYCRow, lega
 		rec.SelfieImage = &row.SelfieImage.String
 	}
 
+	// Guarantor fields
+	if row.GuarantorFullName.Valid {
+		rec.GuarantorFullName = &row.GuarantorFullName.String
+	}
+	if row.GuarantorPhone.Valid {
+		rec.GuarantorPhone = &row.GuarantorPhone.String
+	}
+	if row.GuarantorEmail.Valid {
+		rec.GuarantorEmail = &row.GuarantorEmail.String
+	}
+	if row.GuarantorAddress.Valid {
+		rec.GuarantorAddress = &row.GuarantorAddress.String
+	}
+	if row.GuarantorRelationship.Valid {
+		rec.GuarantorRelationship = &row.GuarantorRelationship.String
+	}
+	if row.GuarantorIDCardImage.Valid {
+		rec.GuarantorIDCardImage = &row.GuarantorIDCardImage.String
+	}
+	if row.GuarantorSelfieImage.Valid {
+		rec.GuarantorSelfieImage = &row.GuarantorSelfieImage.String
+	}
+
 	// Credit bureau JSON fields
 	if len(row.CBResult) > 0 {
 		rec.CBResult = json.RawMessage(row.CBResult)

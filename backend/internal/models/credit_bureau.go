@@ -78,6 +78,15 @@ type LoanCreditBureauKYC struct {
 	IDCardImage *string `json:"id_card_image,omitempty" db:"id_card_image"`
 	SelfieImage *string `json:"selfie_image,omitempty" db:"selfie_image"`
 
+	// Guarantor Info
+	GuarantorFullName     *string `json:"guarantor_full_name" db:"guarantor_full_name"`
+	GuarantorPhone        *string `json:"guarantor_phone" db:"guarantor_phone"`
+	GuarantorEmail        *string `json:"guarantor_email" db:"guarantor_email"`
+	GuarantorAddress      *string `json:"guarantor_address" db:"guarantor_address"`
+	GuarantorRelationship *string `json:"guarantor_relationship" db:"guarantor_relationship"`
+	GuarantorIDCardImage  *string `json:"guarantor_id_card_image,omitempty" db:"guarantor_id_card_image"`
+	GuarantorSelfieImage  *string `json:"guarantor_selfie_image,omitempty" db:"guarantor_selfie_image"`
+
 	// Credit Bureau Fields
 	CBResult                    json.RawMessage `json:"cb_result" db:"cb_result"`
 	CBStatus                    *bool           `json:"cb_status" db:"cb_status"`

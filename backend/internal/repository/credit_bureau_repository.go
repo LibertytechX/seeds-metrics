@@ -34,6 +34,8 @@ func (r *CreditBureauRepository) UpsertLoanCreditBureauKYC(ctx context.Context, 
 			borrower_full_name, borrower_phone_number, loan_status, loan_type, date_disbursed,
 			verification_number, verification_type, nin, date_of_birth, is_verified, address,
 			face_match, id_card_image, selfie_image,
+			guarantor_full_name, guarantor_phone, guarantor_email, guarantor_address,
+			guarantor_relationship, guarantor_id_card_image, guarantor_selfie_image,
 			cb_result, cb_status, cb_reason, cb_decision, cb_decision_status, cb_credibility,
 			cb_bad_loans_institutions, cb_bad_loans_institutions_count,
 			cb_count_of_open_loans, cb_total_outstanding, cb_debt_threshold,
@@ -42,7 +44,8 @@ func (r *CreditBureauRepository) UpsertLoanCreditBureauKYC(ctx context.Context, 
 			cb_data_source, cb_created_at, synced_at, updated_at
 		) VALUES (
 			$1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,
-			$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,NOW(),NOW()
+			$20,$21,$22,$23,$24,$25,$26,
+			$27,$28,$29,$30,$31,$32,$33,$34,$35,$36,$37,$38,$39,$40,$41,$42,$43,$44,$45,NOW(),NOW()
 		)
 		ON CONFLICT (django_loan_id) DO UPDATE SET
 			loan_ref = EXCLUDED.loan_ref,
@@ -63,6 +66,13 @@ func (r *CreditBureauRepository) UpsertLoanCreditBureauKYC(ctx context.Context, 
 			face_match = EXCLUDED.face_match,
 			id_card_image = EXCLUDED.id_card_image,
 			selfie_image = EXCLUDED.selfie_image,
+			guarantor_full_name = EXCLUDED.guarantor_full_name,
+			guarantor_phone = EXCLUDED.guarantor_phone,
+			guarantor_email = EXCLUDED.guarantor_email,
+			guarantor_address = EXCLUDED.guarantor_address,
+			guarantor_relationship = EXCLUDED.guarantor_relationship,
+			guarantor_id_card_image = EXCLUDED.guarantor_id_card_image,
+			guarantor_selfie_image = EXCLUDED.guarantor_selfie_image,
 			cb_result = EXCLUDED.cb_result,
 			cb_status = EXCLUDED.cb_status,
 			cb_reason = EXCLUDED.cb_reason,
@@ -93,6 +103,8 @@ func (r *CreditBureauRepository) UpsertLoanCreditBureauKYC(ctx context.Context, 
 			rec.BorrowerFullName, rec.BorrowerPhone, rec.LoanStatus, rec.LoanType, rec.DateDisbursed,
 			rec.VerificationNumber, rec.VerificationType, rec.NIN, rec.DateOfBirth, rec.IsVerified, rec.Address,
 			rec.FaceMatch, rec.IDCardImage, rec.SelfieImage,
+			rec.GuarantorFullName, rec.GuarantorPhone, rec.GuarantorEmail, rec.GuarantorAddress,
+			rec.GuarantorRelationship, rec.GuarantorIDCardImage, rec.GuarantorSelfieImage,
 			nullableJSON(rec.CBResult), rec.CBStatus, rec.CBReason,
 			nullableJSON(rec.CBDecision), rec.CBDecisionStatus, nullableJSON(rec.CBCredibility),
 			nullableJSON(rec.CBBadLoansInstitutions), rec.CBBadLoansInstitutionsCount,
@@ -152,6 +164,12 @@ func (r *CreditBureauRepository) GetLoanCreditBureauKYCPaginated(ctx context.Con
 		cols = append(cols, "id_card_image", "selfie_image")
 	}
 	cols = append(cols,
+		"guarantor_full_name", "guarantor_phone", "guarantor_email", "guarantor_address", "guarantor_relationship",
+	)
+	if includeImages {
+		cols = append(cols, "guarantor_id_card_image", "guarantor_selfie_image")
+	}
+	cols = append(cols,
 		"COALESCE(cb_result, 'null'::jsonb)", "cb_status", "cb_reason",
 		"COALESCE(cb_decision, 'null'::jsonb)", "cb_decision_status",
 		"COALESCE(cb_credibility, 'null'::jsonb)",
@@ -195,6 +213,12 @@ func (r *CreditBureauRepository) GetLoanCreditBureauKYCPaginated(ctx context.Con
 		}
 		if includeImages {
 			dest = append(dest, &rec.IDCardImage, &rec.SelfieImage)
+		}
+		dest = append(dest,
+			&rec.GuarantorFullName, &rec.GuarantorPhone, &rec.GuarantorEmail, &rec.GuarantorAddress, &rec.GuarantorRelationship,
+		)
+		if includeImages {
+			dest = append(dest, &rec.GuarantorIDCardImage, &rec.GuarantorSelfieImage)
 		}
 		dest = append(dest,
 			&rec.CBResult, &rec.CBStatus, &rec.CBReason, &rec.CBDecision, &rec.CBDecisionStatus, &rec.CBCredibility,

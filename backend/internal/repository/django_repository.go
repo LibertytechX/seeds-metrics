@@ -726,6 +726,14 @@ type LoanCreditBureauKYCRow struct {
 	IDCardImage sql.NullString
 	SelfieImage sql.NullString
 
+	GuarantorFullName     sql.NullString
+	GuarantorPhone        sql.NullString
+	GuarantorEmail        sql.NullString
+	GuarantorAddress      sql.NullString
+	GuarantorRelationship sql.NullString
+	GuarantorIDCardImage  sql.NullString
+	GuarantorSelfieImage  sql.NullString
+
 	CBResult         []byte
 	CBDecision       []byte
 	CBDecisionStatus sql.NullString
@@ -775,6 +783,13 @@ func (r *DjangoRepository) GetLoanCreditBureauKYCForSyncBatch(ctx context.Contex
 			bi.face_match,
 			bi.base_64_img_string AS id_card_image,
 			bi.snapped_image AS selfie_image,
+			COALESCE(g.surname || ' ' || g.last_name, g.surname, g.last_name) AS guarantor_full_name,
+			g.phone_number AS guarantor_phone,
+			g.email AS guarantor_email,
+			g.address AS guarantor_address,
+			g.relationship_to_borrower AS guarantor_relationship,
+			g.base_64_img_string AS guarantor_id_card_image,
+			g.snapped_image AS guarantor_selfie_image,
 			cbr.result AS cb_result,
 			cbr.decision AS cb_decision,
 			cbr.decision_status AS cb_decision_status,
@@ -802,6 +817,7 @@ func (r *DjangoRepository) GetLoanCreditBureauKYCForSyncBatch(ctx context.Contex
 		FROM loans_ajoloan l
 		LEFT JOIN loans_borrowerinfo bi ON bi.loan_id = l.id
 		LEFT JOIN accounts_customuser u ON u.id = l.borrower_id
+		LEFT JOIN loans_loanguarantor g ON g.borrower_info_id = bi.id
 		LEFT JOIN credit_bureau_creditbureauresult cbr ON cbr.loan_reference = l.loan_ref
 		LEFT JOIN LATERAL (
 			SELECT ww.*
@@ -843,6 +859,9 @@ func (r *DjangoRepository) GetLoanCreditBureauKYCForSyncBatch(ctx context.Contex
 			&row.VerificationNumber, &row.VerificationType, &row.NIN,
 			&row.DateOfBirth, &row.IsVerified, &row.Address,
 			&row.FaceMatch, &row.IDCardImage, &row.SelfieImage,
+			&row.GuarantorFullName, &row.GuarantorPhone, &row.GuarantorEmail,
+			&row.GuarantorAddress, &row.GuarantorRelationship,
+			&row.GuarantorIDCardImage, &row.GuarantorSelfieImage,
 			&row.CBResult, &row.CBDecision, &row.CBDecisionStatus, &row.CBCredibility,
 			&row.CBStatus, &row.CBReason,
 			&row.CBBadLoansInstitutions, &row.CBBadLoansInstitutionsCount,
