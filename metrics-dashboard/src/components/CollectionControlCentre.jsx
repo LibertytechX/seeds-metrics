@@ -34,12 +34,14 @@ const QUARTER_OPTIONS = [
   { value: 'Q4', label: 'Q4 (Oct-Dec)' },
 ];
 
-// Generate year options dynamically (current year down to 2020)
-const currentYear = new Date().getFullYear();
-const YEAR_OPTIONS = Array.from({ length: currentYear - 2019 }, (_, i) => {
-  const year = currentYear - i;
-  return { value: String(year), label: String(year) };
-});
+// Year options from 2025 to 2029
+const YEAR_OPTIONS = [
+  { value: '2025', label: '2025' },
+  { value: '2026', label: '2026' },
+  { value: '2027', label: '2027' },
+  { value: '2028', label: '2028' },
+  { value: '2029', label: '2029' },
+];
 
 const CollectionControlCentre = ({ onNavigateToBranch }) => {
   const [filters, setFilters] = useState({
@@ -985,7 +987,7 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	          </select>
 	        </div>
 
-	        <div className="filter-group">
+	        <div className="filter-group filter-group-amber">
 	          <label>Year</label>
 	          <select
 	            value={filters.year}
@@ -998,7 +1000,7 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	          </select>
 	        </div>
 
-	        <div className="filter-group">
+	        <div className="filter-group filter-group-amber">
 	          <label>Quarter</label>
 	          <select
 	            value={filters.quarter}

@@ -69,6 +69,22 @@
   font-size: 14px;
 }
 
+/* Amber-styled filter groups for Year and Quarter */
+.collections-filters .filter-group-amber label {
+  color: #b37700;
+}
+
+.collections-filters .filter-group-amber select {
+  border-color: #e6a817;
+  background-color: #fffbeb;
+}
+
+.collections-filters .filter-group-amber select:focus {
+  border-color: #d4940a;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(230, 168, 23, 0.2);
+}
+
 /* Update Past Maturity Button (updpm) in header */
 .updpm-btn {
   padding: 6px 12px;
