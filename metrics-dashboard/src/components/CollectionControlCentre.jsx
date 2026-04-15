@@ -27,6 +27,20 @@ const PERIOD_OPTIONS = [
   { value: 'last_month', label: 'Last Month' },
 ];
 
+const QUARTER_OPTIONS = [
+  { value: 'Q1', label: 'Q1 (Jan-Mar)' },
+  { value: 'Q2', label: 'Q2 (Apr-Jun)' },
+  { value: 'Q3', label: 'Q3 (Jul-Sep)' },
+  { value: 'Q4', label: 'Q4 (Oct-Dec)' },
+];
+
+// Generate year options dynamically (current year down to 2020)
+const currentYear = new Date().getFullYear();
+const YEAR_OPTIONS = Array.from({ length: currentYear - 2019 }, (_, i) => {
+  const year = currentYear - i;
+  return { value: String(year), label: String(year) };
+});
+
 const CollectionControlCentre = ({ onNavigateToBranch }) => {
   const [filters, setFilters] = useState({
     period: 'today',
@@ -35,6 +49,8 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
     product: '',
     wave: '',
     officer_id: '',
+    year: '',
+    quarter: '',
   });
 
   const [filterOptions, setFilterOptions] = useState({
@@ -174,6 +190,12 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	        if (filters.period) {
 	          baseParams.set('period', filters.period);
 	        }
+	        if (filters.year) {
+	          baseParams.set('year', filters.year);
+	        }
+	        if (filters.quarter) {
+	          baseParams.set('quarter', filters.quarter);
+	        }
 
 	        // Restricted metrics (used for Collections Due, At-Risk, etc.)
 	        // Per collections requirements, restrict to loans that are relevant
@@ -237,7 +259,7 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	    };
 
 		    	fetchSummaryMetrics();
-		  }, [filters.branch, filters.region, filters.product, filters.wave, filters.officer_id, filters.period]);
+		  }, [filters.branch, filters.region, filters.product, filters.wave, filters.officer_id, filters.period, filters.year, filters.quarter]);
 
 	  // Fetch branch collections leaderboard (per-branch breakdown) when filters change.
 	  useEffect(() => {
@@ -259,11 +281,17 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	        if (filters.product) {
 	          params.set('loan_type', filters.product);
 	        }
-		        if (filters.wave) {
-		          params.set('wave', filters.wave);
-		        }
+	        if (filters.wave) {
+	          params.set('wave', filters.wave);
+	        }
 	        if (filters.officer_id) {
 	          params.set('officer_id', filters.officer_id);
+	        }
+	        if (filters.year) {
+	          params.set('year', filters.year);
+	        }
+	        if (filters.quarter) {
+	          params.set('quarter', filters.quarter);
 	        }
 
 	        // Apply django_status filter based on period (today_only vs others)
@@ -295,7 +323,7 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	    };
 
 		    	fetchBranchLeaderboard();
-		  }, [filters.branch, filters.region, filters.product, filters.wave, filters.officer_id, filters.period]);
+		  }, [filters.branch, filters.region, filters.product, filters.wave, filters.officer_id, filters.period, filters.year, filters.quarter]);
 
 		  // Fetch daily collections time series for the chart whenever core filters change.
 		  useEffect(() => {
@@ -326,6 +354,12 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 		        if (filters.officer_id) {
 		          params.set('officer_id', filters.officer_id);
 		        }
+		        if (filters.year) {
+		          params.set('year', filters.year);
+		        }
+		        if (filters.quarter) {
+		          params.set('quarter', filters.quarter);
+		        }
 
 		        const queryString = params.toString();
 		        const url = queryString
@@ -349,7 +383,7 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 		    };
 
 			    fetchDailyCollections();
-				  }, [filters.branch, filters.region, filters.product, filters.wave, filters.officer_id, filters.period]);
+				  }, [filters.branch, filters.region, filters.product, filters.wave, filters.officer_id, filters.period, filters.year, filters.quarter]);
 
 			  // Fetch Agent Activity summary (rolling last 7 days, including today)
 			  // whenever core filters change. This endpoint always uses an internal
@@ -379,6 +413,12 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 			        if (filters.officer_id) {
 			          params.set('officer_id', filters.officer_id);
 			        }
+			        if (filters.year) {
+			          params.set('year', filters.year);
+			        }
+			        if (filters.quarter) {
+			          params.set('quarter', filters.quarter);
+			        }
 
 			        const queryString = params.toString();
 			        const url = queryString
@@ -404,7 +444,7 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 			    };
 
 			    fetchAgentActivity();
-			  }, [filters.branch, filters.region, filters.product, filters.wave, filters.officer_id]);
+			  }, [filters.branch, filters.region, filters.product, filters.wave, filters.officer_id, filters.year, filters.quarter]);
 
   const handleFilterChange = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -731,6 +771,8 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	      if (filters.product) params.set('loan_type', filters.product);
 	      if (filters.wave) params.set('wave', filters.wave);
 	      if (filters.officer_id) params.set('officer_id', filters.officer_id);
+	      if (filters.year) params.set('year', filters.year);
+	      if (filters.quarter) params.set('quarter', filters.quarter);
 
 	      const queryString = params.toString();
 	      const url = queryString
@@ -939,6 +981,32 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	            <option value="">All Waves</option>
 	            {filterOptions.waves.map((wave) => (
 	              <option key={wave} value={wave}>{wave}</option>
+	            ))}
+	          </select>
+	        </div>
+
+	        <div className="filter-group">
+	          <label>Year</label>
+	          <select
+	            value={filters.year}
+	            onChange={(e) => handleFilterChange('year', e.target.value)}
+	          >
+	            <option value="">All Years</option>
+	            {YEAR_OPTIONS.map((opt) => (
+	              <option key={opt.value} value={opt.value}>{opt.label}</option>
+	            ))}
+	          </select>
+	        </div>
+
+	        <div className="filter-group">
+	          <label>Quarter</label>
+	          <select
+	            value={filters.quarter}
+	            onChange={(e) => handleFilterChange('quarter', e.target.value)}
+	          >
+	            <option value="">All Quarters</option>
+	            {QUARTER_OPTIONS.map((opt) => (
+	              <option key={opt.value} value={opt.value}>{opt.label}</option>
 	            ))}
 	          </select>
 	        </div>
