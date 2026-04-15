@@ -2313,32 +2313,44 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 			AND (o.user_type IN ('AGENT', 'AJO_AGENT', 'DMO_AGENT', 'MERCHANT', 'MERCHANT_AGENT', 'MICRO_SAVER', 'PERSONAL', 'PROSPER_AGENT', 'STAFF_AGENT') OR o.user_type IS NULL)
 	`
 
-	// Apply period filter on disbursement_date
-	switch period {
-	case "this_week":
-		disbursementQuery += `
-			AND DATE(l.disbursement_date) >= DATE_TRUNC('week', CURRENT_DATE)::date
-			AND DATE(l.disbursement_date) <= CURRENT_DATE
-		`
-	case "this_month":
-		disbursementQuery += `
-			AND DATE(l.disbursement_date) >= DATE_TRUNC('month', CURRENT_DATE)::date
-			AND DATE(l.disbursement_date) <= CURRENT_DATE
-		`
-	case "last_month":
-		disbursementQuery += `
-			AND DATE(l.disbursement_date) >= (DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '1 month')::date
-			AND DATE(l.disbursement_date) < DATE_TRUNC('month', CURRENT_DATE)::date
-		`
-	default: // "today", "today_only", or any unrecognised value
-		disbursementQuery += `
-			AND DATE(l.disbursement_date) = CURRENT_DATE
-		`
-	}
-
 	// Apply the same filters as the main query
 	disbursementArgs := []interface{}{}
 	disbursementArgCount := 1
+
+	// Check if year/quarter filters are provided - if so, use them instead of period filter
+	yearFilter, _ := filters["year"].(string)
+	quarterFilter, _ := filters["quarter"].(string)
+	startDate, endDate, hasYearQuarterFilter := getYearQuarterDateRange(yearFilter, quarterFilter)
+
+	if hasYearQuarterFilter {
+		// Use year/quarter filter for disbursement date
+		disbursementQuery += fmt.Sprintf(" AND l.disbursement_date >= $%d AND l.disbursement_date <= $%d", disbursementArgCount, disbursementArgCount+1)
+		disbursementArgs = append(disbursementArgs, startDate, endDate)
+		disbursementArgCount += 2
+	} else {
+		// Fall back to period filter on disbursement_date
+		switch period {
+		case "this_week":
+			disbursementQuery += `
+				AND DATE(l.disbursement_date) >= DATE_TRUNC('week', CURRENT_DATE)::date
+				AND DATE(l.disbursement_date) <= CURRENT_DATE
+			`
+		case "this_month":
+			disbursementQuery += `
+				AND DATE(l.disbursement_date) >= DATE_TRUNC('month', CURRENT_DATE)::date
+				AND DATE(l.disbursement_date) <= CURRENT_DATE
+			`
+		case "last_month":
+			disbursementQuery += `
+				AND DATE(l.disbursement_date) >= (DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '1 month')::date
+				AND DATE(l.disbursement_date) < DATE_TRUNC('month', CURRENT_DATE)::date
+			`
+		default: // "today", "today_only", or any unrecognised value
+			disbursementQuery += `
+				AND DATE(l.disbursement_date) = CURRENT_DATE
+			`
+		}
+	}
 
 	if officerID, ok := filters["officer_id"].(string); ok && officerID != "" {
 		disbursementQuery += fmt.Sprintf(" AND l.officer_id = $%d", disbursementArgCount)
