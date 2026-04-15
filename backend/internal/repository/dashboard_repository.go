@@ -2303,7 +2303,14 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 		percentageDueCollected = (totalRepaymentsToday / totalDueForToday) * 100
 	}
 
-	// Calculate total disbursement for the selected period based on disbursement_date
+	// Calculate total disbursement for successfully disbursed loans.
+	// NOTE: We filter by is_disbursed=TRUE and supervisor_disbursement_status='SUCCESSFUL'
+	// to ensure we only count loans where money was actually sent.
+	//
+	// When year/quarter filters are provided, we filter by disbursement_date.
+	// When no year/quarter is provided, we show ALL disbursed loans because the database
+	// does not have actual_date_disbursed (only scheduled disbursement_date), so we cannot
+	// accurately filter by "today's actual disbursements".
 	disbursementQuery := `
 		SELECT COALESCE(SUM(l.loan_amount), 0) as total_disbursement
 		FROM loans l
@@ -2317,7 +2324,7 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 	disbursementArgs := []interface{}{}
 	disbursementArgCount := 1
 
-	// Check if year/quarter filters are provided - if so, use them instead of period filter
+	// Check if year/quarter filters are provided - if so, filter by disbursement_date
 	yearFilter, _ := filters["year"].(string)
 	quarterFilter, _ := filters["quarter"].(string)
 	startDate, endDate, hasYearQuarterFilter := getYearQuarterDateRange(yearFilter, quarterFilter)
@@ -2327,30 +2334,10 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 		disbursementQuery += fmt.Sprintf(" AND l.disbursement_date >= $%d AND l.disbursement_date <= $%d", disbursementArgCount, disbursementArgCount+1)
 		disbursementArgs = append(disbursementArgs, startDate, endDate)
 		disbursementArgCount += 2
-	} else {
-		// Fall back to period filter on disbursement_date
-		switch period {
-		case "this_week":
-			disbursementQuery += `
-				AND DATE(l.disbursement_date) >= DATE_TRUNC('week', CURRENT_DATE)::date
-				AND DATE(l.disbursement_date) <= CURRENT_DATE
-			`
-		case "this_month":
-			disbursementQuery += `
-				AND DATE(l.disbursement_date) >= DATE_TRUNC('month', CURRENT_DATE)::date
-				AND DATE(l.disbursement_date) <= CURRENT_DATE
-			`
-		case "last_month":
-			disbursementQuery += `
-				AND DATE(l.disbursement_date) >= (DATE_TRUNC('month', CURRENT_DATE) - INTERVAL '1 month')::date
-				AND DATE(l.disbursement_date) < DATE_TRUNC('month', CURRENT_DATE)::date
-			`
-		default: // "today", "today_only", or any unrecognised value
-			disbursementQuery += `
-				AND DATE(l.disbursement_date) = CURRENT_DATE
-			`
-		}
 	}
+	// NOTE: When no year/quarter filter is provided, we intentionally do NOT apply a period-based
+	// date filter because the database only has scheduled disbursement_date, not actual_date_disbursed.
+	// Filtering by disbursement_date would give inaccurate results for "today's disbursements".
 
 	if officerID, ok := filters["officer_id"].(string); ok && officerID != "" {
 		disbursementQuery += fmt.Sprintf(" AND l.officer_id = $%d", disbursementArgCount)
