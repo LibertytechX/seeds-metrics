@@ -5,6 +5,7 @@ import 'jspdf-autotable';
 import LoanRepaymentsModal from './LoanRepaymentsModal';
 import Pagination from './Pagination';
 import SearchableSelect from './SearchableSelect';
+import SuperFilterTour from './SuperFilterTour';
 import './AllLoans.css';
 const MISSING_VALUE = '__MISSING__';
 
@@ -81,6 +82,9 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
 		  const djangoStatusDropdownRef = useRef(null);
 		  const [isVerticalLeadDropdownOpen, setIsVerticalLeadDropdownOpen] = useState(false);
 		  const verticalLeadDropdownRef = useRef(null);
+  // Refs for guided tour
+  const yearFilterRef = useRef(null);
+  const quarterFilterRef = useRef(null);
   const [filterLabel, setFilterLabel] = useState(
     initialFilter?.officer_name ? `Officer: ${initialFilter.officer_name}` :
     initialFilter?.label ? initialFilter.label : ''
@@ -1589,7 +1593,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                 <span className="slider" />
               </label>
             </div>
-            <div className="filter-group filter-group-amber">
+            <div className="filter-group filter-group-amber" ref={yearFilterRef}>
               <select
                 value={filters.year}
                 onChange={(e) => handleFilterChange('year', e.target.value)}
@@ -1601,7 +1605,7 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                 ))}
               </select>
             </div>
-            <div className="filter-group filter-group-amber">
+            <div className="filter-group filter-group-amber" ref={quarterFilterRef}>
               <select
                 value={filters.quarter}
                 onChange={(e) => handleFilterChange('quarter', e.target.value)}
@@ -1852,6 +1856,11 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
         firstPaymentDueDate={selectedLoan?.first_payment_due_date}
         repaymentType={selectedLoan?.repayment_type}
         dailyRepaymentAmount={selectedLoan?.daily_repayment_amount}
+      />
+      <SuperFilterTour
+        yearRef={yearFilterRef}
+        quarterRef={quarterFilterRef}
+        storageKey="superFilterTour_AllLoans"
       />
     </div>
   );

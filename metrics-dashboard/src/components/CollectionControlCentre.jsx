@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, useRef } from 'react';
 import {
 			Bar,
 			CartesianGrid,
@@ -15,6 +15,7 @@ import {
 	import RepaymentWatchModal from './RepaymentWatchModal';
 	import AgentActivityModal from './AgentActivityModal';
 	import SearchableSelect from './SearchableSelect';
+	import SuperFilterTour from './SuperFilterTour';
 
 // Reuse the same sentinel value used in AllLoans and backend (MissingValueSentinel)
 const MISSING_VALUE = '__MISSING__';
@@ -47,6 +48,10 @@ const YEAR_OPTIONS = [
 ];
 
 const CollectionControlCentre = ({ onNavigateToBranch }) => {
+  // Refs for guided tour
+  const yearFilterRef = useRef(null);
+  const quarterFilterRef = useRef(null);
+
   const [filters, setFilters] = useState({
     period: 'today',
     region: '',
@@ -990,7 +995,7 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	          </select>
 	        </div>
 
-	        <div className="filter-group filter-group-amber">
+	        <div className="filter-group filter-group-amber" ref={yearFilterRef}>
 	          <label>Year</label>
 	          <select
 	            value={filters.year}
@@ -1003,7 +1008,7 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	          </select>
 	        </div>
 
-	        <div className="filter-group filter-group-amber">
+	        <div className="filter-group filter-group-amber" ref={quarterFilterRef}>
 	          <label>Quarter</label>
 	          <select
 	            value={filters.quarter}
@@ -1639,6 +1644,11 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 			        onWaveChange={handleAgentActivityWaveChange}
 			        availableWaves={filterOptions.waves}
 			      />
+      <SuperFilterTour
+        yearRef={yearFilterRef}
+        quarterRef={quarterFilterRef}
+        storageKey="superFilterTour_CollectionControlCentre"
+      />
 	    </>
 	  );
 	};
