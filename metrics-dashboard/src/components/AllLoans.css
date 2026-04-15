@@ -281,6 +281,24 @@
   background: white;
 }
 
+/* Amber-styled filter groups for Year and Quarter (super filters) */
+.filter-panel .filter-group.filter-group-amber select {
+  border-color: #e6a817;
+  background-color: #fffbeb;
+  color: #92600a;
+  font-weight: 500;
+}
+
+.filter-panel .filter-group.filter-group-amber select:focus {
+  border-color: #d4940a;
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(230, 168, 23, 0.2);
+}
+
+.filter-panel .filter-group.filter-group-amber select:hover {
+  border-color: #d4940a;
+}
+
 /* Multi-select dropdown styles for AllLoans */
 .filter-group.multi-select-wrapper {
   position: relative;

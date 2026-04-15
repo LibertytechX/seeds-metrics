@@ -8,6 +8,26 @@ import SearchableSelect from './SearchableSelect';
 import './AllLoans.css';
 const MISSING_VALUE = '__MISSING__';
 
+// Quarter options for filtering by disbursement quarter
+const QUARTER_OPTIONS = [
+  { value: 'Q1', label: 'Q1 (Jan-Mar)' },
+  { value: 'Q2', label: 'Q2 (Apr-Jun)' },
+  { value: 'Q3', label: 'Q3 (Jul-Sep)' },
+  { value: 'Q4', label: 'Q4 (Oct-Dec)' },
+];
+
+// Year options from 2023 to 2030
+const YEAR_OPTIONS = [
+  { value: '2023', label: '2023' },
+  { value: '2024', label: '2024' },
+  { value: '2025', label: '2025' },
+  { value: '2026', label: '2026' },
+  { value: '2027', label: '2027' },
+  { value: '2028', label: '2028' },
+  { value: '2029', label: '2029' },
+  { value: '2030', label: '2030' },
+];
+
 
 const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
   const [loans, setLoans] = useState(initialLoans);
@@ -21,9 +41,9 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     channel: '',
     statuses: [], // Multi-select status filter
     performance_statuses: [], // Multi-select performance status filter
-	    django_statuses: [], // Multi-select raw Django status filter
+    django_statuses: [], // Multi-select raw Django status filter
     customer_phone: '',
-		vertical_lead_email: [],
+    vertical_lead_email: [],
     loan_type: initialFilter?.loan_type || '', // 'active' or 'inactive'
     rot_type: initialFilter?.rot_type || '', // 'early' or 'late'
     delay_type: initialFilter?.delay_type || '', // 'risky' for high delay loans
@@ -31,8 +51,10 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     dpd_max: '', // DPD maximum value
     django_loan_types: [], // Multi-select loan types from Django (AJO, BNPL, PROSPER, DMO)
     django_verification_statuses: [], // Multi-select verification statuses from Django
-	    quiet_loans: false, // Toggle to show only quiet loans (6+ days since last repayment or no repayments)
-	    fimr: false, // Toggle to show only FIMR-tagged loans
+    quiet_loans: false, // Toggle to show only quiet loans (6+ days since last repayment or no repayments)
+    fimr: false, // Toggle to show only FIMR-tagged loans
+    year: '', // Year filter (super filter) - filters by disbursement_date year
+    quarter: '', // Quarter filter (super filter) - filters by disbursement_date quarter
   });
   const [allBranches, setAllBranches] = useState([]);
   const [allRegions, setAllRegions] = useState([]);
@@ -293,6 +315,14 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
 	    	        apiFilters.vertical_lead_email = filters.vertical_lead_email.join(',');
 	    	      }
 
+      // Year/Quarter super filters - filter by disbursement_date
+      if (filters.year) {
+        apiFilters.year = filters.year;
+      }
+      if (filters.quarter) {
+        apiFilters.quarter = filters.quarter;
+      }
+
       const params = new URLSearchParams({
         page: pagination.page,
         limit: pagination.limit,
@@ -376,10 +406,10 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
 	        channel: '',
 	        statuses: [],
 	        performance_statuses: [],
-		        django_statuses: [],
-		        customer_phone: '',
-		        vertical_lead_email: [],
-		        loan_type: initialFilter.loan_type || '',
+	        django_statuses: [],
+	        customer_phone: '',
+	        vertical_lead_email: [],
+	        loan_type: initialFilter.loan_type || '',
 	        rot_type: initialFilter.rot_type || '',
 	        delay_type: initialFilter.delay_type || '',
 	        dpd_min: '',
@@ -388,6 +418,8 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
 	        django_verification_statuses: [],
 	        quiet_loans: false,
 	        fimr: false,
+	        year: '',
+	        quarter: '',
 	      });
       setFilterLabel(
         initialFilter.officer_name ? `Officer: ${initialFilter.officer_name}` :
@@ -506,18 +538,20 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       channel: '',
       statuses: [],
       performance_statuses: [],
-	      django_statuses: [],
-	      customer_phone: '',
-	      vertical_lead_email: [],
-	      loan_type: '',
+      django_statuses: [],
+      customer_phone: '',
+      vertical_lead_email: [],
+      loan_type: '',
       rot_type: '',
       delay_type: '',
       dpd_min: '',
       dpd_max: '',
       django_loan_types: [],
       django_verification_statuses: [],
-	      quiet_loans: false,
-	      fimr: false,
+      quiet_loans: false,
+      fimr: false,
+      year: '',
+      quarter: '',
     });
     setFilterLabel('');
   };
@@ -689,6 +723,14 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
 	      if (filters.fimr) {
 	        apiFilters.fimr_tagged = 'true';
 	      }
+
+      // Year/Quarter super filters for export
+      if (filters.year) {
+        apiFilters.year = filters.year;
+      }
+      if (filters.quarter) {
+        apiFilters.quarter = filters.quarter;
+      }
 
       const params = new URLSearchParams({
         page: 1,
@@ -888,11 +930,13 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
 	    (filters.regions && filters.regions.length > 0) ? 'regions' : '',
 	    (filters.statuses && filters.statuses.length > 0) ? 'statuses' : '',
 	    (filters.performance_statuses && filters.performance_statuses.length > 0) ? 'performance_statuses' : '',
-		    (filters.django_statuses && filters.django_statuses.length > 0) ? 'django_statuses' : '',
-		    (filters.django_loan_types && filters.django_loan_types.length > 0) ? 'django_loan_types' : '',
-		    (filters.django_verification_statuses && filters.django_verification_statuses.length > 0) ? 'django_verification_statuses' : '',
-		    filters.quiet_loans ? 'quiet_loans' : '',
-		    filters.fimr ? 'fimr' : '',
+	    (filters.django_statuses && filters.django_statuses.length > 0) ? 'django_statuses' : '',
+	    (filters.django_loan_types && filters.django_loan_types.length > 0) ? 'django_loan_types' : '',
+	    (filters.django_verification_statuses && filters.django_verification_statuses.length > 0) ? 'django_verification_statuses' : '',
+	    filters.quiet_loans ? 'quiet_loans' : '',
+	    filters.fimr ? 'fimr' : '',
+	    filters.year,
+	    filters.quarter,
 	  ].filter(Boolean).length;
 
   const handleViewRepayments = (loan) => {
@@ -1545,9 +1589,33 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
                 <span className="slider" />
               </label>
             </div>
-	            <div className="filter-group">
-	              <button className="clear-filters" onClick={clearFilters}>Clear All</button>
-	            </div>
+            <div className="filter-group filter-group-amber">
+              <select
+                value={filters.year}
+                onChange={(e) => handleFilterChange('year', e.target.value)}
+                title="Filter by disbursement year (super filter)"
+              >
+                <option value="">All Years</option>
+                {YEAR_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="filter-group filter-group-amber">
+              <select
+                value={filters.quarter}
+                onChange={(e) => handleFilterChange('quarter', e.target.value)}
+                title="Filter by disbursement quarter (super filter)"
+              >
+                <option value="">All Quarters</option>
+                {QUARTER_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>{opt.label}</option>
+                ))}
+              </select>
+            </div>
+            <div className="filter-group">
+              <button className="clear-filters" onClick={clearFilters}>Clear All</button>
+            </div>
           </div>
         </div>
       )}
