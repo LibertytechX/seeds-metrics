@@ -21,6 +21,54 @@ func NewDashboardRepository(db *sql.DB) *DashboardRepository {
 	return &DashboardRepository{db: db}
 }
 
+// getYearQuarterDateRange returns start and end dates for year/quarter filtering.
+// Returns empty strings and false if no valid filter is provided.
+// Quarter mapping: Q1=Jan-Mar, Q2=Apr-Jun, Q3=Jul-Sep, Q4=Oct-Dec
+func getYearQuarterDateRange(year, quarter string) (startDate, endDate string, hasFilter bool) {
+	if year == "" {
+		return "", "", false
+	}
+
+	if quarter == "" {
+		// Full year: Jan 1 to Dec 31
+		return year + "-01-01", year + "-12-31", true
+	}
+
+	// Specific quarter
+	switch strings.ToUpper(quarter) {
+	case "Q1":
+		return year + "-01-01", year + "-03-31", true
+	case "Q2":
+		return year + "-04-01", year + "-06-30", true
+	case "Q3":
+		return year + "-07-01", year + "-09-30", true
+	case "Q4":
+		return year + "-10-01", year + "-12-31", true
+	}
+
+	// Invalid quarter, just use year
+	return year + "-01-01", year + "-12-31", true
+}
+
+// applyYearQuarterFilter appends year/quarter date range filtering to a query.
+// It filters on l.disbursement_date (assumes the loans table alias is "l").
+// Returns the updated query, args slice, and arg count.
+func applyYearQuarterFilter(query string, args []interface{}, argCount int, filters map[string]interface{}) (string, []interface{}, int) {
+	year, _ := filters["year"].(string)
+	quarter, _ := filters["quarter"].(string)
+
+	startDate, endDate, hasFilter := getYearQuarterDateRange(year, quarter)
+	if !hasFilter {
+		return query, args, argCount
+	}
+
+	query += fmt.Sprintf(" AND l.disbursement_date >= $%d AND l.disbursement_date <= $%d", argCount, argCount+1)
+	args = append(args, startDate, endDate)
+	argCount += 2
+
+	return query, args, argCount
+}
+
 // RecalculateAllLoanFields triggers comprehensive recalculation of all computed fields for all loans.
 //
 // It performs two steps:
@@ -1344,6 +1392,9 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 			query += " AND l.status = 'Active' AND l.total_outstanding > 2000 AND l.repayment_delay_rate IS NOT NULL AND l.repayment_delay_rate < 60"
 		}
 	}
+
+	// Apply year/quarter filter on disbursement_date
+	query, args, argCount = applyYearQuarterFilter(query, args, argCount, filters)
 
 	// Execute query
 	var totalLoans, atRiskCount, criticalCount, excellentDelayCount, okayDelayCount, criticalDelayCount, performingLoansCount int
@@ -2813,6 +2864,17 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 		}
 	}
 
+	// Apply year/quarter filter on disbursement_date
+	year, _ := filters["year"].(string)
+	quarter, _ := filters["quarter"].(string)
+	startDate, endDate, hasYQFilter := getYearQuarterDateRange(year, quarter)
+	if hasYQFilter {
+		query += fmt.Sprintf(" AND l.disbursement_date >= $%d AND l.disbursement_date <= $%d", argCount, argCount+1)
+		countQuery += fmt.Sprintf(" AND l.disbursement_date >= $%d AND l.disbursement_date <= $%d", argCount, argCount+1)
+		args = append(args, startDate, endDate)
+		argCount += 2
+	}
+
 	// Get total count
 	var total int
 	err := r.db.QueryRow(countQuery, args...).Scan(&total)
@@ -3467,6 +3529,9 @@ func (r *DashboardRepository) GetBranchCollectionsLeaderboard(filters map[string
 		}
 	}
 
+	// Apply year/quarter filter on disbursement_date
+	loanQuery, loanArgs, loanArgCount = applyYearQuarterFilter(loanQuery, loanArgs, loanArgCount, filters)
+
 	loanQuery += " GROUP BY l.branch"
 
 	loanRows, err := r.db.Query(loanQuery, loanArgs...)
@@ -3613,6 +3678,9 @@ func (r *DashboardRepository) GetBranchCollectionsLeaderboard(filters map[string
 			repayQuery += " AND (" + strings.Join(conditions, " OR ") + ")"
 		}
 	}
+
+	// Apply year/quarter filter on disbursement_date for repayments query
+	repayQuery, repayArgs, repayArgCount = applyYearQuarterFilter(repayQuery, repayArgs, repayArgCount, filters)
 
 	repayQuery += " GROUP BY l.branch"
 
@@ -3797,6 +3865,9 @@ func (r *DashboardRepository) GetOfficerCollectionsLeaderboard(filters map[strin
 		}
 	}
 
+	// Apply year/quarter filter on disbursement_date
+	loanQuery, loanArgs, loanArgCount = applyYearQuarterFilter(loanQuery, loanArgs, loanArgCount, filters)
+
 	loanQuery += " GROUP BY l.officer_id, o.officer_name, o.officer_email"
 
 	loanRows, err := r.db.Query(loanQuery, loanArgs...)
@@ -3939,6 +4010,9 @@ func (r *DashboardRepository) GetOfficerCollectionsLeaderboard(filters map[strin
 			repayQuery += " AND (" + strings.Join(conditions, " OR ") + ")"
 		}
 	}
+
+	// Apply year/quarter filter on disbursement_date for repayments query
+	repayQuery, repayArgs, repayArgCount = applyYearQuarterFilter(repayQuery, repayArgs, repayArgCount, filters)
 
 	repayQuery += " GROUP BY l.officer_id"
 
@@ -4089,6 +4163,9 @@ func (r *DashboardRepository) GetAgentActivitySummary(filters map[string]interfa
 			query += fmt.Sprintf(" AND l.loan_type IN (%s)", strings.Join(placeholders, ", "))
 		}
 	}
+
+	// Apply year/quarter filter on disbursement_date
+	query, args, argCount = applyYearQuarterFilter(query, args, argCount, filters)
 
 	query += `
 			),
@@ -4516,6 +4593,9 @@ func (r *DashboardRepository) GetRepaymentWatchOfficers(filters map[string]inter
 		}
 	}
 
+	// Apply year/quarter filter on disbursement_date
+	query, args, argCount = applyYearQuarterFilter(query, args, argCount, filters)
+
 	query += `
 				GROUP BY
 					l.officer_id,
@@ -4924,6 +5004,9 @@ func (r *DashboardRepository) GetDailyCollections(filters map[string]interface{}
 		args = append(args, dpdMax)
 		argCount++
 	}
+
+	// Apply year/quarter filter on disbursement_date
+	query, args, argCount = applyYearQuarterFilter(query, args, argCount, filters)
 
 	query += `
 		GROUP BY DATE(r.payment_date)
