@@ -54,8 +54,8 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
     django_verification_statuses: [], // Multi-select verification statuses from Django
     quiet_loans: false, // Toggle to show only quiet loans (6+ days since last repayment or no repayments)
     fimr: false, // Toggle to show only FIMR-tagged loans
-    year: '', // Year filter (super filter) - filters by disbursement_date year
-    quarter: '', // Quarter filter (super filter) - filters by disbursement_date quarter
+    years: [], // Year filter (super filter) - multi-select; filters by disbursement_date year
+    quarters: [], // Quarter filter (super filter) - multi-select; filters by disbursement_date quarter
   });
   const [allBranches, setAllBranches] = useState([]);
   const [allRegions, setAllRegions] = useState([]);
@@ -85,6 +85,11 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
   // Refs for guided tour
   const yearFilterRef = useRef(null);
   const quarterFilterRef = useRef(null);
+  // Multi-select dropdown state/refs for Year/Quarter super filters
+  const [isYearDropdownOpen, setIsYearDropdownOpen] = useState(false);
+  const [isQuarterDropdownOpen, setIsQuarterDropdownOpen] = useState(false);
+  const yearDropdownRef = useRef(null);
+  const quarterDropdownRef = useRef(null);
   const [filterLabel, setFilterLabel] = useState(
     initialFilter?.officer_name ? `Officer: ${initialFilter.officer_name}` :
     initialFilter?.label ? initialFilter.label : ''
@@ -139,6 +144,12 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
 			      if (verticalLeadDropdownRef.current && !verticalLeadDropdownRef.current.contains(event.target)) {
 			        setIsVerticalLeadDropdownOpen(false);
 			      }
+      if (yearDropdownRef.current && !yearDropdownRef.current.contains(event.target)) {
+        setIsYearDropdownOpen(false);
+      }
+      if (quarterDropdownRef.current && !quarterDropdownRef.current.contains(event.target)) {
+        setIsQuarterDropdownOpen(false);
+      }
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
@@ -319,12 +330,12 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
 	    	        apiFilters.vertical_lead_email = filters.vertical_lead_email.join(',');
 	    	      }
 
-      // Year/Quarter super filters - filter by disbursement_date
-      if (filters.year) {
-        apiFilters.year = filters.year;
+      // Year/Quarter super filters - filter by disbursement_date (multi-select)
+      if (filters.years && filters.years.length > 0) {
+        apiFilters.year = filters.years.join(',');
       }
-      if (filters.quarter) {
-        apiFilters.quarter = filters.quarter;
+      if (filters.quarters && filters.quarters.length > 0) {
+        apiFilters.quarter = filters.quarters.join(',');
       }
 
       const params = new URLSearchParams({
@@ -422,8 +433,8 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
 	        django_verification_statuses: [],
 	        quiet_loans: false,
 	        fimr: false,
-	        year: '',
-	        quarter: '',
+	        years: [],
+	        quarters: [],
 	      });
       setFilterLabel(
         initialFilter.officer_name ? `Officer: ${initialFilter.officer_name}` :
@@ -468,6 +479,27 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
   const handleFilterChange = (filterKey, value) => {
     setFilters(prev => ({ ...prev, [filterKey]: value }));
     setPagination(prev => ({ ...prev, page: 1 })); // Reset to first page
+  };
+
+  // Multi-select toggle handlers for Year/Quarter super filters
+  const toggleYear = (year) => {
+    setFilters(prev => ({
+      ...prev,
+      years: prev.years.includes(year)
+        ? prev.years.filter(y => y !== year)
+        : [...prev.years, year],
+    }));
+    setPagination(prev => ({ ...prev, page: 1 }));
+  };
+
+  const toggleQuarter = (quarter) => {
+    setFilters(prev => ({
+      ...prev,
+      quarters: prev.quarters.includes(quarter)
+        ? prev.quarters.filter(q => q !== quarter)
+        : [...prev.quarters, quarter],
+    }));
+    setPagination(prev => ({ ...prev, page: 1 }));
   };
 
   const handleRegionToggle = (region) => {
@@ -554,8 +586,8 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
       django_verification_statuses: [],
       quiet_loans: false,
       fimr: false,
-      year: '',
-      quarter: '',
+      years: [],
+      quarters: [],
     });
     setFilterLabel('');
   };
@@ -728,12 +760,12 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
 	        apiFilters.fimr_tagged = 'true';
 	      }
 
-      // Year/Quarter super filters for export
-      if (filters.year) {
-        apiFilters.year = filters.year;
+      // Year/Quarter super filters for export (multi-select)
+      if (filters.years && filters.years.length > 0) {
+        apiFilters.year = filters.years.join(',');
       }
-      if (filters.quarter) {
-        apiFilters.quarter = filters.quarter;
+      if (filters.quarters && filters.quarters.length > 0) {
+        apiFilters.quarter = filters.quarters.join(',');
       }
 
       const params = new URLSearchParams({
@@ -939,8 +971,8 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
 	    (filters.django_verification_statuses && filters.django_verification_statuses.length > 0) ? 'django_verification_statuses' : '',
 	    filters.quiet_loans ? 'quiet_loans' : '',
 	    filters.fimr ? 'fimr' : '',
-	    filters.year,
-	    filters.quarter,
+	    filters.years.length > 0 ? 'years' : '',
+	    filters.quarters.length > 0 ? 'quarters' : '',
 	  ].filter(Boolean).length;
 
   const handleViewRepayments = (loan) => {
@@ -1594,28 +1626,68 @@ const AllLoans = ({ initialLoans = [], initialFilter = null }) => {
               </label>
             </div>
             <div className="filter-group filter-group-amber" ref={yearFilterRef}>
-              <select
-                value={filters.year}
-                onChange={(e) => handleFilterChange('year', e.target.value)}
-                title="Filter by disbursement year (super filter)"
-              >
-                <option value="">All Years</option>
-                {YEAR_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
+              <div className="amber-multi-select" ref={yearDropdownRef}>
+                <div
+                  className="amber-multi-select-toggle"
+                  onClick={() => setIsYearDropdownOpen(!isYearDropdownOpen)}
+                  title="Filter by disbursement year (super filter)"
+                >
+                  <span>
+                    {filters.years.length === 0
+                      ? 'All Years'
+                      : filters.years.length === 1
+                      ? filters.years[0]
+                      : `${filters.years.length} Years`}
+                  </span>
+                  <span className="amber-multi-select-chevron">▾</span>
+                </div>
+                {isYearDropdownOpen && (
+                  <div className="amber-multi-select-options">
+                    {YEAR_OPTIONS.map((opt) => (
+                      <label key={opt.value} className="amber-multi-select-option">
+                        <input
+                          type="checkbox"
+                          checked={filters.years.includes(opt.value)}
+                          onChange={() => toggleYear(opt.value)}
+                        />
+                        <span>{opt.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
             <div className="filter-group filter-group-amber" ref={quarterFilterRef}>
-              <select
-                value={filters.quarter}
-                onChange={(e) => handleFilterChange('quarter', e.target.value)}
-                title="Filter by disbursement quarter (super filter)"
-              >
-                <option value="">All Quarters</option>
-                {QUARTER_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
+              <div className="amber-multi-select" ref={quarterDropdownRef}>
+                <div
+                  className="amber-multi-select-toggle"
+                  onClick={() => setIsQuarterDropdownOpen(!isQuarterDropdownOpen)}
+                  title="Filter by disbursement quarter (super filter)"
+                >
+                  <span>
+                    {filters.quarters.length === 0
+                      ? 'All Quarters'
+                      : filters.quarters.length === 1
+                      ? filters.quarters[0]
+                      : `${filters.quarters.length} Quarters`}
+                  </span>
+                  <span className="amber-multi-select-chevron">▾</span>
+                </div>
+                {isQuarterDropdownOpen && (
+                  <div className="amber-multi-select-options">
+                    {QUARTER_OPTIONS.map((opt) => (
+                      <label key={opt.value} className="amber-multi-select-option">
+                        <input
+                          type="checkbox"
+                          checked={filters.quarters.includes(opt.value)}
+                          onChange={() => toggleQuarter(opt.value)}
+                        />
+                        <span>{opt.label}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
             </div>
             <div className="filter-group">
               <button className="clear-filters" onClick={clearFilters}>Clear All</button>

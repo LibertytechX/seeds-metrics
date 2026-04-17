@@ -299,6 +299,70 @@
   border-color: #d4940a;
 }
 
+/* Amber multi-select dropdown (Year/Quarter super filters) */
+.filter-panel .amber-multi-select {
+  position: relative;
+  min-width: 130px;
+}
+
+.filter-panel .amber-multi-select-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  border: 1px solid #e6a817;
+  background-color: #fffbeb;
+  color: #92600a;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  user-select: none;
+}
+
+.filter-panel .amber-multi-select-toggle:hover {
+  border-color: #d4940a;
+}
+
+.filter-panel .amber-multi-select-chevron {
+  font-size: 10px;
+  margin-left: 6px;
+  color: #b37700;
+}
+
+.filter-panel .amber-multi-select-options {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #e6a817;
+  border-radius: 4px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+  z-index: 30;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.filter-panel .amber-multi-select-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 13px;
+  color: #333;
+  cursor: pointer;
+}
+
+.filter-panel .amber-multi-select-option:hover {
+  background-color: #fffbeb;
+}
+
+.filter-panel .amber-multi-select-option input[type="checkbox"] {
+  accent-color: #e6a817;
+  cursor: pointer;
+}
+
 /* Multi-select dropdown styles for AllLoans */
 .filter-group.multi-select-wrapper {
   position: relative;

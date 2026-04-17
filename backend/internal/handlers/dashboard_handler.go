@@ -576,12 +576,12 @@ func (h *DashboardHandler) GetAllLoans(c *gin.Context) {
 			filters["fimr_tagged"] = true
 		}
 	}
-	// Year/Quarter filters for disbursement date filtering
+	// Year/Quarter filters for disbursement date filtering (multi-select as comma-separated)
 	if year := c.Query("year"); year != "" {
-		filters["year"] = year
+		filters["years"] = strings.Split(year, ",")
 	}
 	if quarter := c.Query("quarter"); quarter != "" {
-		filters["quarter"] = quarter
+		filters["quarters"] = strings.Split(quarter, ",")
 	}
 	if sortBy := c.Query("sort_by"); sortBy != "" {
 		filters["sort_by"] = sortBy
@@ -684,10 +684,10 @@ func (h *DashboardHandler) GetBranchCollectionsLeaderboard(c *gin.Context) {
 		filters["django_status"] = djangoStatus
 	}
 	if year := c.Query("year"); year != "" {
-		filters["year"] = year
+		filters["years"] = strings.Split(year, ",")
 	}
 	if quarter := c.Query("quarter"); quarter != "" {
-		filters["quarter"] = quarter
+		filters["quarters"] = strings.Split(quarter, ",")
 	}
 
 	branches, err := h.dashboardRepo.GetBranchCollectionsLeaderboard(filters)
@@ -769,10 +769,10 @@ func (h *DashboardHandler) GetOfficerCollectionsLeaderboard(c *gin.Context) {
 		filters["django_status"] = djangoStatus
 	}
 	if year := c.Query("year"); year != "" {
-		filters["year"] = year
+		filters["years"] = strings.Split(year, ",")
 	}
 	if quarter := c.Query("quarter"); quarter != "" {
-		filters["quarter"] = quarter
+		filters["quarters"] = strings.Split(quarter, ",")
 	}
 
 	officers, err := h.dashboardRepo.GetOfficerCollectionsLeaderboard(filters)
@@ -854,10 +854,10 @@ func (h *DashboardHandler) GetRepaymentWatch(c *gin.Context) {
 		filters["loan_type"] = loanType
 	}
 	if year := c.Query("year"); year != "" {
-		filters["year"] = year
+		filters["years"] = strings.Split(year, ",")
 	}
 	if quarter := c.Query("quarter"); quarter != "" {
-		filters["quarter"] = quarter
+		filters["quarters"] = strings.Split(quarter, ",")
 	}
 
 	officers, err := h.dashboardRepo.GetRepaymentWatchOfficers(filters)
@@ -988,10 +988,10 @@ func (h *DashboardHandler) GetAgentActivity(c *gin.Context) {
 		filters["loan_type"] = loanType
 	}
 	if year := c.Query("year"); year != "" {
-		filters["year"] = year
+		filters["years"] = strings.Split(year, ",")
 	}
 	if quarter := c.Query("quarter"); quarter != "" {
-		filters["quarter"] = quarter
+		filters["quarters"] = strings.Split(quarter, ",")
 	}
 
 	summary, err := h.dashboardRepo.GetAgentActivitySummary(filters)
@@ -1053,10 +1053,10 @@ func (h *DashboardHandler) GetDailyCollections(c *gin.Context) {
 		filters["loan_type"] = loanType
 	}
 	if year := c.Query("year"); year != "" {
-		filters["year"] = year
+		filters["years"] = strings.Split(year, ",")
 	}
 	if quarter := c.Query("quarter"); quarter != "" {
-		filters["quarter"] = quarter
+		filters["quarters"] = strings.Split(quarter, ",")
 	}
 
 	points, err := h.dashboardRepo.GetDailyCollections(filters)

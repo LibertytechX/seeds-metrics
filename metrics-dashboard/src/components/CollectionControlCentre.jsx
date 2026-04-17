@@ -48,9 +48,14 @@ const YEAR_OPTIONS = [
 ];
 
 const CollectionControlCentre = ({ onNavigateToBranch }) => {
-  // Refs for guided tour
+  // Refs for guided tour and multi-select dropdowns
   const yearFilterRef = useRef(null);
   const quarterFilterRef = useRef(null);
+  const yearDropdownRef = useRef(null);
+  const quarterDropdownRef = useRef(null);
+
+  const [isYearDropdownOpen, setIsYearDropdownOpen] = useState(false);
+  const [isQuarterDropdownOpen, setIsQuarterDropdownOpen] = useState(false);
 
   const [filters, setFilters] = useState({
     period: 'today',
@@ -59,8 +64,8 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
     product: '',
     wave: '',
     officer_id: '',
-    year: '',
-    quarter: '',
+    years: [],
+    quarters: [],
   });
 
   const [filterOptions, setFilterOptions] = useState({
@@ -200,11 +205,11 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	        if (filters.period) {
 	          baseParams.set('period', filters.period);
 	        }
-	        if (filters.year) {
-	          baseParams.set('year', filters.year);
+	        if (filters.years && filters.years.length > 0) {
+	          baseParams.set('year', filters.years.join(','));
 	        }
-	        if (filters.quarter) {
-	          baseParams.set('quarter', filters.quarter);
+	        if (filters.quarters && filters.quarters.length > 0) {
+	          baseParams.set('quarter', filters.quarters.join(','));
 	        }
 
 	        // Restricted metrics (used for Collections Due, At-Risk, etc.)
@@ -268,8 +273,8 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	      }
 	    };
 
-		    	fetchSummaryMetrics();
-		  }, [filters.branch, filters.region, filters.product, filters.wave, filters.officer_id, filters.period, filters.year, filters.quarter]);
+	    	fetchSummaryMetrics();
+	  }, [filters.branch, filters.region, filters.product, filters.wave, filters.officer_id, filters.period, filters.years, filters.quarters]);
 
 	  // Fetch branch collections leaderboard (per-branch breakdown) when filters change.
 	  useEffect(() => {
@@ -297,11 +302,11 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	        if (filters.officer_id) {
 	          params.set('officer_id', filters.officer_id);
 	        }
-	        if (filters.year) {
-	          params.set('year', filters.year);
+	        if (filters.years && filters.years.length > 0) {
+	          params.set('year', filters.years.join(','));
 	        }
-	        if (filters.quarter) {
-	          params.set('quarter', filters.quarter);
+	        if (filters.quarters && filters.quarters.length > 0) {
+	          params.set('quarter', filters.quarters.join(','));
 	        }
 
 	        // Apply django_status filter based on period (today_only vs others)
@@ -332,8 +337,8 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	      }
 	    };
 
-		    	fetchBranchLeaderboard();
-		  }, [filters.branch, filters.region, filters.product, filters.wave, filters.officer_id, filters.period, filters.year, filters.quarter]);
+	    	fetchBranchLeaderboard();
+	  }, [filters.branch, filters.region, filters.product, filters.wave, filters.officer_id, filters.period, filters.years, filters.quarters]);
 
 		  // Fetch daily collections time series for the chart whenever core filters change.
 		  useEffect(() => {
@@ -364,11 +369,11 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 		        if (filters.officer_id) {
 		          params.set('officer_id', filters.officer_id);
 		        }
-		        if (filters.year) {
-		          params.set('year', filters.year);
+		        if (filters.years && filters.years.length > 0) {
+		          params.set('year', filters.years.join(','));
 		        }
-		        if (filters.quarter) {
-		          params.set('quarter', filters.quarter);
+		        if (filters.quarters && filters.quarters.length > 0) {
+		          params.set('quarter', filters.quarters.join(','));
 		        }
 
 		        const queryString = params.toString();
@@ -392,8 +397,8 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 		      }
 		    };
 
-			    fetchDailyCollections();
-				  }, [filters.branch, filters.region, filters.product, filters.wave, filters.officer_id, filters.period, filters.year, filters.quarter]);
+		    fetchDailyCollections();
+			  }, [filters.branch, filters.region, filters.product, filters.wave, filters.officer_id, filters.period, filters.years, filters.quarters]);
 
 			  // Fetch Agent Activity summary (rolling last 7 days, including today)
 			  // whenever core filters change. This endpoint always uses an internal
@@ -423,11 +428,11 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 			        if (filters.officer_id) {
 			          params.set('officer_id', filters.officer_id);
 			        }
-			        if (filters.year) {
-			          params.set('year', filters.year);
+			        if (filters.years && filters.years.length > 0) {
+			          params.set('year', filters.years.join(','));
 			        }
-			        if (filters.quarter) {
-			          params.set('quarter', filters.quarter);
+			        if (filters.quarters && filters.quarters.length > 0) {
+			          params.set('quarter', filters.quarters.join(','));
 			        }
 
 			        const queryString = params.toString();
@@ -453,12 +458,45 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 			      }
 			    };
 
-			    fetchAgentActivity();
-			  }, [filters.branch, filters.region, filters.product, filters.wave, filters.officer_id, filters.year, filters.quarter]);
+		    fetchAgentActivity();
+		  }, [filters.branch, filters.region, filters.product, filters.wave, filters.officer_id, filters.years, filters.quarters]);
 
   const handleFilterChange = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
   };
+
+  // Multi-select toggle handlers for Year/Quarter super filters
+  const toggleYear = (year) => {
+    setFilters((prev) => ({
+      ...prev,
+      years: prev.years.includes(year)
+        ? prev.years.filter((y) => y !== year)
+        : [...prev.years, year],
+    }));
+  };
+
+  const toggleQuarter = (quarter) => {
+    setFilters((prev) => ({
+      ...prev,
+      quarters: prev.quarters.includes(quarter)
+        ? prev.quarters.filter((q) => q !== quarter)
+        : [...prev.quarters, quarter],
+    }));
+  };
+
+  // Close multi-select dropdowns when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (yearDropdownRef.current && !yearDropdownRef.current.contains(event.target)) {
+        setIsYearDropdownOpen(false);
+      }
+      if (quarterDropdownRef.current && !quarterDropdownRef.current.contains(event.target)) {
+        setIsQuarterDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
 	  const handleLeaderboardSort = (key) => {
 	    setBranchSort((prev) => {
@@ -781,8 +819,8 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	      if (filters.product) params.set('loan_type', filters.product);
 	      if (filters.wave) params.set('wave', filters.wave);
 	      if (filters.officer_id) params.set('officer_id', filters.officer_id);
-	      if (filters.year) params.set('year', filters.year);
-	      if (filters.quarter) params.set('quarter', filters.quarter);
+	      if (filters.years && filters.years.length > 0) params.set('year', filters.years.join(','));
+	      if (filters.quarters && filters.quarters.length > 0) params.set('quarter', filters.quarters.join(','));
 
 	      const queryString = params.toString();
 	      const url = queryString
@@ -997,28 +1035,68 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 
 	        <div className="filter-group filter-group-amber" ref={yearFilterRef}>
 	          <label>Year</label>
-	          <select
-	            value={filters.year}
-	            onChange={(e) => handleFilterChange('year', e.target.value)}
-	          >
-	            <option value="">All Years</option>
-	            {YEAR_OPTIONS.map((opt) => (
-	              <option key={opt.value} value={opt.value}>{opt.label}</option>
-	            ))}
-	          </select>
+	          <div className="amber-multi-select" ref={yearDropdownRef}>
+	            <div
+	              className="amber-multi-select-toggle"
+	              onClick={() => setIsYearDropdownOpen(!isYearDropdownOpen)}
+	            >
+	              <span>
+	                {filters.years.length === 0
+	                  ? 'All Years'
+	                  : filters.years.length === 1
+	                  ? filters.years[0]
+	                  : `${filters.years.length} Years`}
+	              </span>
+	              <span className="amber-multi-select-chevron">▾</span>
+	            </div>
+	            {isYearDropdownOpen && (
+	              <div className="amber-multi-select-options">
+	                {YEAR_OPTIONS.map((opt) => (
+	                  <label key={opt.value} className="amber-multi-select-option">
+	                    <input
+	                      type="checkbox"
+	                      checked={filters.years.includes(opt.value)}
+	                      onChange={() => toggleYear(opt.value)}
+	                    />
+	                    <span>{opt.label}</span>
+	                  </label>
+	                ))}
+	              </div>
+	            )}
+	          </div>
 	        </div>
 
 	        <div className="filter-group filter-group-amber" ref={quarterFilterRef}>
 	          <label>Quarter</label>
-	          <select
-	            value={filters.quarter}
-	            onChange={(e) => handleFilterChange('quarter', e.target.value)}
-	          >
-	            <option value="">All Quarters</option>
-	            {QUARTER_OPTIONS.map((opt) => (
-	              <option key={opt.value} value={opt.value}>{opt.label}</option>
-	            ))}
-	          </select>
+	          <div className="amber-multi-select" ref={quarterDropdownRef}>
+	            <div
+	              className="amber-multi-select-toggle"
+	              onClick={() => setIsQuarterDropdownOpen(!isQuarterDropdownOpen)}
+	            >
+	              <span>
+	                {filters.quarters.length === 0
+	                  ? 'All Quarters'
+	                  : filters.quarters.length === 1
+	                  ? filters.quarters[0]
+	                  : `${filters.quarters.length} Quarters`}
+	              </span>
+	              <span className="amber-multi-select-chevron">▾</span>
+	            </div>
+	            {isQuarterDropdownOpen && (
+	              <div className="amber-multi-select-options">
+	                {QUARTER_OPTIONS.map((opt) => (
+	                  <label key={opt.value} className="amber-multi-select-option">
+	                    <input
+	                      type="checkbox"
+	                      checked={filters.quarters.includes(opt.value)}
+	                      onChange={() => toggleQuarter(opt.value)}
+	                    />
+	                    <span>{opt.label}</span>
+	                  </label>
+	                ))}
+	              </div>
+	            )}
+	          </div>
 	        </div>
 
 	        <div className="filter-group">

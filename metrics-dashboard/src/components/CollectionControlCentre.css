@@ -85,6 +85,69 @@
   box-shadow: 0 0 0 2px rgba(230, 168, 23, 0.2);
 }
 
+/* Amber multi-select dropdown (Year/Quarter super filters) */
+.amber-multi-select {
+  position: relative;
+  min-width: 120px;
+}
+
+.amber-multi-select-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border: 1px solid #e6a817;
+  background-color: #fffbeb;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #92600a;
+  user-select: none;
+}
+
+.amber-multi-select-toggle:hover {
+  border-color: #d4940a;
+}
+
+.amber-multi-select-chevron {
+  font-size: 10px;
+  margin-left: 6px;
+  color: #b37700;
+}
+
+.amber-multi-select-options {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #e6a817;
+  border-radius: 4px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+  z-index: 20;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.amber-multi-select-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 13px;
+  color: #333;
+  cursor: pointer;
+}
+
+.amber-multi-select-option:hover {
+  background-color: #fffbeb;
+}
+
+.amber-multi-select-option input[type="checkbox"] {
+  accent-color: #e6a817;
+  cursor: pointer;
+}
+
 /* Update Past Maturity Button (updpm) in header */
 .updpm-btn {
   padding: 6px 12px;

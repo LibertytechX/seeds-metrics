@@ -52,8 +52,44 @@ func getYearQuarterDateRange(year, quarter string) (startDate, endDate string, h
 
 // applyYearQuarterFilter appends year/quarter date range filtering to a query.
 // It filters on l.disbursement_date (assumes the loans table alias is "l").
+// Supports both single-select (filters["year"] as string) for backward compatibility
+// and multi-select (filters["years"] as []string) using EXTRACT for non-contiguous ranges.
 // Returns the updated query, args slice, and arg count.
 func applyYearQuarterFilter(query string, args []interface{}, argCount int, filters map[string]interface{}) (string, []interface{}, int) {
+	// Check for multi-select first (preferred)
+	years, hasYears := filters["years"].([]string)
+	quarters, hasQuarters := filters["quarters"].([]string)
+
+	if hasYears && len(years) > 0 {
+		placeholders := make([]string, len(years))
+		for i, y := range years {
+			placeholders[i] = fmt.Sprintf("$%d", argCount)
+			args = append(args, y)
+			argCount++
+		}
+		query += fmt.Sprintf(" AND EXTRACT(YEAR FROM l.disbursement_date) IN (%s)",
+			strings.Join(placeholders, ", "))
+	}
+
+	if hasQuarters && len(quarters) > 0 {
+		placeholders := make([]string, len(quarters))
+		for i, q := range quarters {
+			placeholders[i] = fmt.Sprintf("$%d", argCount)
+			// Convert "Q1" -> "1", "Q2" -> "2", etc.
+			quarterNum := strings.TrimPrefix(strings.ToUpper(q), "Q")
+			args = append(args, quarterNum)
+			argCount++
+		}
+		query += fmt.Sprintf(" AND EXTRACT(QUARTER FROM l.disbursement_date) IN (%s)",
+			strings.Join(placeholders, ", "))
+	}
+
+	// If multi-select was used, we're done
+	if hasYears || hasQuarters {
+		return query, args, argCount
+	}
+
+	// Backward compatibility: fall back to single-select string-based filter
 	year, _ := filters["year"].(string)
 	quarter, _ := filters["quarter"].(string)
 
@@ -2324,17 +2360,11 @@ func (r *DashboardRepository) GetLoansSummaryMetrics(filters map[string]interfac
 	disbursementArgs := []interface{}{}
 	disbursementArgCount := 1
 
-	// Check if year/quarter filters are provided - if so, filter by disbursement_date
-	yearFilter, _ := filters["year"].(string)
-	quarterFilter, _ := filters["quarter"].(string)
-	startDate, endDate, hasYearQuarterFilter := getYearQuarterDateRange(yearFilter, quarterFilter)
-
-	if hasYearQuarterFilter {
-		// Use year/quarter filter for disbursement date
-		disbursementQuery += fmt.Sprintf(" AND l.disbursement_date >= $%d AND l.disbursement_date <= $%d", disbursementArgCount, disbursementArgCount+1)
-		disbursementArgs = append(disbursementArgs, startDate, endDate)
-		disbursementArgCount += 2
-	}
+	// Apply year/quarter filter (supports multi-select via EXTRACT).
+	// Uses the same applyYearQuarterFilter helper so behavior is consistent.
+	disbursementQuery, disbursementArgs, disbursementArgCount = applyYearQuarterFilter(
+		disbursementQuery, disbursementArgs, disbursementArgCount, filters,
+	)
 	// NOTE: When no year/quarter filter is provided, we intentionally do NOT apply a period-based
 	// date filter because the database only has scheduled disbursement_date, not actual_date_disbursed.
 	// Filtering by disbursement_date would give inaccurate results for "today's disbursements".
@@ -2863,15 +2893,48 @@ func (r *DashboardRepository) GetAllLoans(filters map[string]interface{}) ([]*mo
 		}
 	}
 
-	// Apply year/quarter filter on disbursement_date
-	year, _ := filters["year"].(string)
-	quarter, _ := filters["quarter"].(string)
-	startDate, endDate, hasYQFilter := getYearQuarterDateRange(year, quarter)
-	if hasYQFilter {
-		query += fmt.Sprintf(" AND l.disbursement_date >= $%d AND l.disbursement_date <= $%d", argCount, argCount+1)
-		countQuery += fmt.Sprintf(" AND l.disbursement_date >= $%d AND l.disbursement_date <= $%d", argCount, argCount+1)
-		args = append(args, startDate, endDate)
-		argCount += 2
+	// Apply year/quarter filter on disbursement_date (supports multi-select via EXTRACT)
+	// We must apply the same filter to both main query and count query with the same args.
+	years, hasYears := filters["years"].([]string)
+	quarters, hasQuarters := filters["quarters"].([]string)
+
+	if hasYears && len(years) > 0 {
+		placeholders := make([]string, len(years))
+		for i, y := range years {
+			placeholders[i] = fmt.Sprintf("$%d", argCount)
+			args = append(args, y)
+			argCount++
+		}
+		yearClause := fmt.Sprintf(" AND EXTRACT(YEAR FROM l.disbursement_date) IN (%s)", strings.Join(placeholders, ", "))
+		query += yearClause
+		countQuery += yearClause
+	}
+
+	if hasQuarters && len(quarters) > 0 {
+		placeholders := make([]string, len(quarters))
+		for i, q := range quarters {
+			placeholders[i] = fmt.Sprintf("$%d", argCount)
+			quarterNum := strings.TrimPrefix(strings.ToUpper(q), "Q")
+			args = append(args, quarterNum)
+			argCount++
+		}
+		quarterClause := fmt.Sprintf(" AND EXTRACT(QUARTER FROM l.disbursement_date) IN (%s)", strings.Join(placeholders, ", "))
+		query += quarterClause
+		countQuery += quarterClause
+	}
+
+	// Backward compatibility: single-select string-based filter (if multi not provided)
+	if !hasYears && !hasQuarters {
+		year, _ := filters["year"].(string)
+		quarter, _ := filters["quarter"].(string)
+		startDate, endDate, hasYQFilter := getYearQuarterDateRange(year, quarter)
+		if hasYQFilter {
+			dateClause := fmt.Sprintf(" AND l.disbursement_date >= $%d AND l.disbursement_date <= $%d", argCount, argCount+1)
+			query += dateClause
+			countQuery += dateClause
+			args = append(args, startDate, endDate)
+			argCount += 2
+		}
 	}
 
 	// Get total count
