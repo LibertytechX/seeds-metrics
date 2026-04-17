@@ -148,6 +148,68 @@
   cursor: pointer;
 }
 
+/* Neutral multi-select dropdown (non-super filters, e.g. Product) */
+.neutral-multi-select {
+  position: relative;
+  min-width: 150px;
+}
+
+.neutral-multi-select-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 6px 10px;
+  border: 1px solid #ccc;
+  background-color: #fff;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 13px;
+  color: #333;
+  user-select: none;
+}
+
+.neutral-multi-select-toggle:hover {
+  border-color: #999;
+}
+
+.neutral-multi-select-chevron {
+  font-size: 10px;
+  margin-left: 6px;
+  color: #666;
+}
+
+.neutral-multi-select-options {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  background: white;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.08);
+  z-index: 20;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.neutral-multi-select-option {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  font-size: 13px;
+  color: #333;
+  cursor: pointer;
+}
+
+.neutral-multi-select-option:hover {
+  background-color: #f5f5f5;
+}
+
+.neutral-multi-select-option input[type="checkbox"] {
+  cursor: pointer;
+}
+
 /* Update Past Maturity Button (updpm) in header */
 .updpm-btn {
   padding: 6px 12px;

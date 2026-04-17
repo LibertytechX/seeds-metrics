@@ -53,15 +53,17 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
   const quarterFilterRef = useRef(null);
   const yearDropdownRef = useRef(null);
   const quarterDropdownRef = useRef(null);
+  const productDropdownRef = useRef(null);
 
   const [isYearDropdownOpen, setIsYearDropdownOpen] = useState(false);
   const [isQuarterDropdownOpen, setIsQuarterDropdownOpen] = useState(false);
+  const [isProductDropdownOpen, setIsProductDropdownOpen] = useState(false);
 
   const [filters, setFilters] = useState({
     period: 'today',
     region: '',
     branch: '',
-    product: '',
+    products: [],
     wave: '',
     officer_id: '',
     years: [],
@@ -193,8 +195,8 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	        if (filters.region) {
 	          baseParams.set('region', filters.region);
 	        }
-	        if (filters.product) {
-	          baseParams.set('loan_type', filters.product);
+	        if (filters.products && filters.products.length > 0) {
+	          baseParams.set('loan_type', filters.products.join(','));
 	        }
 		        if (filters.wave) {
 		          baseParams.set('wave', filters.wave);
@@ -274,7 +276,7 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	    };
 
 	    	fetchSummaryMetrics();
-	  }, [filters.branch, filters.region, filters.product, filters.wave, filters.officer_id, filters.period, filters.years, filters.quarters]);
+	  }, [filters.branch, filters.region, filters.products, filters.wave, filters.officer_id, filters.period, filters.years, filters.quarters]);
 
 	  // Fetch branch collections leaderboard (per-branch breakdown) when filters change.
 	  useEffect(() => {
@@ -293,8 +295,8 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	        if (filters.branch) {
 	          params.set('branch', filters.branch);
 	        }
-	        if (filters.product) {
-	          params.set('loan_type', filters.product);
+	        if (filters.products && filters.products.length > 0) {
+	          params.set('loan_type', filters.products.join(','));
 	        }
 	        if (filters.wave) {
 	          params.set('wave', filters.wave);
@@ -338,7 +340,7 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	    };
 
 	    	fetchBranchLeaderboard();
-	  }, [filters.branch, filters.region, filters.product, filters.wave, filters.officer_id, filters.period, filters.years, filters.quarters]);
+	  }, [filters.branch, filters.region, filters.products, filters.wave, filters.officer_id, filters.period, filters.years, filters.quarters]);
 
 		  // Fetch daily collections time series for the chart whenever core filters change.
 		  useEffect(() => {
@@ -360,8 +362,8 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 		        if (filters.branch) {
 		          params.set('branch', filters.branch);
 		        }
-		        if (filters.product) {
-		          params.set('loan_type', filters.product);
+		        if (filters.products && filters.products.length > 0) {
+		          params.set('loan_type', filters.products.join(','));
 		        }
 		        if (filters.wave) {
 		          params.set('wave', filters.wave);
@@ -398,7 +400,7 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 		    };
 
 		    fetchDailyCollections();
-			  }, [filters.branch, filters.region, filters.product, filters.wave, filters.officer_id, filters.period, filters.years, filters.quarters]);
+			  }, [filters.branch, filters.region, filters.products, filters.wave, filters.officer_id, filters.period, filters.years, filters.quarters]);
 
 			  // Fetch Agent Activity summary (rolling last 7 days, including today)
 			  // whenever core filters change. This endpoint always uses an internal
@@ -419,8 +421,8 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 			        if (filters.branch) {
 			          params.set('branch', filters.branch);
 			        }
-			        if (filters.product) {
-			          params.set('loan_type', filters.product);
+			        if (filters.products && filters.products.length > 0) {
+			          params.set('loan_type', filters.products.join(','));
 			        }
 			        if (filters.wave) {
 			          params.set('wave', filters.wave);
@@ -459,7 +461,7 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 			    };
 
 		    fetchAgentActivity();
-		  }, [filters.branch, filters.region, filters.product, filters.wave, filters.officer_id, filters.years, filters.quarters]);
+		  }, [filters.branch, filters.region, filters.products, filters.wave, filters.officer_id, filters.years, filters.quarters]);
 
   const handleFilterChange = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
@@ -484,6 +486,15 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
     }));
   };
 
+  const toggleProduct = (product) => {
+    setFilters((prev) => ({
+      ...prev,
+      products: prev.products.includes(product)
+        ? prev.products.filter((p) => p !== product)
+        : [...prev.products, product],
+    }));
+  };
+
   // Close multi-select dropdowns when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -492,6 +503,9 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
       }
       if (quarterDropdownRef.current && !quarterDropdownRef.current.contains(event.target)) {
         setIsQuarterDropdownOpen(false);
+      }
+      if (productDropdownRef.current && !productDropdownRef.current.contains(event.target)) {
+        setIsProductDropdownOpen(false);
       }
     };
     document.addEventListener('mousedown', handleClickOutside);
@@ -751,7 +765,7 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 						        typeof waveOverride === 'string' ? waveOverride : filters.wave;
 						      if (effectiveWave) params.set('wave', effectiveWave);
 					      if (filters.branch) params.set('branch', filters.branch);
-					      if (filters.product) params.set('loan_type', filters.product);
+					      if (filters.products && filters.products.length > 0) params.set('loan_type', filters.products.join(','));
 
 				      const url = `${API_BASE_URL}/collections/agent-activity-detail?${params.toString()}`;
 				      const response = await fetch(url);
@@ -816,7 +830,7 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 	      const params = new URLSearchParams();
 	      if (filters.region) params.set('region', filters.region);
 	      if (filters.branch) params.set('branch', filters.branch);
-	      if (filters.product) params.set('loan_type', filters.product);
+	      if (filters.products && filters.products.length > 0) params.set('loan_type', filters.products.join(','));
 	      if (filters.wave) params.set('wave', filters.wave);
 	      if (filters.officer_id) params.set('officer_id', filters.officer_id);
 	      if (filters.years && filters.years.length > 0) params.set('year', filters.years.join(','));
@@ -1009,15 +1023,35 @@ const CollectionControlCentre = ({ onNavigateToBranch }) => {
 
         <div className="filter-group">
           <label>Product (Loan Type)</label>
-          <select
-            value={filters.product}
-            onChange={(e) => handleFilterChange('product', e.target.value)}
-          >
-            <option value="">All Products</option>
-            {filterOptions.products.map((product) => (
-              <option key={product} value={product}>{product}</option>
-            ))}
-          </select>
+          <div className="neutral-multi-select" ref={productDropdownRef}>
+            <div
+              className="neutral-multi-select-toggle"
+              onClick={() => setIsProductDropdownOpen(!isProductDropdownOpen)}
+            >
+              <span>
+                {filters.products.length === 0
+                  ? 'All Products'
+                  : filters.products.length === 1
+                  ? filters.products[0]
+                  : `${filters.products.length} Products`}
+              </span>
+              <span className="neutral-multi-select-chevron">▾</span>
+            </div>
+            {isProductDropdownOpen && (
+              <div className="neutral-multi-select-options">
+                {filterOptions.products.map((product) => (
+                  <label key={product} className="neutral-multi-select-option">
+                    <input
+                      type="checkbox"
+                      checked={filters.products.includes(product)}
+                      onChange={() => toggleProduct(product)}
+                    />
+                    <span>{product}</span>
+                  </label>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
 
 	        <div className="filter-group">
