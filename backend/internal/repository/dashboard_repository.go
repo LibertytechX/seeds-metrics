@@ -149,12 +149,13 @@ func (r *DashboardRepository) RecalculateAllLoanFields() (int64, error) {
 					GREATEST(0, COALESCE(repayment_amount, 0) - COALESCE(total_repayments, 0))
 				)
 			WHERE
-				-- Only touch rows where the values are inconsistent with the business rules.
-				total_outstanding != GREATEST(
+					-- Only touch rows where the values are inconsistent with the business rules.
+					-- Use IS DISTINCT FROM so NULL outstanding values are normalized too.
+					total_outstanding IS DISTINCT FROM GREATEST(
 					0,
 					COALESCE(repayment_amount, 0) - COALESCE(total_repayments, 0)
 				)
-				OR actual_outstanding > GREATEST(
+					OR COALESCE(actual_outstanding, 0) > GREATEST(
 					0,
 					COALESCE(repayment_amount, 0) - COALESCE(total_repayments, 0)
 				);

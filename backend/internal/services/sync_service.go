@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"strings"
 
 	"github.com/seeds-metrics/analytics-backend/internal/models"
 	"github.com/seeds-metrics/analytics-backend/internal/repository"
@@ -19,6 +20,7 @@ type SyncService struct {
 	repaymentRepo    *repository.RepaymentRepository
 	loanRepo         *repository.LoanRepository
 	creditBureauRepo *repository.CreditBureauRepository
+	seedsDB          *database.DB
 }
 
 // NewSyncService creates a new sync service
@@ -28,6 +30,7 @@ func NewSyncService(djangoDB *sql.DB, seedsDB *database.DB) *SyncService {
 		repaymentRepo:    repository.NewRepaymentRepository(seedsDB),
 		loanRepo:         repository.NewLoanRepository(seedsDB),
 		creditBureauRepo: repository.NewCreditBureauRepository(seedsDB),
+		seedsDB:          seedsDB,
 	}
 }
 
@@ -150,6 +153,16 @@ func (s *SyncService) SyncNewRepayments(ctx context.Context) (*SyncNewRepayments
 	batchSize := 1000
 	totalSynced := 0
 	errorCount := 0
+	retrySynced, retryErrors := s.syncQueuedRepayments(ctx)
+	totalSynced += retrySynced
+	errorCount += retryErrors
+	if retrySynced > 0 {
+		maxID, err = s.repaymentRepo.GetMaxRepaymentID(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to refresh max repayment ID after retry queue sync: %w", err)
+		}
+		log.Printf("📊 Max repayment ID after retry queue sync: %d", maxID)
+	}
 	lastIDSynced := maxID
 
 	for {
@@ -195,10 +208,17 @@ func (s *SyncService) SyncNewRepayments(ctx context.Context) (*SyncNewRepayments
 			}
 
 			if err := s.repaymentRepo.Create(ctx, input); err != nil {
-				if err.Error() != "loan not found" {
+				if isLoanMissingError(err) {
+					if queueErr := s.enqueueRepaymentRetry(ctx, repaymentID, loanIDStr, err); queueErr != nil {
+						log.Printf("❌ Failed to queue repayment %s for retry: %v", input.RepaymentID, queueErr)
+						errorCount++
+					} else {
+						log.Printf("⏳ Queued repayment %s for retry because loan %s is not yet synced", input.RepaymentID, loanIDStr)
+					}
+				} else {
 					log.Printf("❌ Failed to sync repayment %s: %v", input.RepaymentID, err)
+					errorCount++
 				}
-				errorCount++
 			} else {
 				totalSynced++
 			}
@@ -226,6 +246,139 @@ func (s *SyncService) SyncNewRepayments(ctx context.Context) (*SyncNewRepayments
 	}
 
 	return result, nil
+}
+
+func (s *SyncService) syncQueuedRepayments(ctx context.Context) (int, int) {
+	rows, err := s.seedsDB.QueryContext(ctx, `
+		SELECT repayment_id, loan_id
+		FROM repayment_sync_retry_queue
+		ORDER BY first_seen_at
+		LIMIT 500
+	`)
+	if err != nil {
+		log.Printf("⚠️  Failed to read repayment retry queue: %v", err)
+		return 0, 1
+	}
+	defer rows.Close()
+
+	queuedByLoan := map[string]map[string]bool{}
+	for rows.Next() {
+		var repaymentID, loanID string
+		if err := rows.Scan(&repaymentID, &loanID); err != nil {
+			log.Printf("⚠️  Failed to scan repayment retry queue: %v", err)
+			return 0, 1
+		}
+		if queuedByLoan[loanID] == nil {
+			queuedByLoan[loanID] = map[string]bool{}
+		}
+		queuedByLoan[loanID][repaymentID] = false
+	}
+	if err := rows.Err(); err != nil {
+		log.Printf("⚠️  Failed to iterate repayment retry queue: %v", err)
+		return 0, 1
+	}
+
+	synced := 0
+	errors := 0
+	for loanID, queuedIDs := range queuedByLoan {
+		loan, err := s.loanRepo.GetByID(ctx, loanID)
+		if err != nil {
+			s.markRetryAttempts(ctx, queuedIDs, err.Error())
+			errors += len(queuedIDs)
+			continue
+		}
+		if loan == nil {
+			s.markRetryAttempts(ctx, queuedIDs, "loan still missing")
+			continue
+		}
+
+		repayments, err := s.djangoRepo.GetRepaymentsByLoanID(ctx, loanID)
+		if err != nil {
+			s.markRetryAttempts(ctx, queuedIDs, err.Error())
+			errors += len(queuedIDs)
+			continue
+		}
+
+		for _, repaymentData := range repayments {
+			repaymentID, _ := repaymentData["repayment_id"].(string)
+			if _, ok := queuedIDs[repaymentID]; !ok {
+				continue
+			}
+			queuedIDs[repaymentID] = true
+			if err := s.syncRepaymentData(ctx, repaymentData); err != nil {
+				s.markSingleRetryAttempt(ctx, repaymentID, err.Error())
+				errors++
+				continue
+			}
+			if _, err := s.seedsDB.ExecContext(ctx, `DELETE FROM repayment_sync_retry_queue WHERE repayment_id = $1`, repaymentID); err != nil {
+				log.Printf("⚠️  Failed to delete repayment %s from retry queue: %v", repaymentID, err)
+				errors++
+				continue
+			}
+			synced++
+		}
+
+		for repaymentID, found := range queuedIDs {
+			if !found {
+				s.markSingleRetryAttempt(ctx, repaymentID, "repayment no longer found in Django")
+				errors++
+			}
+		}
+	}
+	return synced, errors
+}
+
+func (s *SyncService) syncRepaymentData(ctx context.Context, repaymentData map[string]interface{}) error {
+	repaymentID, _ := repaymentData["repayment_id"].(string)
+	loanID, _ := repaymentData["loan_id"].(string)
+	paymentDate, _ := repaymentData["payment_date"].(string)
+	paymentAmount, _ := repaymentData["payment_amount"].(float64)
+	paymentMethod, _ := repaymentData["payment_method"].(string)
+	if repaymentID == "" || loanID == "" || paymentDate == "" || paymentAmount <= 0 {
+		return fmt.Errorf("repayment has missing essential fields")
+	}
+	amount := decimal.NewFromFloat(paymentAmount)
+	return s.repaymentRepo.Create(ctx, &models.RepaymentInput{
+		RepaymentID: repaymentID, LoanID: loanID, PaymentDate: paymentDate,
+		PaymentAmount: amount, PrincipalPaid: amount, InterestPaid: decimal.Zero,
+		FeesPaid: decimal.Zero, PenaltyPaid: decimal.Zero, PaymentMethod: paymentMethod,
+		DPDAtPayment: 0, IsBackdated: false, IsReversed: false, WaiverAmount: decimal.Zero,
+	})
+}
+
+func (s *SyncService) enqueueRepaymentRetry(ctx context.Context, repaymentID, loanID string, cause error) error {
+	_, err := s.seedsDB.ExecContext(ctx, `
+		INSERT INTO repayment_sync_retry_queue (repayment_id, loan_id, last_error, updated_at)
+		VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
+		ON CONFLICT (repayment_id) DO UPDATE SET
+			loan_id = EXCLUDED.loan_id,
+			last_error = EXCLUDED.last_error,
+			updated_at = CURRENT_TIMESTAMP
+	`, repaymentID, loanID, cause.Error())
+	return err
+}
+
+func (s *SyncService) markRetryAttempts(ctx context.Context, queuedIDs map[string]bool, reason string) {
+	for repaymentID := range queuedIDs {
+		s.markSingleRetryAttempt(ctx, repaymentID, reason)
+	}
+}
+
+func (s *SyncService) markSingleRetryAttempt(ctx context.Context, repaymentID, reason string) {
+	if _, err := s.seedsDB.ExecContext(ctx, `
+		UPDATE repayment_sync_retry_queue
+		SET attempts = attempts + 1, last_attempt_at = CURRENT_TIMESTAMP, last_error = $2, updated_at = CURRENT_TIMESTAMP
+		WHERE repayment_id = $1
+	`, repaymentID, reason); err != nil {
+		log.Printf("⚠️  Failed to update retry queue for repayment %s: %v", repaymentID, err)
+	}
+}
+
+func isLoanMissingError(err error) bool {
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "loan not found") ||
+		(strings.Contains(msg, "foreign key") && strings.Contains(msg, "loan")) ||
+		strings.Contains(msg, "fk_loan")
 }
 
 // SyncLoanCreditBureauKYCResult contains the result of syncing loan credit bureau KYC data
