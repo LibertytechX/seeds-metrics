@@ -31,4 +31,3 @@ export_metrics_officers.sh
 sync_officer_names_from_django_to_metrics.sh
 sync_officer_regions_from_supervisor_csv.sh
 
-.env
