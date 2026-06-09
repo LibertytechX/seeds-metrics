@@ -9,6 +9,7 @@ import (
 	"strconv"
 	"time"
 
+	"github.com/lib/pq"
 	"github.com/seeds-metrics/analytics-backend/internal/config"
 	"github.com/seeds-metrics/analytics-backend/internal/models"
 	"github.com/seeds-metrics/analytics-backend/internal/repository"
@@ -65,6 +66,7 @@ func syncLoansIncremental(ctx context.Context, seedsDB *sql.DB, djangoRepo *repo
 	totalSynced := 0
 	errorCount := 0
 	lastLoanID := ""
+	syncedLoanIDs := []string{}
 
 	for {
 		loans, err := djangoRepo.GetLoansChangedSince(ctx, since, batchSize, offset)
@@ -102,6 +104,7 @@ func syncLoansIncremental(ctx context.Context, seedsDB *sql.DB, djangoRepo *repo
 
 			totalSynced++
 			lastLoanID = input.LoanID
+			syncedLoanIDs = append(syncedLoanIDs, input.LoanID)
 		}
 
 		offset += batchSize
@@ -110,7 +113,7 @@ func syncLoansIncremental(ctx context.Context, seedsDB *sql.DB, djangoRepo *repo
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
-	normalizedRows, err := normalizeChangedLoanBalances(ctx, seedsDB, since)
+	normalizedRows, err := normalizeSyncedLoanBalances(ctx, seedsDB, syncedLoanIDs)
 	if err != nil {
 		log.Printf("⚠️  Failed to normalize changed loan balances: %v", err)
 		errorCount++
@@ -127,7 +130,10 @@ func syncLoansIncremental(ctx context.Context, seedsDB *sql.DB, djangoRepo *repo
 	return nil
 }
 
-func normalizeChangedLoanBalances(ctx context.Context, seedsDB *sql.DB, since time.Time) (int64, error) {
+func normalizeSyncedLoanBalances(ctx context.Context, seedsDB *sql.DB, loanIDs []string) (int64, error) {
+	if len(loanIDs) == 0 {
+		return 0, nil
+	}
 	result, err := seedsDB.ExecContext(ctx, `
 		UPDATE loans
 		SET
@@ -153,11 +159,8 @@ func normalizeChangedLoanBalances(ctx context.Context, seedsDB *sql.DB, since ti
 					THEN COALESCE(total_repayments, 0) / (COALESCE(repayment_amount, 0) / loan_term_days)
 				ELSE 0
 			END
-		WHERE
-			updated_at >= $1
-			OR created_at >= $1
-			OR disbursement_date >= $1::date
-	`, since)
+		WHERE loan_id = ANY($1)
+	`, pq.Array(loanIDs))
 	if err != nil {
 		return 0, err
 	}
