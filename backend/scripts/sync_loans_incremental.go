@@ -110,6 +110,13 @@ func syncLoansIncremental(ctx context.Context, seedsDB *sql.DB, djangoRepo *repo
 		}
 		time.Sleep(100 * time.Millisecond)
 	}
+	normalizedRows, err := normalizeChangedLoanBalances(ctx, seedsDB, since)
+	if err != nil {
+		log.Printf("⚠️  Failed to normalize changed loan balances: %v", err)
+		errorCount++
+	} else if normalizedRows > 0 {
+		log.Printf("🧮 Normalized computed balances for %d recently changed loans", normalizedRows)
+	}
 
 	duration := int(time.Since(startTime).Milliseconds())
 	if err := updateLoanSyncTracking(ctx, seedsDB, totalSynced, errorCount, duration, lastLoanID); err != nil {
@@ -118,6 +125,43 @@ func syncLoansIncremental(ctx context.Context, seedsDB *sql.DB, djangoRepo *repo
 
 	log.Printf("✅ Incremental loan sync complete: %d successful, %d errors, %dms", totalSynced, errorCount, duration)
 	return nil
+}
+
+func normalizeChangedLoanBalances(ctx context.Context, seedsDB *sql.DB, since time.Time) (int64, error) {
+	result, err := seedsDB.ExecContext(ctx, `
+		UPDATE loans
+		SET
+			principal_outstanding = GREATEST(0, COALESCE(loan_amount, 0) - COALESCE(total_principal_paid, 0)),
+			interest_outstanding = GREATEST(
+				0,
+				(COALESCE(loan_amount, 0) * COALESCE(interest_rate, 0) * COALESCE(loan_term_days, 0) / 365)
+				- COALESCE(total_interest_paid, 0)
+			),
+			fees_outstanding = GREATEST(0, COALESCE(fee_amount, 0) - COALESCE(total_fees_paid, 0)),
+			total_outstanding = GREATEST(0, COALESCE(repayment_amount, 0) - COALESCE(total_repayments, 0)),
+			actual_outstanding = LEAST(
+				COALESCE(actual_outstanding, 0),
+				GREATEST(0, COALESCE(repayment_amount, 0) - COALESCE(total_repayments, 0))
+			),
+			daily_repayment_amount = CASE
+				WHEN COALESCE(loan_term_days, 0) > 0 AND COALESCE(repayment_amount, 0) > 0
+					THEN COALESCE(repayment_amount, 0) / loan_term_days
+				ELSE 0
+			END,
+			repayment_days_paid = CASE
+				WHEN COALESCE(loan_term_days, 0) > 0 AND COALESCE(repayment_amount, 0) > 0
+					THEN COALESCE(total_repayments, 0) / (COALESCE(repayment_amount, 0) / loan_term_days)
+				ELSE 0
+			END
+		WHERE
+			updated_at >= $1
+			OR created_at >= $1
+			OR disbursement_date >= $1::date
+	`, since)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
 }
 
 func getLookbackDuration() time.Duration {
