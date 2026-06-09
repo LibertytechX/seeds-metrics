@@ -11,6 +11,11 @@
 30 * * * * cd /home/seeds-metrics-backend/backend && /usr/local/go/bin/go run ./scripts/sync_repayments_incremental.go >> /var/log/seeds-metrics-repayments-sync.log 2>&1
 1 * * * * cd /home/seeds-metrics-backend/backend && /usr/local/go/bin/go run ./scripts/sync_repayments_incremental.go >> /var/log/seeds-metrics-repayments-sync.log 2>&1
 
+# Job 1b: Incremental Loans Sync (Hourly at :15 UTC)
+# Expected duration: < 5 minutes
+# Purpose: Keep newly disbursed/updated Django loans current between weekly full syncs
+15 * * * * cd /home/seeds-metrics-backend/backend && /usr/bin/flock -n /tmp/seeds-metrics-loans-sync.lock /usr/local/go/bin/go run ./scripts/sync_loans_incremental.go >> /var/log/seeds-metrics-loans-sync.log 2>&1
+
 # Job 2: Recalculate Computed Fields (Every 6 hours at 00:10, 06:10, 12:10, 18:10 UTC)
 # Expected duration: < 1 minute
 # Purpose: Recalculate all loan metrics after new repayments are synced

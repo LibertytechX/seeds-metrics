@@ -410,6 +410,81 @@ func (r *DjangoRepository) GetLoans(ctx context.Context, limit, offset int) ([]m
 	}
 	defer rows.Close()
 
+	return scanDjangoLoanRows(rows)
+}
+
+// GetLoansChangedSince retrieves disbursed loans created/updated/disbursed since a timestamp.
+func (r *DjangoRepository) GetLoansChangedSince(ctx context.Context, since time.Time, limit, offset int) ([]map[string]interface{}, error) {
+	query := `
+		SELECT
+			l.id::VARCHAR(50) as loan_id,
+			l.borrower_id::VARCHAR(50) as customer_id,
+			COALESCE(TRIM(c.first_name || ' ' || c.last_name), c.phone_number) as customer_name,
+			c.phone_number as customer_phone,
+			l.agent_id::VARCHAR(50) as officer_id,
+			COALESCE(u.username, u.email) as officer_name,
+			u.user_phone as officer_phone,
+			COALESCE(u.user_branch, 'Unknown') as branch,
+			CASE
+				WHEN u.user_branch LIKE '%Lagos%' THEN 'Lagos'
+				WHEN u.user_branch LIKE '%Abuja%' THEN 'FCT'
+				WHEN u.user_branch LIKE '%Ogun%' THEN 'Ogun'
+				WHEN u.user_branch LIKE '%Oyo%' THEN 'Oyo'
+				ELSE 'Nigeria'
+			END as region,
+			l.amount as loan_amount,
+			l.repayment_amount as repayment_amount,
+			l.interest_rate / 100.0 as interest_rate,
+			l.processing_fee as fee_amount,
+			l.tenor_in_days as loan_term_days,
+			l.date_disbursed as disbursement_date,
+			l.start_date as first_payment_due_date,
+			l.end_date as maturity_date,
+			CASE
+				WHEN l.status = 'COMPLETED' THEN 'Closed'
+				WHEN l.status = 'CLOSED' THEN 'Closed'
+				WHEN l.status = 'OPEN' THEN 'Active'
+				WHEN l.status = 'OPEN_TO_SUPERVISOR' THEN 'Active'
+				WHEN l.status = 'APPROVED' THEN 'Active'
+				WHEN l.status = 'ACTIVE' THEN 'Active'
+				WHEN l.status = 'PAST_MATURITY' THEN 'Defaulted'
+				WHEN l.status = 'DEFAULTED' THEN 'Defaulted'
+				WHEN l.status = 'DECLINED_BY_SUPERVISOR' THEN 'Rejected'
+				WHEN l.status = 'REJECTED' THEN 'Rejected'
+				WHEN l.status = 'NOT_TAKEN' THEN 'Cancelled'
+				ELSE 'Active'
+			END as status,
+			l.status as django_status,
+			l.performance_status,
+			l.loan_type,
+			l.verification_stage as verification_status,
+			l.is_disbursed,
+			l.supervisor_disbursement_status,
+			l.created_at,
+			l.updated_at
+		FROM loans_ajoloan l
+		LEFT JOIN accounts_customuser u ON l.agent_id = u.id
+		LEFT JOIN ajo_ajouser c ON l.borrower_id = c.id
+		WHERE l.is_disbursed = TRUE
+		  AND (
+			l.updated_at >= $1
+			OR l.created_at >= $1
+			OR l.date_disbursed::date >= $1::date
+		  )
+		ORDER BY l.updated_at ASC NULLS LAST, l.created_at ASC NULLS LAST, l.id ASC
+		LIMIT $2 OFFSET $3
+	`
+
+	rows, err := r.db.QueryContext(ctx, query, since, limit, offset)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query changed loans from Django: %w", err)
+	}
+	defer rows.Close()
+
+	return scanDjangoLoanRows(rows)
+}
+
+func scanDjangoLoanRows(rows *sql.Rows) ([]map[string]interface{}, error) {
 	var loans []map[string]interface{}
 	for rows.Next() {
 		var loanID, customerID, customerName, officerID, officerName, branch, region, status string
